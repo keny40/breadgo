@@ -1,0 +1,102 @@
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
+from app.api.v1.auth import get_current_user
+from app.db.session import get_db
+from app.models.user import User
+from app.schemas.reservation import (
+    PickupConfirmRequest,
+    PickupConfirmResponse,
+    ReservationCreate,
+    ReservationRead,
+    ReservationStatusUpdate,
+)
+from app.services.merchant_service import require_merchant_for_user
+from app.services.reservation_service import (
+    cancel_reservation,
+    confirm_pickup_by_code,
+    create_reservation,
+    get_my_reservations,
+    get_reservation_by_pickup_code_for_merchant,
+    get_store_reservations_for_merchant,
+    update_reservation_status,
+)
+
+
+router = APIRouter()
+store_router = APIRouter()
+
+
+@router.post("", response_model=ReservationRead, status_code=status.HTTP_201_CREATED)
+def create_current_user_reservation(
+    payload: ReservationCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    reservation = create_reservation(db, current_user, payload)
+    return ReservationRead.model_validate(reservation)
+
+
+@router.get("/me", response_model=list[ReservationRead])
+def get_current_user_reservations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReservationRead]:
+    return [ReservationRead.model_validate(item) for item in get_my_reservations(db, current_user)]
+
+
+@router.get("/pickup/{pickup_code}", response_model=ReservationRead)
+def get_pickup_reservation(
+    pickup_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    reservation = get_reservation_by_pickup_code_for_merchant(db, merchant, pickup_code)
+    return ReservationRead.model_validate(reservation)
+
+
+@router.post("/pickup/confirm", response_model=PickupConfirmResponse)
+def confirm_pickup(
+    payload: PickupConfirmRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PickupConfirmResponse:
+    merchant = require_merchant_for_user(db, current_user)
+    reservation = confirm_pickup_by_code(db, merchant, payload)
+    return PickupConfirmResponse(reservation=ReservationRead.model_validate(reservation))
+
+
+@router.patch("/{reservation_id}/cancel", response_model=ReservationRead)
+def cancel_current_user_reservation(
+    reservation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    reservation = cancel_reservation(db, current_user, reservation_id)
+    return ReservationRead.model_validate(reservation)
+
+
+@router.patch("/{reservation_id}/status", response_model=ReservationRead)
+def update_current_merchant_reservation_status(
+    reservation_id: UUID,
+    payload: ReservationStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    reservation = update_reservation_status(db, merchant, reservation_id, payload)
+    return ReservationRead.model_validate(reservation)
+
+
+@store_router.get("/{store_id}/reservations", response_model=list[ReservationRead])
+def get_current_merchant_store_reservations(
+    store_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReservationRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    reservations = get_store_reservations_for_merchant(db, merchant, store_id)
+    return [ReservationRead.model_validate(item) for item in reservations]

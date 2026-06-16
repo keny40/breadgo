@@ -1,0 +1,217 @@
+import secrets
+from datetime import datetime, timezone
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.merchant import Merchant
+from app.models.product import Product, ProductStatus
+from app.models.reservation import Reservation, ReservationStatus
+from app.models.store import Store
+from app.models.user import User
+from app.schemas.reservation import PickupConfirmRequest, ReservationCreate, ReservationStatusUpdate
+
+
+def _generate_pickup_code(db: Session) -> str:
+    for _ in range(20):
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        existing = db.scalar(select(Reservation.id).where(Reservation.pickup_code == code))
+        if existing is None:
+            return code
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Could not generate pickup code.",
+    )
+
+
+def _get_reservation_for_user(db: Session, user: User, reservation_id: UUID) -> Reservation:
+    reservation = db.scalar(
+        select(Reservation).where(
+            Reservation.id == reservation_id,
+            Reservation.user_id == user.id,
+        )
+    )
+    if reservation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found.")
+    return reservation
+
+
+def _get_reservation_for_merchant(db: Session, merchant: Merchant, reservation_id: UUID) -> Reservation:
+    reservation = db.scalar(
+        select(Reservation)
+        .join(Store, Reservation.store_id == Store.id)
+        .where(
+            Reservation.id == reservation_id,
+            Store.merchant_id == merchant.id,
+        )
+    )
+    if reservation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found.")
+    return reservation
+
+
+def get_reservation_by_pickup_code_for_merchant(
+    db: Session,
+    merchant: Merchant,
+    pickup_code: str,
+) -> Reservation:
+    reservation = db.scalar(
+        select(Reservation)
+        .join(Store, Reservation.store_id == Store.id)
+        .where(
+            Reservation.pickup_code == pickup_code,
+            Store.merchant_id == merchant.id,
+        )
+    )
+    if reservation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reservation with this pickup code was not found.",
+        )
+    return reservation
+
+
+def _restore_product_quantity(product: Product, quantity: int) -> None:
+    product.quantity += quantity
+    if product.quantity > 0 and product.status == ProductStatus.SOLD_OUT:
+        product.status = ProductStatus.ACTIVE
+
+
+def create_reservation(db: Session, user: User, payload: ReservationCreate) -> Reservation:
+    product = db.scalar(
+        select(Product)
+        .where(Product.id == payload.product_id)
+        .with_for_update()
+    )
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+
+    if product.status != ProductStatus.ACTIVE:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Product is not active.")
+
+    if product.quantity < payload.quantity:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient product quantity.",
+        )
+
+    product.quantity -= payload.quantity
+    if product.quantity == 0:
+        product.status = ProductStatus.SOLD_OUT
+
+    reservation = Reservation(
+        user_id=user.id,
+        product_id=product.id,
+        store_id=product.store_id,
+        quantity=payload.quantity,
+        total_price=product.discount_price * payload.quantity,
+        status=ReservationStatus.CONFIRMED,
+        pickup_code=_generate_pickup_code(db),
+        reserved_at=datetime.now(timezone.utc),
+        pickup_deadline=product.pickup_end_time,
+    )
+    db.add(reservation)
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def get_my_reservations(db: Session, user: User) -> list[Reservation]:
+    return list(
+        db.scalars(
+            select(Reservation)
+            .where(Reservation.user_id == user.id)
+            .order_by(Reservation.created_at.desc())
+        )
+    )
+
+
+def get_store_reservations_for_merchant(
+    db: Session,
+    merchant: Merchant,
+    store_id: UUID,
+) -> list[Reservation]:
+    store = db.scalar(
+        select(Store).where(
+            Store.id == store_id,
+            Store.merchant_id == merchant.id,
+        )
+    )
+    if store is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found.")
+
+    return list(
+        db.scalars(
+            select(Reservation)
+            .where(Reservation.store_id == store.id)
+            .order_by(Reservation.created_at.desc())
+        )
+    )
+
+
+def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reservation:
+    reservation = _get_reservation_for_user(db, user, reservation_id)
+    if reservation.status in {ReservationStatus.PICKED_UP, ReservationStatus.CANCELLED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reservation cannot be cancelled.",
+        )
+
+    product = db.scalar(
+        select(Product)
+        .where(Product.id == reservation.product_id)
+        .with_for_update()
+    )
+    if product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+
+    _restore_product_quantity(product, reservation.quantity)
+    reservation.status = ReservationStatus.CANCELLED
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def update_reservation_status(
+    db: Session,
+    merchant: Merchant,
+    reservation_id: UUID,
+    payload: ReservationStatusUpdate,
+) -> Reservation:
+    reservation = _get_reservation_for_merchant(db, merchant, reservation_id)
+
+    if reservation.status == ReservationStatus.CANCELLED and payload.status != ReservationStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cancelled reservations cannot be reopened.",
+        )
+
+    reservation.status = payload.status
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def confirm_pickup_by_code(
+    db: Session,
+    merchant: Merchant,
+    payload: PickupConfirmRequest,
+) -> Reservation:
+    reservation = get_reservation_by_pickup_code_for_merchant(
+        db=db,
+        merchant=merchant,
+        pickup_code=payload.pickup_code,
+    )
+
+    if reservation.status not in {ReservationStatus.PENDING, ReservationStatus.CONFIRMED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reservation cannot be picked up in its current status.",
+        )
+
+    reservation.status = ReservationStatus.PICKED_UP
+    db.commit()
+    db.refresh(reservation)
+    return reservation

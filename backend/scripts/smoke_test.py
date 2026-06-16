@@ -1,0 +1,251 @@
+import json
+import sys
+from dataclasses import dataclass
+from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+
+BASE_URL = "http://localhost:8000"
+PASSWORD = "12345678"
+
+
+@dataclass
+class ApiResponse:
+    status_code: int
+    body: Any
+
+
+class SmokeTestError(Exception):
+    def __init__(self, step: str, status_code: int | None, body: Any) -> None:
+        self.step = step
+        self.status_code = status_code
+        self.body = body
+        super().__init__(step)
+
+
+def print_pass(step: str) -> None:
+    print(f"[PASS] {step}")
+
+
+def print_fail(error: SmokeTestError) -> None:
+    print(f"[FAIL] {error.step}")
+    print(f"status_code: {error.status_code if error.status_code is not None else 'N/A'}")
+    print("response_body:")
+    if isinstance(error.body, str):
+        print(error.body)
+    else:
+        print(json.dumps(error.body, ensure_ascii=False, indent=2))
+
+
+def decode_body(raw_body: bytes) -> Any:
+    if not raw_body:
+        return None
+    text = raw_body.decode("utf-8")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def request_json(
+    step: str,
+    method: str,
+    path: str,
+    token: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> ApiResponse:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {"Accept": "application/json"}
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
+
+    request = Request(
+        url=f"{BASE_URL}{path}",
+        data=body,
+        headers=headers,
+        method=method,
+    )
+
+    try:
+        with urlopen(request, timeout=15) as response:
+            return ApiResponse(
+                status_code=response.status,
+                body=decode_body(response.read()),
+            )
+    except HTTPError as exc:
+        raise SmokeTestError(step, exc.code, decode_body(exc.read())) from exc
+    except URLError as exc:
+        raise SmokeTestError(step, None, str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise SmokeTestError(step, None, "Request timed out") from exc
+
+
+def expect_status(step: str, response: ApiResponse, expected: set[int]) -> Any:
+    if response.status_code not in expected:
+        raise SmokeTestError(step, response.status_code, response.body)
+    print_pass(step)
+    return response.body
+
+
+def login(email: str, label: str) -> str:
+    body = expect_status(
+        label,
+        request_json(
+            step=label,
+            method="POST",
+            path="/api/v1/auth/login",
+            payload={"email": email, "password": PASSWORD},
+        ),
+        {200},
+    )
+    token = body.get("access_token") if isinstance(body, dict) else None
+    if not token:
+        raise SmokeTestError(label, 200, body)
+    return token
+
+
+def main() -> int:
+    try:
+        health = expect_status(
+            "Health check",
+            request_json("Health check", "GET", "/health"),
+            {200},
+        )
+        if not isinstance(health, dict) or health.get("status") != "ok":
+            raise SmokeTestError("Health check", 200, health)
+
+        customer_token = login("customer@breadgo.test", "Customer login")
+
+        query = urlencode(
+            {
+                "sido": "서울특별시",
+                "sigungu": "강남구",
+                "dong": "역삼동",
+            }
+        )
+        products = expect_status(
+            "Region products found",
+            request_json("Region products found", "GET", f"/api/v1/regions/products?{query}"),
+            {200},
+        )
+        if not isinstance(products, list) or not products:
+            raise SmokeTestError("Region products found", 200, products)
+
+        product = next(
+            (
+                item
+                for item in products
+                if item.get("status") == "ACTIVE" and int(item.get("quantity", 0)) > 0
+            ),
+            None,
+        )
+        if product is None:
+            raise SmokeTestError("Active product with stock found", 200, products)
+        print_pass("Active product with stock found")
+
+        reservation = expect_status(
+            "Reservation created",
+            request_json(
+                step="Reservation created",
+                method="POST",
+                path="/api/v1/reservations",
+                token=customer_token,
+                payload={"product_id": product["id"], "quantity": 1},
+            ),
+            {201},
+        )
+        reservation_id = reservation.get("id") if isinstance(reservation, dict) else None
+        pickup_code = reservation.get("pickup_code") if isinstance(reservation, dict) else None
+        if not reservation_id or not pickup_code:
+            raise SmokeTestError("Reservation created", 201, reservation)
+
+        ready_payment = expect_status(
+            "Mock payment ready",
+            request_json(
+                step="Mock payment ready",
+                method="POST",
+                path="/api/v1/payments/mock/ready",
+                token=customer_token,
+                payload={"reservation_id": reservation_id, "method": "MOCK_CARD"},
+            ),
+            {201},
+        )
+        payment_id = ready_payment.get("id") if isinstance(ready_payment, dict) else None
+        if not payment_id:
+            raise SmokeTestError("Mock payment ready", 201, ready_payment)
+
+        paid_payment = expect_status(
+            "Mock payment confirmed",
+            request_json(
+                step="Mock payment confirmed",
+                method="POST",
+                path="/api/v1/payments/mock/confirm",
+                token=customer_token,
+                payload={"payment_id": payment_id},
+            ),
+            {200},
+        )
+        if not isinstance(paid_payment, dict) or paid_payment.get("status") != "PAID":
+            raise SmokeTestError("Mock payment confirmed", 200, paid_payment)
+
+        my_reservations = expect_status(
+            "My reservations loaded",
+            request_json(
+                step="My reservations loaded",
+                method="GET",
+                path="/api/v1/reservations/me",
+                token=customer_token,
+            ),
+            {200},
+        )
+        if not isinstance(my_reservations, list) or not any(
+            item.get("id") == reservation_id and item.get("pickup_code") == pickup_code
+            for item in my_reservations
+        ):
+            raise SmokeTestError("My reservations loaded", 200, my_reservations)
+
+        merchant_token = login("merchant@breadgo.test", "Merchant login")
+
+        picked_up = expect_status(
+            "Pickup confirmed",
+            request_json(
+                step="Pickup confirmed",
+                method="POST",
+                path="/api/v1/reservations/pickup/confirm",
+                token=merchant_token,
+                payload={"pickup_code": pickup_code},
+            ),
+            {200},
+        )
+        reservation_body = picked_up.get("reservation") if isinstance(picked_up, dict) else None
+        if not isinstance(reservation_body, dict) or reservation_body.get("status") != "PICKED_UP":
+            raise SmokeTestError("Pickup confirmed", 200, picked_up)
+
+        admin_token = login("admin@breadgo.test", "Admin login")
+
+        summary = expect_status(
+            "Admin summary loaded",
+            request_json(
+                step="Admin summary loaded",
+                method="GET",
+                path="/api/v1/admin/summary",
+                token=admin_token,
+            ),
+            {200},
+        )
+        if not isinstance(summary, dict) or "total_users" not in summary:
+            raise SmokeTestError("Admin summary loaded", 200, summary)
+
+        print("[PASS] BreadGo MVP smoke test completed")
+        return 0
+    except SmokeTestError as exc:
+        print_fail(exc)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
