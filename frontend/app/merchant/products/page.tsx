@@ -1,8 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Product, Store } from "@/lib/types";
+
+function formatMoney(value: string) {
+  return `${Number(value).toLocaleString()}원`;
+}
 
 export default function MerchantProductsPage() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -120,12 +125,15 @@ export default function MerchantProductsPage() {
 
   return (
     <section className="section">
-      <h1>상품 관리</h1>
-      <div className="actions">
-        <button type="button" onClick={loadProducts}>
-          상품 불러오기
-        </button>
-      </div>
+      <PageHeader
+        title="상품 관리"
+        description="매장을 선택하고 오늘 판매할 마감 할인 상품을 등록합니다."
+        actions={
+          <button type="button" onClick={loadProducts}>
+            상품 불러오기
+          </button>
+        }
+      />
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       <form className="panel form-grid" onSubmit={createProduct}>
@@ -147,16 +155,16 @@ export default function MerchantProductsPage() {
           </button>
         </div>
         <label>
-          Name
+          상품명
           <input value={name} onChange={(event) => setName(event.target.value)} required />
         </label>
         <label>
-          Description
+          상품 설명
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
         </label>
         <div className="two-column">
           <label>
-            Original price
+            정가
             <input
               type="number"
               min="1"
@@ -167,7 +175,7 @@ export default function MerchantProductsPage() {
             />
           </label>
           <label>
-            Discount price
+            할인가
             <input
               type="number"
               min="1"
@@ -179,7 +187,7 @@ export default function MerchantProductsPage() {
           </label>
         </div>
         <label>
-          Quantity
+          수량
           <input
             type="number"
             min={0}
@@ -190,7 +198,7 @@ export default function MerchantProductsPage() {
         </label>
         <div className="two-column">
           <label>
-            Pickup start
+            픽업 시작
             <input
               type="datetime-local"
               value={pickupStartTime}
@@ -199,7 +207,7 @@ export default function MerchantProductsPage() {
             />
           </label>
           <label>
-            Pickup end
+            픽업 종료
             <input
               type="datetime-local"
               value={pickupEndTime}
@@ -212,16 +220,23 @@ export default function MerchantProductsPage() {
       </form>
 
       <div className="list">
-        {products.length === 0 && !isError && <div className="empty-state">상품이 없습니다.</div>}
+        {products.length === 0 && !isError && (
+          <EmptyState title="상품이 없습니다." description="매장을 선택한 뒤 첫 마감 할인 상품을 등록하세요." />
+        )}
         {products.map((product) => (
           <article className="item" key={product.id}>
-            <h3>{product.name}</h3>
+            <div className="card-title-row">
+              <h3>{product.name}</h3>
+              <StatusBadge status={product.status} />
+            </div>
+            <div className="price-row">
+              <span className="original-price">{formatMoney(product.original_price)}</span>
+              <span className="discount-price">{formatMoney(product.discount_price)}</span>
+            </div>
             <div className="meta">
               <span>ID {product.id}</span>
               <span>Store {product.store_id}</span>
-              <span>할인가 {product.discount_price}</span>
               <span>수량 {product.quantity}</span>
-              <span>상태 {product.status}</span>
             </div>
           </article>
         ))}

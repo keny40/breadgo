@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Payment, Reservation } from "@/lib/types";
+
+function formatMoney(value: string) {
+  return `${Number(value).toLocaleString()}원`;
+}
 
 export default function MyReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -30,24 +35,41 @@ export default function MyReservationsPage() {
 
   return (
     <section className="section">
-      <h1>내 예약</h1>
-      <div className="actions">
-        <button type="button" onClick={loadReservations}>
-          예약 불러오기
-        </button>
-      </div>
+      <PageHeader
+        title="내 예약"
+        description="예약 상태, 결제 상태, 픽업코드를 한눈에 확인합니다."
+        actions={
+          <button type="button" onClick={loadReservations}>
+            예약 불러오기
+          </button>
+        }
+      />
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       <div className="list">
-        {reservations.length === 0 && !isError && <div className="empty-state">예약 내역이 없습니다.</div>}
+        {reservations.length === 0 && !isError && (
+          <EmptyState title="예약 내역이 없습니다." description="상품 보기에서 마감 할인 상품을 예약해 보세요." />
+        )}
         {reservations.map((reservation) => {
           const payment = payments.find((item) => item.reservation_id === reservation.id);
           return (
             <article className="item" key={reservation.id}>
-              <h3>{reservation.pickup_code}</h3>
+              <div className="card-title-row">
+                <div>
+                  <p className="eyebrow">픽업코드</p>
+                  <p className="pickup-code">{reservation.pickup_code}</p>
+                </div>
+                <StatusBadge status={reservation.status} />
+              </div>
               <div className="meta">
-                <span>상태 {reservation.status}</span>
-                <span>결제 {payment ? payment.status : "없음"}</span>
-                <span>총액 {reservation.total_price}</span>
+                <span>
+                  예약 상태 <StatusBadge status={reservation.status} />
+                </span>
+                <span>
+                  결제 상태 {payment ? <StatusBadge status={payment.status} /> : "없음"}
+                </span>
+                <span>
+                  총액 <strong>{formatMoney(reservation.total_price)}</strong>
+                </span>
                 <span>수량 {reservation.quantity}</span>
                 <span>상품 {reservation.product_id}</span>
               </div>

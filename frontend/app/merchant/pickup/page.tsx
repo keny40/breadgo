@@ -1,8 +1,13 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { PickupConfirmResponse, Reservation } from "@/lib/types";
+
+function formatMoney(value: string) {
+  return `${Number(value).toLocaleString()}원`;
+}
 
 export default function MerchantPickupPage() {
   const [pickupCode, setPickupCode] = useState("");
@@ -59,10 +64,13 @@ export default function MerchantPickupPage() {
 
   return (
     <section className="section">
-      <h1>픽업 확인</h1>
+      <PageHeader
+        title="픽업 확인"
+        description="고객이 제시한 6자리 픽업코드를 조회한 뒤 픽업을 확정합니다."
+      />
       <form className="panel form-grid" onSubmit={findReservation}>
         <label>
-          Pickup code
+          픽업코드
           <input
             value={pickupCode}
             onChange={(event) => setPickupCode(event.target.value)}
@@ -83,14 +91,19 @@ export default function MerchantPickupPage() {
 
       {reservation && (
         <article className="item">
-          <h3>{reservation.pickup_code}</h3>
+          <div className="card-title-row">
+            <div>
+              <p className="eyebrow">조회된 픽업코드</p>
+              <p className="pickup-code">{reservation.pickup_code}</p>
+            </div>
+            <StatusBadge status={reservation.status} />
+          </div>
           <div className="meta">
             <span>예약 {reservation.id}</span>
             <span>상품 {reservation.product_id}</span>
             <span>매장 {reservation.store_id}</span>
-            <span>상태 {reservation.status}</span>
             <span>수량 {reservation.quantity}</span>
-            <span>총액 {reservation.total_price}</span>
+            <span>총액 {formatMoney(reservation.total_price)}</span>
           </div>
           <div className="meta">
             <span>예약 시간 {new Date(reservation.reserved_at).toLocaleString()}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Store } from "@/lib/types";
 
@@ -76,35 +77,38 @@ export default function MerchantStoresPage() {
 
   return (
     <section className="section">
-      <h1>매장 관리</h1>
-      <div className="actions">
-        <button type="button" onClick={loadStores}>
-          매장 불러오기
-        </button>
-      </div>
+      <PageHeader
+        title="매장 관리"
+        description="지역 기반 상품 노출을 위해 매장 주소와 지역 정보를 함께 등록합니다."
+        actions={
+          <button type="button" onClick={loadStores}>
+            매장 불러오기
+          </button>
+        }
+      />
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       <form className="panel form-grid" onSubmit={createStore}>
         <h2>매장 등록</h2>
         <div className="two-column">
           <label>
-            Name
+            매장명
             <input value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
           <label>
-            Phone number
+            전화번호
             <input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required />
           </label>
         </div>
         <label>
-          Address
+          주소
           <input value={address} onChange={(event) => setAddress(event.target.value)} required />
         </label>
         <label>
-          Address detail
+          상세 주소
           <input value={addressDetail} onChange={(event) => setAddressDetail(event.target.value)} />
         </label>
-        <div className="two-column">
+        <div className="three-column">
           <label>
             시/도
             <input value={sido} onChange={(event) => setSido(event.target.value)} placeholder="서울특별시" />
@@ -113,11 +117,11 @@ export default function MerchantStoresPage() {
             시/군/구
             <input value={sigungu} onChange={(event) => setSigungu(event.target.value)} placeholder="강남구" />
           </label>
+          <label>
+            동/읍/면
+            <input value={dong} onChange={(event) => setDong(event.target.value)} placeholder="역삼동" />
+          </label>
         </div>
-        <label>
-          동/읍/면
-          <input value={dong} onChange={(event) => setDong(event.target.value)} placeholder="역삼동" />
-        </label>
         <div className="two-column">
           <label>
             Latitude
@@ -129,7 +133,7 @@ export default function MerchantStoresPage() {
           </label>
         </div>
         <label>
-          Description
+          매장 설명
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
         </label>
         <div className="two-column">
@@ -147,17 +151,19 @@ export default function MerchantStoresPage() {
 
       <div className="list">
         {stores.length === 0 && !isError && (
-          <div className="empty-state">매장이 없습니다. 먼저 매장을 등록하세요.</div>
+          <EmptyState title="매장이 없습니다. 먼저 매장을 등록하세요." description="상품 등록은 매장 생성 후 가능합니다." />
         )}
         {stores.map((store) => (
           <article className="item" key={store.id}>
-            <h3>{store.name}</h3>
+            <div className="card-title-row">
+              <h3>{store.name}</h3>
+              <StatusBadge status={store.is_active ? "ACTIVE" : "HIDDEN"} />
+            </div>
             <div className="meta">
               <span>ID {store.id}</span>
               <span>{[store.sido, store.sigungu, store.dong].filter(Boolean).join(" ") || "지역 미입력"}</span>
               <span>{store.address}</span>
               <span>{store.opening_time} - {store.closing_time}</span>
-              <span>{store.is_active ? "활성" : "비활성"}</span>
             </div>
           </article>
         ))}

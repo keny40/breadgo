@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Payment, RegionProduct, Reservation } from "@/lib/types";
 
@@ -14,6 +15,19 @@ const demoRegions = [
   { label: "서울특별시 강남구 삼성동", sido: "서울특별시", sigungu: "강남구", dong: "삼성동" },
   { label: "경기도 안산시 고잔동", sido: "경기도", sigungu: "안산시", dong: "고잔동" },
 ];
+
+function formatMoney(value: string) {
+  return `${Number(value).toLocaleString()}원`;
+}
+
+function discountPercent(product: RegionProduct) {
+  const original = Number(product.original_price);
+  const discount = Number(product.discount_price);
+  if (!original || discount >= original) {
+    return 0;
+  }
+  return Math.round(((original - discount) / original) * 100);
+}
 
 export default function ProductsPage() {
   const [sido, setSido] = useState("서울특별시");
@@ -170,9 +184,13 @@ export default function ProductsPage() {
 
   return (
     <section className="section">
-      <h1>상품 보기</h1>
+      <PageHeader
+        title="상품 보기"
+        description="지역을 선택하면 오늘 픽업 가능한 마감 할인 상품을 매장별로 확인할 수 있습니다."
+      />
       <form className="panel form-grid" onSubmit={loadProducts}>
-        <div className="two-column">
+        <h2>지역 선택</h2>
+        <div className="three-column">
           <label>
             시/도
             <input value={sido} onChange={(event) => setSido(event.target.value)} placeholder="서울특별시" />
@@ -181,14 +199,21 @@ export default function ProductsPage() {
             시/군/구
             <input value={sigungu} onChange={(event) => setSigungu(event.target.value)} placeholder="강남구" />
           </label>
+          <label>
+            동/읍/면
+            <input value={dong} onChange={(event) => setDong(event.target.value)} placeholder="역삼동" />
+          </label>
         </div>
-        <label>
-          동/읍/면
-          <input value={dong} onChange={(event) => setDong(event.target.value)} placeholder="역삼동" />
-        </label>
-        <div className="actions">
+        <div className="chip-row">
           {demoRegions.map((region) => (
-            <button type="button" className="secondary" key={region.label} onClick={() => applyDemoRegion(region)}>
+            <button
+              type="button"
+              className={`chip ${
+                sido === region.sido && sigungu === region.sigungu && dong === region.dong ? "active" : ""
+              }`}
+              key={region.label}
+              onClick={() => applyDemoRegion(region)}
+            >
               {region.label}
             </button>
           ))}
@@ -198,14 +223,17 @@ export default function ProductsPage() {
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       {products.length === 0 && !isError && (
-        <div className="empty-state">선택한 지역에 판매 중인 상품이 없습니다.</div>
+        <EmptyState title="선택한 지역에 판매 중인 상품이 없습니다." description="다른 데모 지역을 선택해 보세요." />
       )}
 
       <div className="list">
         {Object.entries(productsByStore).map(([storeId, storeProducts]) => (
           <section className="panel" key={storeId}>
             <div className="section">
-              <h2>{storeProducts[0].store_name}</h2>
+              <div className="card-title-row">
+                <h2>{storeProducts[0].store_name}</h2>
+                <Badge tone="success">{storeProducts.length}개 상품</Badge>
+              </div>
               <div className="meta">
                 <span>
                   {[storeProducts[0].sido, storeProducts[0].sigungu, storeProducts[0].dong]
@@ -215,20 +243,30 @@ export default function ProductsPage() {
                 <span>{storeProducts[0].store_address}</span>
               </div>
             </div>
-            <div className="list">
+            <div className="product-grid">
               {storeProducts.map((product) => (
                 <article className="item" key={product.id}>
-                  <h3>{product.name}</h3>
+                  <div className="card-title-row">
+                    <h3>{product.name}</h3>
+                    <StatusBadge status={product.status} />
+                  </div>
                   <p>{product.description || "설명 없음"}</p>
-                  <div className="meta">
-                    <span>정가 {product.original_price}</span>
-                    <span>할인가 {product.discount_price}</span>
-                    <span>수량 {product.quantity}</span>
-                    <span>상태 {product.status}</span>
+                  <div className="price-row">
+                    <span className="original-price">{formatMoney(product.original_price)}</span>
+                    <span className="discount-price">{formatMoney(product.discount_price)}</span>
+                    {discountPercent(product) > 0 && <Badge tone="success">{discountPercent(product)}% 할인</Badge>}
                   </div>
                   <div className="meta">
-                    <span>픽업 시작 {new Date(product.pickup_start_time).toLocaleString()}</span>
-                    <span>픽업 종료 {new Date(product.pickup_end_time).toLocaleString()}</span>
+                    <span>
+                      남은 수량 <strong>{product.quantity}</strong>
+                    </span>
+                    <span>
+                      매장 <strong>{product.store_name}</strong>
+                    </span>
+                  </div>
+                  <div className="meta">
+                    <span>픽업 {new Date(product.pickup_start_time).toLocaleString()}</span>
+                    <span>- {new Date(product.pickup_end_time).toLocaleString()}</span>
                   </div>
                   <div className="actions">
                     <input
@@ -257,11 +295,12 @@ export default function ProductsPage() {
 
       {pickupCode && (
         <div className="panel">
-          <h2>픽업코드</h2>
+          <h2>예약 완료</h2>
+          <p>아래 픽업코드를 매장에 보여주면 픽업 확인을 받을 수 있습니다.</p>
           <p className="pickup-code">{pickupCode}</p>
           <div className="form-grid">
             <label>
-              Mock payment method
+              Mock 결제 수단
               <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
                 {paymentMethods.map((method) => (
                   <option key={method.value} value={method.value}>

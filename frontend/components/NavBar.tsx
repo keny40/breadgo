@@ -6,6 +6,19 @@ import { clearToken, getToken } from "@/lib/api";
 
 export default function NavBar() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const links = [
+    { href: "/demo", label: "데모 가이드" },
+    { href: "/products", label: "상품 보기" },
+    { href: "/my-reservations", label: "내 예약" },
+    { href: "/my-payments", label: "내 결제" },
+    { href: "/merchant", label: "가맹점" },
+    { href: "/merchant/stores", label: "매장" },
+    { href: "/merchant/products", label: "상품 관리" },
+    { href: "/merchant/pickup", label: "픽업 확인" },
+    { href: "/admin", label: "Admin" },
+  ];
 
   useEffect(() => {
     function syncAuth() {
@@ -24,23 +37,34 @@ export default function NavBar() {
   function logout() {
     clearToken();
     setLoggedIn(false);
+    setMenuOpen(false);
   }
 
   return (
     <header className="top-nav">
       <Link href="/" className="brand">
-        BreadGo
+        <span className="brand-mark">BG</span>
+        <span>BreadGo</span>
       </Link>
-      <nav className="nav-links" aria-label="Main navigation">
-        <Link href="/demo">데모 가이드</Link>
-        <Link href="/products">상품 보기</Link>
-        <Link href="/my-reservations">내 예약</Link>
-        <Link href="/my-payments">내 결제</Link>
-        <Link href="/merchant">가맹점</Link>
-        <Link href="/merchant/stores">매장</Link>
-        <Link href="/merchant/products">상품 관리</Link>
-        <Link href="/merchant/pickup">픽업 확인</Link>
-        <Link href="/admin">Admin</Link>
+      <button
+        type="button"
+        className="secondary nav-button menu-toggle"
+        aria-expanded={menuOpen}
+        aria-controls="main-navigation"
+        onClick={() => setMenuOpen((current) => !current)}
+      >
+        메뉴
+      </button>
+      <nav
+        id="main-navigation"
+        className={`nav-links ${menuOpen ? "open" : ""}`}
+        aria-label="Main navigation"
+      >
+        {links.map((link) => (
+          <Link href={link.href} key={link.href} onClick={() => setMenuOpen(false)}>
+            {link.label}
+          </Link>
+        ))}
       </nav>
       <div className="nav-session">
         {loggedIn ? (
@@ -52,8 +76,12 @@ export default function NavBar() {
           </>
         ) : (
           <>
-            <Link href="/login">로그인</Link>
-            <Link href="/register">회원가입</Link>
+            <Link href="/login" onClick={() => setMenuOpen(false)}>
+              로그인
+            </Link>
+            <Link href="/register" onClick={() => setMenuOpen(false)}>
+              회원가입
+            </Link>
           </>
         )}
       </div>

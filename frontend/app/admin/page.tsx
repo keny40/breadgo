@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { AdminSummary, AuthUser, Merchant, Payment, Product, Reservation, Store } from "@/lib/types";
 
@@ -104,7 +106,10 @@ export default function AdminPage() {
 
   return (
     <section className="section">
-      <h1>Admin Dashboard</h1>
+      <PageHeader
+        title="Admin Dashboard"
+        description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 모니터링합니다."
+      />
       <p className="message">
         로컬 데모 관리자 승격 SQL:
         <br />
@@ -114,26 +119,26 @@ export default function AdminPage() {
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {blocked ? (
-        <div className="empty-state">
-          {message || "로그인이 필요합니다. 관리자 계정으로 로그인한 뒤 다시 열어주세요."}
-        </div>
+        <EmptyState
+          title={message || "로그인이 필요합니다."}
+          description="관리자 계정으로 로그인한 뒤 다시 열어주세요."
+        />
       ) : (
         <>
           {summary && (
             <div className="summary-grid">
-              <SummaryCard label="Users" value={summary.total_users} />
-              <SummaryCard label="Merchants" value={summary.total_merchants} />
-              <SummaryCard label="Stores" value={summary.total_stores} />
-              <SummaryCard label="Products" value={summary.total_products} />
-              <SummaryCard label="Active Products" value={summary.active_products} />
-              <SummaryCard label="Reservations" value={summary.total_reservations} />
-              <SummaryCard label="Picked Up" value={summary.picked_up_reservations} />
-              <SummaryCard label="Cancelled" value={summary.cancelled_reservations} />
-              <SummaryCard label="Payments" value={summary.total_payments} />
-              <SummaryCard label="Paid" value={summary.paid_payments} />
-              <SummaryCard label="Cancelled Pay" value={summary.cancelled_payments} />
-              <SummaryCard label="Failed Pay" value={summary.failed_payments} />
-              <SummaryCard label="Paid Amount" value={summary.total_paid_amount} />
+              <StatCard label="Users" value={summary.total_users} />
+              <StatCard label="Merchants" value={summary.total_merchants} />
+              <StatCard label="Stores" value={summary.total_stores} />
+              <StatCard label="Products" value={summary.total_products} helper={`${summary.active_products} active`} />
+              <StatCard label="Reservations" value={summary.total_reservations} />
+              <StatCard label="Picked Up" value={summary.picked_up_reservations} />
+              <StatCard label="Cancelled" value={summary.cancelled_reservations} />
+              <StatCard label="Payments" value={summary.total_payments} />
+              <StatCard label="Paid" value={summary.paid_payments} />
+              <StatCard label="Cancelled Pay" value={summary.cancelled_payments} />
+              <StatCard label="Failed Pay" value={summary.failed_payments} />
+              <StatCard label="Paid Amount" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} />
             </div>
           )}
 
@@ -151,8 +156,8 @@ export default function AdminPage() {
                 <tr key={user.id}>
                   <td>{user.email}</td>
                   <td>{user.full_name}</td>
-                  <td>{user.role}</td>
-                  <td>{user.is_active ? "Y" : "N"}</td>
+                  <td><StatusBadge status={user.role} /></td>
+                  <td><StatusBadge status={user.is_active ? "ACTIVE" : "HIDDEN"} /></td>
                 </tr>
               ))}
             </tbody>
@@ -208,7 +213,7 @@ export default function AdminPage() {
                   <td>{[store.sido, store.sigungu, store.dong].filter(Boolean).join(" ") || "-"}</td>
                   <td>{store.address}</td>
                   <td>{store.phone_number}</td>
-                  <td>{store.is_active ? "Y" : "N"}</td>
+                  <td><StatusBadge status={store.is_active ? "ACTIVE" : "HIDDEN"} /></td>
                 </tr>
               ))}
             </tbody>
@@ -231,7 +236,7 @@ export default function AdminPage() {
                   <td>{product.store_id}</td>
                   <td>{product.discount_price}</td>
                   <td>{product.quantity}</td>
-                  <td>{product.status}</td>
+                  <td><StatusBadge status={product.status} /></td>
                 </tr>
               ))}
             </tbody>
@@ -254,7 +259,7 @@ export default function AdminPage() {
                   <td>{reservation.user_id}</td>
                   <td>{reservation.product_id}</td>
                   <td>{reservation.total_price}</td>
-                  <td>{reservation.status}</td>
+                  <td><StatusBadge status={reservation.status} /></td>
                 </tr>
               ))}
             </tbody>
@@ -279,7 +284,7 @@ export default function AdminPage() {
                   <td>{payment.user_id}</td>
                   <td>{payment.amount}</td>
                   <td>{payment.method}</td>
-                  <td>{payment.status}</td>
+                  <td><StatusBadge status={payment.status} /></td>
                 </tr>
               ))}
             </tbody>
@@ -290,16 +295,7 @@ export default function AdminPage() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="summary-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function AdminTable({ title, children }: { title: string; children: React.ReactNode }) {
+function AdminTable({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="section">
       <h2>{title}</h2>

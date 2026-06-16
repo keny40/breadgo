@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Merchant, MerchantMeResponse } from "@/lib/types";
 
@@ -61,19 +62,24 @@ export default function MerchantPage() {
 
   return (
     <section className="section">
-      <h1>가맹점 대시보드</h1>
-      <div className="actions">
-        <button type="button" onClick={loadMerchant}>
-          내 가맹점 정보 확인
-        </button>
-      </div>
+      <PageHeader
+        title="가맹점 대시보드"
+        description="가맹점 등록 상태와 기본 사업자 정보를 확인합니다."
+        actions={
+          <button type="button" onClick={loadMerchant}>
+            내 가맹점 정보 확인
+          </button>
+        }
+      />
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {merchant ? (
         <article className="item">
-          <h3>{merchant.business_name}</h3>
+          <div className="card-title-row">
+            <h3>{merchant.business_name}</h3>
+            <StatusBadge status={merchant.status} />
+          </div>
           <div className="meta">
-            <span>상태 {merchant.status}</span>
             <span>사업자번호 {merchant.business_registration_number}</span>
             <span>대표자 {merchant.representative_name}</span>
             <span>전화 {merchant.phone_number}</span>
@@ -82,12 +88,13 @@ export default function MerchantPage() {
       ) : (
         <form className="panel form-grid" onSubmit={registerMerchant}>
           <h2>가맹점 등록</h2>
+          <p className="message">매장과 상품을 등록하려면 먼저 가맹점 프로필을 생성해야 합니다.</p>
           <label>
-            Business name
+            상호명
             <input value={businessName} onChange={(event) => setBusinessName(event.target.value)} required />
           </label>
           <label>
-            Business registration number
+            사업자등록번호
             <input
               value={businessRegistrationNumber}
               onChange={(event) => setBusinessRegistrationNumber(event.target.value)}
@@ -95,7 +102,7 @@ export default function MerchantPage() {
             />
           </label>
           <label>
-            Representative name
+            대표자명
             <input
               value={representativeName}
               onChange={(event) => setRepresentativeName(event.target.value)}
@@ -103,7 +110,7 @@ export default function MerchantPage() {
             />
           </label>
           <label>
-            Phone number
+            연락처
             <input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required />
           </label>
           <button type="submit">가맹점 등록</button>

@@ -103,6 +103,7 @@ export default function DemoPage() {
     <section className="section demo-page">
       <div className="demo-hero">
         <div>
+          <p className="eyebrow">Live demo script</p>
           <h1>브레드고 데모 가이드</h1>
           <p>
             비기술 이해관계자에게 BreadGo MVP의 고객 예약, Mock 결제, 가맹점 픽업,
@@ -124,7 +125,10 @@ export default function DemoPage() {
           {accounts.map((account) => (
             <article className="account-card" key={account.email}>
               <div>
-                <h3>{account.role}</h3>
+                <div className="card-title-row">
+                  <h3>{account.role}</h3>
+                  <span className="badge success">Demo</span>
+                </div>
                 <p>{account.description}</p>
               </div>
               <dl>
