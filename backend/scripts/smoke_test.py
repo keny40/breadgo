@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any
@@ -7,7 +8,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.environ.get("BREADGO_API_BASE_URL", "http://localhost:8000").rstrip("/")
 PASSWORD = "12345678"
 
 

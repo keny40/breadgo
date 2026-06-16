@@ -23,7 +23,18 @@ Recommended target: Render or a similar Python web service.
 pip install -e .
 ```
 
-- Build command: none required for the current FastAPI service.
+- Alternative install command if Render prefers requirements files:
+
+```bash
+pip install -r requirements.txt
+```
+
+- Build command:
+
+```bash
+python -m alembic upgrade head
+```
+
 - Start command:
 
 ```bash
@@ -45,14 +56,64 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=https://your-frontend-url.example.com
+BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
 ```
 
 Production notes:
 
 - `JWT_SECRET_KEY` must be generated securely and must not use the local demo default.
 - `BACKEND_CORS_ORIGINS` must include the deployed Vercel frontend URL.
-- If multiple origins are needed, separate them with commas.
+- `BACKEND_CORS_ORIGINS` accepts JSON array strings or comma-separated values.
+- Local development can use `["http://localhost:3000","http://127.0.0.1:3000"]`.
+
+## Render Deployment Steps
+
+1. Create a PostgreSQL database on Render or another managed PostgreSQL provider.
+2. Copy the external PostgreSQL connection string.
+3. Convert the connection string to the SQLAlchemy psycopg format if needed:
+
+```text
+postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
+```
+
+4. Create a Render Web Service from `https://github.com/keny40/breadgo`.
+5. Set root directory to `backend`.
+6. Set build command:
+
+```bash
+pip install -e . && python -m alembic upgrade head
+```
+
+7. Set start command:
+
+```bash
+python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+8. Set required environment variables:
+
+```text
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
+JWT_SECRET_KEY=<secure random secret, at least 32 characters>
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+```
+
+9. Deploy the service.
+10. Verify health check:
+
+```text
+https://your-render-backend-url.onrender.com/health
+```
+
+11. Verify Swagger docs:
+
+```text
+https://your-render-backend-url.onrender.com/docs
+```
+
+Do not run `python scripts/seed_demo.py` automatically in production. For a temporary demo deployment only, run it manually after confirming that demo accounts are acceptable for that environment.
 
 ## Database Setup
 
@@ -95,7 +156,7 @@ npm run build
 - Environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-backend-url.example.com
+NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
 ```
 
 Local development can continue using:
@@ -103,6 +164,34 @@ Local development can continue using:
 ```text
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
+
+## Vercel Deployment Steps
+
+1. Import `https://github.com/keny40/breadgo` into Vercel.
+2. Set root directory to `frontend`.
+3. Set install command:
+
+```bash
+npm install
+```
+
+4. Set build command:
+
+```bash
+npm run build
+```
+
+5. Set environment variable:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+```
+
+6. Deploy the frontend.
+7. Verify the homepage.
+8. Verify `/demo`.
+9. Verify `/products`.
+10. After the Vercel URL is known, update Render `BACKEND_CORS_ORIGINS` to include that URL and redeploy/restart the backend.
 
 ## Post-Deployment Verification
 
@@ -118,7 +207,15 @@ After deployment:
 8. Confirm merchant pickup confirmation works.
 9. Confirm admin dashboard is protected.
 
-The local `scripts/smoke_test.py` currently targets `http://localhost:8000`. For deployed environments, either run manual verification or adapt the script to accept a deployed base URL before using it against production-like services.
+The local `scripts/smoke_test.py` targets `http://localhost:8000` by default. It can also target a deployed backend when `BREADGO_API_BASE_URL` is set:
+
+```powershell
+cd backend
+$env:BREADGO_API_BASE_URL="https://your-render-backend-url.onrender.com"
+python scripts/smoke_test.py
+```
+
+The smoke test expects demo accounts and seeded demo products. Do not run it against production unless that environment intentionally contains safe demo data.
 
 ## Rollback Notes
 

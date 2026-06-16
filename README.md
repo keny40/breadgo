@@ -148,10 +148,10 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=https://your-frontend-url.example.com
+BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
 ```
 
-`BACKEND_CORS_ORIGINS` must include the deployed frontend URL. Multiple origins can be comma-separated.
+`BACKEND_CORS_ORIGINS` must include the deployed frontend URL. JSON array strings and comma-separated values are both supported.
 
 Alembic already reads the database URL from the backend settings module, so `python -m alembic upgrade head` uses `DATABASE_URL` when it is set.
 
@@ -173,7 +173,7 @@ npm run build
 Required frontend environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-backend-url.example.com
+NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
 ```
 
 For local development, keep:
@@ -206,3 +206,118 @@ The current smoke test script targets the local backend at `http://localhost:800
 - Production monitoring and alerting are not configured yet.
 
 See [docs/deployment-checklist-v0.1.0.md](docs/deployment-checklist-v0.1.0.md) for the deployment readiness checklist.
+
+## Actual Deployment
+
+This section prepares the exact Vercel + Render setup. Do not commit real secrets.
+
+### Render Backend
+
+1. Create a managed PostgreSQL database.
+2. Copy the database connection string.
+3. Create a Render Web Service from [https://github.com/keny40/breadgo](https://github.com/keny40/breadgo).
+4. Set root directory:
+
+```text
+backend
+```
+
+5. Set build command:
+
+```bash
+pip install -e . && python -m alembic upgrade head
+```
+
+If editable installs are unavailable, use:
+
+```bash
+pip install -r requirements.txt && python -m alembic upgrade head
+```
+
+6. Set start command:
+
+```bash
+python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+7. Set Render environment variables:
+
+```text
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
+JWT_SECRET_KEY=<secure random secret, at least 32 characters>
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+```
+
+Local CORS example:
+
+```text
+BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
+```
+
+8. Verify:
+
+```text
+https://your-render-backend-url.onrender.com/health
+https://your-render-backend-url.onrender.com/docs
+```
+
+Do not run `python scripts/seed_demo.py` automatically in production. For a temporary demo deployment only, it can be run manually after confirming the environment is not production.
+
+### Vercel Frontend
+
+1. Import [https://github.com/keny40/breadgo](https://github.com/keny40/breadgo) into Vercel.
+2. Set root directory:
+
+```text
+frontend
+```
+
+3. Set install command:
+
+```bash
+npm install
+```
+
+4. Set build command:
+
+```bash
+npm run build
+```
+
+5. Set Vercel environment variable:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+```
+
+For local development, keep:
+
+```text
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+6. Deploy.
+7. Verify the homepage, `/demo`, and `/products`.
+8. Copy the final Vercel URL into Render `BACKEND_CORS_ORIGINS`.
+
+### Deployed Smoke Test
+
+The smoke test uses `http://localhost:8000` by default. To point it at Render:
+
+```powershell
+cd backend
+$env:BREADGO_API_BASE_URL="https://your-render-backend-url.onrender.com"
+python scripts/smoke_test.py
+```
+
+The deployed smoke test expects demo accounts and seeded demo products. Use it only against a safe demo deployment.
+
+### Common Deployment Errors
+
+- CORS error: add the final Vercel URL to `BACKEND_CORS_ORIGINS` on Render and restart the backend.
+- `DATABASE_URL` error: confirm the URL uses `postgresql+psycopg://` and points to the managed PostgreSQL database.
+- `401` token issue: log out and log in again after changing `JWT_SECRET_KEY` or backend URL.
+- No products: migrations may have run but demo seed data was not loaded in the demo environment.
+- Migration not run: run `python -m alembic upgrade head` against the Render environment before testing APIs.
