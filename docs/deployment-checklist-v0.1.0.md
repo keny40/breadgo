@@ -157,6 +157,7 @@ npm run build
 
 ```text
 NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
 Local development can continue using:
@@ -164,6 +165,8 @@ Local development can continue using:
 ```text
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
+
+`BLOB_READ_WRITE_TOKEN` is required for actual image file upload through Vercel Blob. Manual product image URL input continues to work without Blob storage.
 
 ## Vercel Deployment Steps
 
@@ -185,13 +188,16 @@ npm run build
 
 ```text
 NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
-6. Deploy the frontend.
-7. Verify the homepage.
-8. Verify `/demo`.
-9. Verify `/products`.
-10. After the Vercel URL is known, update Render `BACKEND_CORS_ORIGINS` to include that URL and redeploy/restart the backend.
+6. Create or connect a Vercel Blob store for product image uploads.
+7. Deploy the frontend.
+8. Verify the homepage.
+9. Verify `/demo`.
+10. Verify `/products`.
+11. Verify `/merchant/products` can upload an image when `BLOB_READ_WRITE_TOKEN` is set.
+12. After the Vercel URL is known, update Render `BACKEND_CORS_ORIGINS` to include that URL and redeploy/restart the backend.
 
 ## Post-Deployment Verification
 
@@ -234,3 +240,4 @@ The smoke test expects demo accounts and seeded demo products. Do not run it aga
 - Demo seed accounts should not be used in production.
 - Admin user must be created securely.
 - No production monitoring, alerting, or log aggregation has been configured yet.
+- Product image upload depends on Vercel Blob and requires `BLOB_READ_WRITE_TOKEN`.

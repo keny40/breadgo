@@ -26,6 +26,8 @@ export default function MerchantProductsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [originalPrice, setOriginalPrice] = useState("");
   const [discountPrice, setDiscountPrice] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -135,6 +137,53 @@ export default function MerchantProductsPage() {
     }
   }
 
+  async function uploadProductImage() {
+    setMessage("");
+    setIsError(false);
+
+    if (!imageFile) {
+      setIsError(true);
+      setMessage("업로드할 이미지를 선택하세요.");
+      return;
+    }
+
+    if (!imageFile.type.startsWith("image/")) {
+      setIsError(true);
+      setMessage("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    if (imageFile.size > 3 * 1024 * 1024) {
+      setIsError(true);
+      setMessage("이미지 용량은 3MB 이하만 가능합니다.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    setUploadingImage(true);
+
+    try {
+      const response = await fetch("/api/upload/product-image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { url?: string; detail?: string };
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.detail || "이미지 업로드에 실패했습니다.");
+      }
+
+      setImageUrl(data.url);
+      setMessage("이미지 업로드가 완료되었습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   return (
     <section className="section">
       <PageHeader
@@ -175,14 +224,32 @@ export default function MerchantProductsPage() {
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
         </label>
         <label>
-          대표 이미지 URL
+          이미지 URL
           <input
             type="url"
             value={imageUrl}
             onChange={(event) => setImageUrl(event.target.value)}
             placeholder="https://example.com/product.jpg"
           />
+          <span className="field-help">직접 URL을 입력하거나 파일을 업로드할 수 있습니다.</span>
         </label>
+        <div className="upload-box form-grid">
+          <h3>대표 이미지 업로드</h3>
+          <label>
+            이미지 파일
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+            />
+          </label>
+          <div className="actions">
+            <button type="button" className="secondary" onClick={uploadProductImage} disabled={uploadingImage}>
+              {uploadingImage ? "업로드 중" : "이미지 업로드"}
+            </button>
+          </div>
+          <ProductImage imageUrl={imageUrl} name={name || "상품"} />
+        </div>
         <div className="two-column">
           <label>
             정가

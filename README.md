@@ -174,6 +174,7 @@ Required frontend environment variable:
 
 ```text
 NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
 For local development, keep:
@@ -181,6 +182,8 @@ For local development, keep:
 ```text
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
+
+`BLOB_READ_WRITE_TOKEN` is required only for actual product image file uploads through Vercel Blob. Local development and deployed demos can still use the manual `image_url` input without a Blob token.
 
 ### Database Migration Steps
 
@@ -290,6 +293,7 @@ npm run build
 
 ```text
 NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
 For local development, keep:
@@ -301,6 +305,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 6. Deploy.
 7. Verify the homepage, `/demo`, and `/products`.
 8. Copy the final Vercel URL into Render `BACKEND_CORS_ORIGINS`.
+
+Vercel Blob is required for actual product image uploads from `/merchant/products`. Create a Vercel Blob store, copy its read/write token into `BLOB_READ_WRITE_TOKEN`, and redeploy the frontend. Without this token, merchants can still paste a direct image URL manually.
 
 ### Deployed Smoke Test
 
@@ -321,3 +327,4 @@ The deployed smoke test expects demo accounts and seeded demo products. Use it o
 - `401` token issue: log out and log in again after changing `JWT_SECRET_KEY` or backend URL.
 - No products: migrations may have run but demo seed data was not loaded in the demo environment.
 - Migration not run: run `python -m alembic upgrade head` against the Render environment before testing APIs.
+- Image upload not configured: add `BLOB_READ_WRITE_TOKEN` to Vercel frontend environment variables and redeploy.
