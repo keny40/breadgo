@@ -1,6 +1,29 @@
 # BreadGo MVP
 
-BreadGo is a local food rescue marketplace MVP for bakery leftovers. The current local demo includes customer discovery, reservation, mock payment, merchant pickup confirmation, and admin monitoring.
+BreadGo is a local food rescue marketplace MVP for bakery leftovers. The current MVP includes region and location-based discovery, customer reservations, mock payment, merchant product/image management, QR-style pickup confirmation, and admin monitoring.
+
+## Deployed URLs
+
+- Frontend: [https://breadgo.vercel.app](https://breadgo.vercel.app)
+- Backend: [https://breadgo-api.onrender.com](https://breadgo-api.onrender.com)
+- Backend health check: [https://breadgo-api.onrender.com/health](https://breadgo-api.onrender.com/health)
+- Backend Swagger docs: [https://breadgo-api.onrender.com/docs](https://breadgo-api.onrender.com/docs)
+
+Render free instances may sleep after inactivity. The first backend request can be slow while the service wakes up.
+
+## Completed MVP Features
+
+- JWT authentication with role-based redirects and logged-in email display.
+- Demo seed accounts for customer, merchant, and admin flows.
+- Merchant onboarding, store management, and product management.
+- Product representative image URL support and Vercel Blob image upload.
+- Region-based product discovery and browser geolocation nearby discovery.
+- Customer reservation flow with pickup code.
+- Mock payment flow with card, KakaoPay, and NaverPay demo methods.
+- Customer reservation and payment history pages.
+- Merchant pickup confirmation by pickup code.
+- Admin dashboard for users, merchants, stores, products, reservations, and payments.
+- Backend smoke test for the full MVP happy path.
 
 ## Local Demo
 
@@ -59,26 +82,37 @@ customer@breadgo.test / 12345678
 
 ## Recommended Demo Flow
 
+Customer:
+
 1. Login as `customer@breadgo.test`.
 2. Open `/products`.
-3. Select `서울특별시 / 강남구 / 역삼동`.
+3. Select a region or use `내 위치로 찾기`.
 4. Reserve a product.
 5. Complete mock payment.
-6. Check the pickup code in `/my-reservations`.
-7. Login as `merchant@breadgo.test`.
-8. Confirm pickup from `/merchant/pickup`.
-9. Login as `admin@breadgo.test`.
-10. Check `/admin`.
+6. Check pickup code, reservation status, and payment status in `/my-reservations` and `/my-payments`.
+
+Merchant:
+
+1. Login as `merchant@breadgo.test`.
+2. Open `/merchant`, `/merchant/stores`, and `/merchant/products`.
+3. Create or update stores and products.
+4. Upload or paste a product image URL.
+5. Confirm pickup from `/merchant/pickup`.
+
+Admin:
+
+1. Login as `admin@breadgo.test`.
+2. Open `/admin`.
+3. Review users, merchants, stores, products, reservations, payments, and summary cards.
 
 ## Known Limitations
 
 - No real payment gateway.
 - Mock payment only.
-- No real map or GPS search yet.
+- No real map UI yet.
 - No production email verification.
-- Local PostgreSQL only.
 - Admin role is assigned by seed data or SQL.
-- No production deployment yet.
+- Render free instances may sleep and need a warm-up request.
 
 ## Release Checklist
 
@@ -148,7 +182,8 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+BACKEND_CORS_ORIGINS=["https://breadgo.vercel.app"]
+PYTHON_VERSION=3.12.8
 ```
 
 `BACKEND_CORS_ORIGINS` must include the deployed frontend URL. JSON array strings and comma-separated values are both supported.
@@ -173,7 +208,7 @@ npm run build
 Required frontend environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://breadgo-api.onrender.com
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
@@ -195,14 +230,14 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 ### Smoke Test Limitations
 
-The current smoke test script targets the local backend at `http://localhost:8000`. It is safe for local demo verification. For deployed environments, run manual checks or extend the script to accept a deployed base URL before using it outside local development.
+The smoke test script targets the local backend at `http://localhost:8000` by default. For a safe demo deployment, set `BREADGO_API_BASE_URL` before running it against Render.
 
 ### Production Limitations
 
 - No real payment gateway.
 - Mock payment only.
 - No real PG integration.
-- No real map or GPS search yet.
+- No real map UI yet.
 - No production email verification.
 - Demo seed accounts should not be used in production.
 - Admin user must be created securely.
@@ -250,7 +285,8 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+BACKEND_CORS_ORIGINS=["https://breadgo.vercel.app"]
+PYTHON_VERSION=3.12.8
 ```
 
 Local CORS example:
@@ -262,8 +298,8 @@ BACKEND_CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]
 8. Verify:
 
 ```text
-https://your-render-backend-url.onrender.com/health
-https://your-render-backend-url.onrender.com/docs
+https://breadgo-api.onrender.com/health
+https://breadgo-api.onrender.com/docs
 ```
 
 Do not run `python scripts/seed_demo.py` automatically in production. For a temporary demo deployment only, it can be run manually after confirming the environment is not production.
@@ -292,7 +328,7 @@ npm run build
 5. Set Vercel environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://breadgo-api.onrender.com
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
@@ -314,7 +350,7 @@ The smoke test uses `http://localhost:8000` by default. To point it at Render:
 
 ```powershell
 cd backend
-$env:BREADGO_API_BASE_URL="https://your-render-backend-url.onrender.com"
+$env:BREADGO_API_BASE_URL="https://breadgo-api.onrender.com"
 python scripts/smoke_test.py
 ```
 
@@ -322,9 +358,10 @@ The deployed smoke test expects demo accounts and seeded demo products. Use it o
 
 ### Common Deployment Errors
 
-- CORS error: add the final Vercel URL to `BACKEND_CORS_ORIGINS` on Render and restart the backend.
+- CORS error: add `https://breadgo.vercel.app` to `BACKEND_CORS_ORIGINS` on Render and restart the backend.
 - `DATABASE_URL` error: confirm the URL uses `postgresql+psycopg://` and points to the managed PostgreSQL database.
 - `401` token issue: log out and log in again after changing `JWT_SECRET_KEY` or backend URL.
 - No products: migrations may have run but demo seed data was not loaded in the demo environment.
 - Migration not run: run `python -m alembic upgrade head` against the Render environment before testing APIs.
 - Image upload not configured: add `BLOB_READ_WRITE_TOKEN` to Vercel frontend environment variables and redeploy.
+- Slow first request: Render free instances may be waking up.

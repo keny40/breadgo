@@ -1,6 +1,15 @@
 # BreadGo v0.1.0 Deployment Checklist
 
-This document prepares BreadGo for deployment. It does not mean the app has been deployed.
+This document tracks the current BreadGo MVP deployment on Vercel + Render and the checks required before and after each deployment.
+
+## Current Deployed URLs
+
+- Frontend: `https://breadgo.vercel.app`
+- Backend: `https://breadgo-api.onrender.com`
+- Backend health: `https://breadgo-api.onrender.com/health`
+- Backend Swagger: `https://breadgo-api.onrender.com/docs`
+
+Render free instances may sleep after inactivity. Allow the first request to warm up the backend.
 
 ## Before Deployment
 
@@ -15,7 +24,7 @@ This document prepares BreadGo for deployment. It does not mean the app has been
 
 Recommended target: Render or a similar Python web service.
 
-- Python version: `3.11` or newer.
+- Python version: `3.12.8` recommended.
 - Root directory: `backend`.
 - Install command:
 
@@ -56,13 +65,14 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+BACKEND_CORS_ORIGINS=["https://breadgo.vercel.app"]
+PYTHON_VERSION=3.12.8
 ```
 
 Production notes:
 
 - `JWT_SECRET_KEY` must be generated securely and must not use the local demo default.
-- `BACKEND_CORS_ORIGINS` must include the deployed Vercel frontend URL.
+- `BACKEND_CORS_ORIGINS` must include `https://breadgo.vercel.app`.
 - `BACKEND_CORS_ORIGINS` accepts JSON array strings or comma-separated values.
 - Local development can use `["http://localhost:3000","http://127.0.0.1:3000"]`.
 
@@ -97,20 +107,21 @@ DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DB_NAME
 JWT_SECRET_KEY=<secure random secret, at least 32 characters>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
-BACKEND_CORS_ORIGINS=["https://your-vercel-app.vercel.app"]
+BACKEND_CORS_ORIGINS=["https://breadgo.vercel.app"]
+PYTHON_VERSION=3.12.8
 ```
 
 9. Deploy the service.
 10. Verify health check:
 
 ```text
-https://your-render-backend-url.onrender.com/health
+https://breadgo-api.onrender.com/health
 ```
 
 11. Verify Swagger docs:
 
 ```text
-https://your-render-backend-url.onrender.com/docs
+https://breadgo-api.onrender.com/docs
 ```
 
 Do not run `python scripts/seed_demo.py` automatically in production. For a temporary demo deployment only, run it manually after confirming that demo accounts are acceptable for that environment.
@@ -156,7 +167,7 @@ npm run build
 - Environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://breadgo-api.onrender.com
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
@@ -187,37 +198,43 @@ npm run build
 5. Set environment variable:
 
 ```text
-NEXT_PUBLIC_API_BASE_URL=https://your-render-backend-url.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://breadgo-api.onrender.com
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```
 
 6. Create or connect a Vercel Blob store for product image uploads.
 7. Deploy the frontend.
-8. Verify the homepage.
+8. Verify the homepage at `https://breadgo.vercel.app`.
 9. Verify `/demo`.
 10. Verify `/products`.
-11. Verify `/merchant/products` can upload an image when `BLOB_READ_WRITE_TOKEN` is set.
-12. After the Vercel URL is known, update Render `BACKEND_CORS_ORIGINS` to include that URL and redeploy/restart the backend.
+11. Verify `/my-reservations` and `/my-payments`.
+12. Verify `/merchant/products` can upload an image when `BLOB_READ_WRITE_TOKEN` is set.
+13. Confirm Render `BACKEND_CORS_ORIGINS` includes `https://breadgo.vercel.app`.
 
 ## Post-Deployment Verification
 
 After deployment:
 
-1. Open the deployed frontend URL.
-2. Confirm the home page and `/demo` page load.
-3. Confirm the frontend can call backend `/health`.
-4. Register or log in with a non-demo production test account.
-5. Confirm region product discovery loads data.
-6. Confirm reservation creation works.
-7. Confirm mock payment flow works.
-8. Confirm merchant pickup confirmation works.
-9. Confirm admin dashboard is protected.
+1. Confirm backend `/health` works: `https://breadgo-api.onrender.com/health`.
+2. Confirm Vercel frontend works: `https://breadgo.vercel.app`.
+3. Confirm Swagger loads: `https://breadgo-api.onrender.com/docs`.
+4. Confirm product API returns data:
+
+```text
+https://breadgo-api.onrender.com/api/v1/regions/products?sido=서울특별시&sigungu=강남구&dong=역삼동
+```
+
+5. Confirm customer demo flow: login → products → reserve → mock payment → pickup code → my reservations/payments.
+6. Confirm merchant demo flow: login → dashboard → stores → products → image upload → pickup confirmation.
+7. Confirm admin demo flow: login → admin dashboard → users/merchants/stores/products/reservations/payments.
+8. Confirm image upload uses Vercel Blob and requires `BLOB_READ_WRITE_TOKEN`.
+9. Confirm CORS includes `https://breadgo.vercel.app` in Render `BACKEND_CORS_ORIGINS`.
 
 The local `scripts/smoke_test.py` targets `http://localhost:8000` by default. It can also target a deployed backend when `BREADGO_API_BASE_URL` is set:
 
 ```powershell
 cd backend
-$env:BREADGO_API_BASE_URL="https://your-render-backend-url.onrender.com"
+$env:BREADGO_API_BASE_URL="https://breadgo-api.onrender.com"
 python scripts/smoke_test.py
 ```
 
@@ -235,9 +252,10 @@ The smoke test expects demo accounts and seeded demo products. Do not run it aga
 
 - Mock payment only.
 - No real PG integration.
-- No real map or GPS search.
+- No real map UI.
 - No email verification.
 - Demo seed accounts should not be used in production.
 - Admin user must be created securely.
 - No production monitoring, alerting, or log aggregation has been configured yet.
 - Product image upload depends on Vercel Blob and requires `BLOB_READ_WRITE_TOKEN`.
+- Render free instances may sleep and make the first request slow.

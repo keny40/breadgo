@@ -721,6 +721,13 @@ code {
   font-weight: 900;
 }
 
+.account-card code {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
 .flow-list {
   display: grid;
   gap: 10px;
