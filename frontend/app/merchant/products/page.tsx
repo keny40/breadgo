@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { FormEvent, useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -9,12 +11,21 @@ function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
 }
 
+function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
+  if (!imageUrl) {
+    return <div className="product-image-placeholder">이미지 없음</div>;
+  }
+
+  return <img className="product-image" src={imageUrl} alt={`${name} 대표 이미지`} loading="lazy" />;
+}
+
 export default function MerchantProductsPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [storeId, setStoreId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [originalPrice, setOriginalPrice] = useState("");
   const [discountPrice, setDiscountPrice] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -105,6 +116,7 @@ export default function MerchantProductsPage() {
             store_id: storeId,
             name,
             description: description || null,
+            image_url: imageUrl || null,
             original_price: originalPrice,
             discount_price: discountPrice,
             quantity,
@@ -161,6 +173,15 @@ export default function MerchantProductsPage() {
         <label>
           상품 설명
           <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+        <label>
+          대표 이미지 URL
+          <input
+            type="url"
+            value={imageUrl}
+            onChange={(event) => setImageUrl(event.target.value)}
+            placeholder="https://example.com/product.jpg"
+          />
         </label>
         <div className="two-column">
           <label>
@@ -225,6 +246,7 @@ export default function MerchantProductsPage() {
         )}
         {products.map((product) => (
           <article className="item" key={product.id}>
+            <ProductImage imageUrl={product.image_url} name={product.name} />
             <div className="card-title-row">
               <h3>{product.name}</h3>
               <StatusBadge status={product.status} />

@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { FormEvent, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -27,6 +29,14 @@ function discountPercent(product: RegionProduct) {
     return 0;
   }
   return Math.round(((original - discount) / original) * 100);
+}
+
+function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
+  if (!imageUrl) {
+    return <div className="product-image-placeholder">이미지 없음</div>;
+  }
+
+  return <img className="product-image" src={imageUrl} alt={`${name} 대표 이미지`} loading="lazy" />;
 }
 
 export default function ProductsPage() {
@@ -321,6 +331,7 @@ export default function ProductsPage() {
             <div className="product-grid">
               {storeProducts.map((product) => (
                 <article className="item" key={product.id}>
+                  <ProductImage imageUrl={product.image_url} name={product.name} />
                   <div className="card-title-row">
                     <h3>{product.name}</h3>
                     <StatusBadge status={product.status} />

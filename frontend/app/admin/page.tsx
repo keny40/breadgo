@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { ChangeEvent, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
@@ -222,6 +224,7 @@ export default function AdminPage() {
           <AdminTable title="Products">
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Name</th>
                 <th>Store</th>
                 <th>Price</th>
@@ -232,6 +235,13 @@ export default function AdminPage() {
             <tbody>
               {products.map((product) => (
                 <tr key={product.id}>
+                  <td>
+                    {product.image_url ? (
+                      <img className="table-product-image" src={product.image_url} alt={`${product.name} 대표 이미지`} />
+                    ) : (
+                      <span className="badge muted">No image</span>
+                    )}
+                  </td>
                   <td>{product.name}</td>
                   <td>{product.store_id}</td>
                   <td>{product.discount_price}</td>

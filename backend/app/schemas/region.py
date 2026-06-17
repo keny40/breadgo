@@ -18,6 +18,7 @@ class RegionProductRead(BaseModel):
     distance_km: float | None = None
     name: str
     description: str | None
+    image_url: str | None
     original_price: Decimal
     discount_price: Decimal
     quantity: int

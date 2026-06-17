@@ -33,6 +33,7 @@ class Product(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     original_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     discount_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -48,6 +48,7 @@ def create_product_for_store(db: Session, merchant: Merchant, payload: ProductCr
         store_id=payload.store_id,
         name=payload.name.strip(),
         description=payload.description.strip() if payload.description else None,
+        image_url=payload.image_url.strip() if payload.image_url else None,
         original_price=payload.original_price,
         discount_price=payload.discount_price,
         quantity=payload.quantity,
@@ -110,6 +111,8 @@ def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: P
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip()
+            if field in {"description", "image_url"} and not value:
+                value = None
         setattr(product, field, value)
 
     _apply_sold_out_status(product)

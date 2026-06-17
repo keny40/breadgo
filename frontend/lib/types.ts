@@ -63,6 +63,7 @@ export type Product = {
   store_id: string;
   name: string;
   description: string | null;
+  image_url: string | null;
   original_price: string;
   discount_price: string;
   quantity: number;

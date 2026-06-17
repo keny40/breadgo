@@ -11,6 +11,7 @@ class ProductCreate(BaseModel):
     store_id: UUID
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    image_url: str | None = Field(default=None, max_length=1000)
     original_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     discount_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     quantity: int = Field(ge=0)
@@ -30,6 +31,7 @@ class ProductCreate(BaseModel):
 class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
+    image_url: str | None = Field(default=None, max_length=1000)
     original_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     discount_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     quantity: int | None = Field(default=None, ge=0)
@@ -59,6 +61,7 @@ class ProductRead(BaseModel):
     store_id: UUID
     name: str
     description: str | None
+    image_url: str | None
     original_price: Decimal
     discount_price: Decimal
     quantity: int
