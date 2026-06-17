@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 const successStatuses = new Set(["ACTIVE", "APPROVED", "CONFIRMED", "PAID", "PICKED_UP"]);
-const warningStatuses = new Set(["PENDING", "READY", "SOLD_OUT"]);
+const warningStatuses = new Set(["PENDING", "READY", "SOLD_OUT", "HOLD"]);
 const dangerStatuses = new Set(["CANCELLED", "FAILED", "REJECTED", "SUSPENDED", "EXPIRED"]);
 
 export function PageHeader({

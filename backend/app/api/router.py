@@ -1,11 +1,13 @@
 from fastapi import APIRouter
 
-from app.api.v1 import admin, auth, merchants, payments, products, regions, reservations, stores
+from app.api.v1 import admin, auth, merchants, payments, products, regions, reservations, settlements, stores
 
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(settlements.admin_router, prefix="/admin/settlements", tags=["settlements"])
+api_router.include_router(settlements.merchant_router, prefix="/merchant/settlements", tags=["settlements"])
 api_router.include_router(merchants.router, prefix="/merchants", tags=["merchants"])
 api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
 api_router.include_router(stores.router, prefix="/stores", tags=["stores"])

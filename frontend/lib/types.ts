@@ -115,6 +115,44 @@ export type Payment = {
   pickup_code: string | null;
 };
 
+export type Settlement = {
+  id: string;
+  merchant_id: string;
+  store_id: string;
+  reservation_id: string;
+  payment_id: string;
+  gross_amount: string;
+  platform_fee_rate: string;
+  platform_fee_amount: string;
+  pg_fee_rate: string;
+  pg_fee_amount: string;
+  merchant_settlement_amount: string;
+  status: string;
+  settled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  product_name: string | null;
+  store_name: string | null;
+  merchant_name: string | null;
+  merchant_email: string | null;
+  reservation_status: string | null;
+  payment_status: string | null;
+  pickup_code: string | null;
+};
+
+export type SettlementSummary = {
+  total_gross_amount: string;
+  total_platform_fee_amount: string;
+  total_pg_fee_amount: string;
+  total_merchant_settlement_amount: string;
+  pending_amount: string;
+  ready_amount: string;
+  paid_amount: string;
+  hold_amount: string;
+  cancelled_amount: string;
+  count_by_status: Record<string, number>;
+};
+
 export type AdminSummary = {
   total_users: number;
   total_merchants: number;

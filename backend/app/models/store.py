@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.merchant import Merchant
     from app.models.product import Product
     from app.models.reservation import Reservation
+    from app.models.settlement import Settlement
 
 
 class Store(Base):
@@ -59,5 +60,9 @@ class Store(Base):
     )
     reservations: Mapped[list["Reservation"]] = relationship(
         "Reservation",
+        back_populates="store",
+    )
+    settlements: Mapped[list["Settlement"]] = relationship(
+        "Settlement",
         back_populates="store",
     )

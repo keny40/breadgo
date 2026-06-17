@@ -10,6 +10,7 @@ from app.models.product import Product, ProductStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
 from app.schemas.payment import PaymentCancelRequest, PaymentConfirmRequest, PaymentFailRequest, PaymentReadyRequest
+from app.services.settlement_service import sync_settlement_for_payment
 
 
 ACTIVE_PAYMENT_STATUSES = {PaymentStatus.READY, PaymentStatus.PAID}
@@ -76,6 +77,7 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
 
     payment.status = PaymentStatus.PAID
     payment.paid_at = datetime.now(timezone.utc)
+    sync_settlement_for_payment(db, payment)
     db.commit()
     db.refresh(payment)
     return payment
@@ -90,6 +92,7 @@ def fail_mock_payment(db: Session, user: User, payload: PaymentFailRequest) -> P
         )
 
     payment.status = PaymentStatus.FAILED
+    sync_settlement_for_payment(db, payment)
     db.commit()
     db.refresh(payment)
     return payment
@@ -133,6 +136,7 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
 
     payment.status = PaymentStatus.CANCELLED
     payment.cancelled_at = datetime.now(timezone.utc)
+    sync_settlement_for_payment(db, payment)
     db.commit()
     db.refresh(payment)
     return payment

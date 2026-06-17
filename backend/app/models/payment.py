@@ -12,6 +12,7 @@ from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.models.reservation import Reservation
+    from app.models.settlement import Settlement
     from app.models.user import User
 
 
@@ -71,3 +72,8 @@ class Payment(Base):
 
     reservation: Mapped["Reservation"] = relationship("Reservation", back_populates="payment")
     user: Mapped["User"] = relationship("User", back_populates="payments")
+    settlement: Mapped["Settlement | None"] = relationship(
+        "Settlement",
+        back_populates="payment",
+        uselist=False,
+    )

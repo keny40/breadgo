@@ -12,6 +12,10 @@ from app.models.reservation import Reservation, ReservationStatus
 from app.models.store import Store
 from app.models.user import User
 from app.schemas.reservation import PickupConfirmRequest, ReservationCreate, ReservationStatusUpdate
+from app.services.settlement_service import (
+    mark_settlement_cancelled_for_reservation,
+    mark_settlement_ready_for_reservation,
+)
 
 
 def _generate_pickup_code(db: Session) -> str:
@@ -169,6 +173,7 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
 
     _restore_product_quantity(product, reservation.quantity)
     reservation.status = ReservationStatus.CANCELLED
+    mark_settlement_cancelled_for_reservation(db, reservation)
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -189,6 +194,10 @@ def update_reservation_status(
         )
 
     reservation.status = payload.status
+    if reservation.status == ReservationStatus.PICKED_UP:
+        mark_settlement_ready_for_reservation(db, reservation)
+    elif reservation.status == ReservationStatus.CANCELLED:
+        mark_settlement_cancelled_for_reservation(db, reservation)
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -212,6 +221,7 @@ def confirm_pickup_by_code(
         )
 
     reservation.status = ReservationStatus.PICKED_UP
+    mark_settlement_ready_for_reservation(db, reservation)
     db.commit()
     db.refresh(reservation)
     return reservation
