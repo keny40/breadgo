@@ -32,6 +32,17 @@ export function clearToken(): void {
   window.dispatchEvent(new Event("breadgo-auth-changed"));
 }
 
+export function routeForRole(role: string | null | undefined): string {
+  const normalizedRole = role?.toLowerCase();
+  if (normalizedRole === "merchant") {
+    return "/merchant";
+  }
+  if (normalizedRole === "admin") {
+    return "/admin";
+  }
+  return "/products";
+}
+
 export function friendlyErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "요청 처리에 실패했습니다.";
   const lowerMessage = message.toLowerCase();

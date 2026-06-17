@@ -1,10 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { apiFetch, friendlyErrorMessage, saveToken } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { apiFetch, friendlyErrorMessage, routeForRole, saveToken } from "@/lib/api";
 import type { AuthResponse } from "@/lib/types";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -23,7 +25,8 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       saveToken(data.access_token);
-      setMessage(`${data.user.full_name}님, 로그인되었습니다.`);
+      setMessage(`${data.user.full_name}님, 로그인되었습니다. 이동합니다.`);
+      router.replace(routeForRole(data.user.role));
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
