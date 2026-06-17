@@ -179,8 +179,11 @@ code {
 .nav-user-email {
   max-width: 230px;
   overflow: hidden;
-  color: var(--text);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
   font-weight: 800;
+  padding: 7px 10px;
   text-overflow: ellipsis;
 }
 
