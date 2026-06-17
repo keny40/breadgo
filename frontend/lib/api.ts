@@ -1,9 +1,15 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const rawApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/+$/, "");
 
 export type ApiError = {
   detail?: string;
 };
+
+export function buildApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${normalizedPath}`;
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") {
@@ -65,22 +71,58 @@ export async function apiFetch<T>(
     throw new Error("로그인이 필요합니다.");
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const url = buildApiUrl(path);
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Unknown network error";
+    throw new Error(
+      [
+        "API request failed before receiving a response.",
+        `API base URL: ${API_BASE_URL}`,
+        `Request path: ${path}`,
+        `Full URL: ${url}`,
+        `Reason: ${reason}`,
+      ].join("\n"),
+    );
+  }
 
   if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
+    let responseBody = "";
     try {
-      const error = (await response.json()) as ApiError;
-      if (typeof error.detail === "string") {
-        message = error.detail;
-      }
+      responseBody = await response.text();
     } catch {
-      message = response.statusText || message;
+      responseBody = "";
     }
-    throw new Error(message);
+
+    let detail = response.statusText || `HTTP ${response.status}`;
+    if (responseBody) {
+      try {
+        const error = JSON.parse(responseBody) as ApiError;
+        if (typeof error.detail === "string") {
+          detail = error.detail;
+        } else {
+          detail = responseBody;
+        }
+      } catch {
+        detail = responseBody;
+      }
+    }
+
+    throw new Error(
+      [
+        detail,
+        `API base URL: ${API_BASE_URL}`,
+        `Request path: ${path}`,
+        `Status code: ${response.status}`,
+        `Response body: ${responseBody || "(empty)"}`,
+      ].join("\n"),
+    );
   }
 
   return (await response.json()) as T;

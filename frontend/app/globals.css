@@ -683,6 +683,19 @@ code {
   background: var(--surface);
 }
 
+.debug-output {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
