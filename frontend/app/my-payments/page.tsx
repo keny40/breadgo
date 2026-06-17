@@ -9,22 +9,39 @@ function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
 }
 
+function paymentMethodLabel(value: string) {
+  switch (value) {
+    case "MOCK_CARD":
+      return "카드 모의결제";
+    case "MOCK_KAKAO_PAY":
+      return "카카오페이 모의결제";
+    case "MOCK_NAVER_PAY":
+      return "네이버페이 모의결제";
+    default:
+      return value;
+  }
+}
+
 export default function MyPaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function loadPayments() {
     setMessage("");
     setIsError(false);
+    setLoading(true);
 
     try {
       const data = await apiFetch<Payment[]>("/api/v1/payments/me", {}, true);
       setPayments(data);
-      setMessage(`${data.length}개 결제를 불러왔습니다.`);
+      setMessage(data.length > 0 ? `${data.length}개 결제를 불러왔습니다.` : "");
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -35,7 +52,7 @@ export default function MyPaymentsPage() {
         description="Mock 결제 수단, 금액, 결제 상태를 확인합니다."
         actions={
           <button type="button" onClick={loadPayments}>
-            결제 불러오기
+            {loading ? "불러오는 중" : "새로고침"}
           </button>
         }
       />
@@ -47,13 +64,40 @@ export default function MyPaymentsPage() {
         {payments.map((payment) => (
           <article className="item" key={payment.id}>
             <div className="card-title-row">
-              <h3>{formatMoney(payment.amount)}</h3>
+              <div>
+                <p className="eyebrow">결제 상품</p>
+                <h3>{payment.product_name || "마감 할인 상품"}</h3>
+                <p>{payment.store_name || "매장 정보 없음"}</p>
+              </div>
               <StatusBadge status={payment.status} />
             </div>
+            <div className="detail-grid">
+              <div>
+                <span>결제 금액</span>
+                <strong>{formatMoney(payment.amount)}</strong>
+              </div>
+              <div>
+                <span>결제 수단</span>
+                <strong>{paymentMethodLabel(payment.method)}</strong>
+              </div>
+              <div>
+                <span>결제 상태</span>
+                <strong>
+                  <StatusBadge status={payment.status} />
+                </strong>
+              </div>
+              <div>
+                <span>예약 상태</span>
+                <strong>
+                  {payment.reservation_status ? <StatusBadge status={payment.reservation_status} /> : "-"}
+                </strong>
+              </div>
+            </div>
             <div className="meta">
-              <span>수단 {payment.method}</span>
-              <span>예약 {payment.reservation_id}</span>
+              {payment.pickup_code && <span>픽업코드 {payment.pickup_code}</span>}
+              <span>생성일 {new Date(payment.created_at).toLocaleString()}</span>
               <span>결제일 {payment.paid_at ? new Date(payment.paid_at).toLocaleString() : "-"}</span>
+              {payment.cancelled_at && <span>취소일 {new Date(payment.cancelled_at).toLocaleString()}</span>}
             </div>
           </article>
         ))}

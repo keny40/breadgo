@@ -31,6 +31,10 @@ function discountPercent(product: RegionProduct) {
   return Math.round(((original - discount) / original) * 100);
 }
 
+function paymentMethodLabel(value: string) {
+  return paymentMethods.find((method) => method.value === value)?.label || value;
+}
+
 function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
   if (!imageUrl) {
     return <div className="product-image-placeholder">이미지 없음</div>;
@@ -49,9 +53,13 @@ export default function ProductsPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [pickupCode, setPickupCode] = useState("");
   const [latestReservation, setLatestReservation] = useState<Reservation | null>(null);
+  const [latestReservedProduct, setLatestReservedProduct] = useState<RegionProduct | null>(null);
+  const [latestPayment, setLatestPayment] = useState<Payment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("MOCK_CARD");
+  const [paymentMessage, setPaymentMessage] = useState("");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [isPaymentError, setIsPaymentError] = useState(false);
   const [locating, setLocating] = useState(false);
 
   useEffect(() => {
@@ -103,6 +111,10 @@ export default function ProductsPage() {
     setIsError(false);
     setPickupCode("");
     setLatestReservation(null);
+    setLatestReservedProduct(null);
+    setLatestPayment(null);
+    setPaymentMessage("");
+    setIsPaymentError(false);
     setDiscoveryMode("region");
 
     try {
@@ -157,6 +169,10 @@ export default function ProductsPage() {
     setIsError(false);
     setPickupCode("");
     setLatestReservation(null);
+    setLatestReservedProduct(null);
+    setLatestPayment(null);
+    setPaymentMessage("");
+    setIsPaymentError(false);
     setLocating(true);
 
     try {
@@ -179,7 +195,11 @@ export default function ProductsPage() {
     setMessage("");
     setIsError(false);
     setPickupCode("");
+    setLatestPayment(null);
+    setPaymentMessage("");
+    setIsPaymentError(false);
     const quantity = quantities[productId] || 1;
+    const reservedProduct = products.find((product) => product.id === productId) || null;
 
     try {
       const reservation = await apiFetch<Reservation>(
@@ -192,7 +212,8 @@ export default function ProductsPage() {
       );
       setPickupCode(reservation.pickup_code);
       setLatestReservation(reservation);
-      setMessage("예약이 완료되었습니다.");
+      setLatestReservedProduct(reservedProduct);
+      setMessage("예약이 완료되었습니다. 픽업코드를 확인하고 Mock 결제를 진행해 보세요.");
       if (discoveryMode === "nearby" && userLocation) {
         await loadNearbyProducts(userLocation.lat, userLocation.lng, false);
       } else {
@@ -214,6 +235,8 @@ export default function ProductsPage() {
 
     setMessage("");
     setIsError(false);
+    setPaymentMessage("");
+    setIsPaymentError(false);
 
     try {
       const ready = await apiFetch<Payment>(
@@ -235,11 +258,23 @@ export default function ProductsPage() {
         },
         true,
       );
-      setMessage(`결제 완료. 상태: ${paid.status}`);
+      setLatestPayment(paid);
+      setPaymentMessage(`${paymentMethodLabel(paymentMethod)} 결제가 완료되었습니다.`);
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      setIsPaymentError(true);
+      setPaymentMessage(friendlyErrorMessage(error));
     }
+  }
+
+  function continueBrowsing() {
+    setPickupCode("");
+    setLatestReservation(null);
+    setLatestReservedProduct(null);
+    setLatestPayment(null);
+    setPaymentMessage("");
+    setIsPaymentError(false);
+    setMessage("");
+    setIsError(false);
   }
 
   function applyDemoRegion(region: (typeof demoRegions)[number]) {
@@ -385,23 +420,83 @@ export default function ProductsPage() {
       </div>
 
       {pickupCode && (
-        <div className="panel">
-          <h2>예약 완료</h2>
-          <p>아래 픽업코드를 매장에 보여주면 픽업 확인을 받을 수 있습니다.</p>
-          <p className="pickup-code">{pickupCode}</p>
-          <div className="form-grid">
-            <label>
-              Mock 결제 수단
-              <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
-                {paymentMethods.map((method) => (
-                  <option key={method.value} value={method.value}>
-                    {method.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={payLatestReservation}>
-              결제하기
+        <div className="panel success-panel">
+          <div className="card-title-row">
+            <div>
+              <p className="eyebrow">예약 성공</p>
+              <h2>{latestReservedProduct?.name || latestReservation?.product_name || "마감 할인 상품"} 예약 완료</h2>
+            </div>
+            {latestReservation && <StatusBadge status={latestReservation.status} />}
+          </div>
+          <p>매장에서 아래 픽업코드를 보여주면 픽업 확인을 받을 수 있습니다.</p>
+          <div className="pickup-code-block">
+            <span>픽업 코드</span>
+            <p className="pickup-code">{pickupCode}</p>
+          </div>
+          <div className="detail-grid">
+            <div>
+              <span>매장</span>
+              <strong>{latestReservedProduct?.store_name || latestReservation?.store_name || "-"}</strong>
+            </div>
+            <div>
+              <span>예약 수량</span>
+              <strong>{latestReservation?.quantity ?? "-"}</strong>
+            </div>
+            <div>
+              <span>총 결제 금액</span>
+              <strong>{latestReservation ? formatMoney(latestReservation.total_price) : "-"}</strong>
+            </div>
+            <div>
+              <span>픽업 마감</span>
+              <strong>
+                {latestReservation ? new Date(latestReservation.pickup_deadline).toLocaleString() : "-"}
+              </strong>
+            </div>
+          </div>
+          <div className="payment-box">
+            <div className="form-grid">
+              <label>
+                Mock 결제 수단
+                <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                  {paymentMethods.map((method) => (
+                    <option key={method.value} value={method.value}>
+                      {method.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" onClick={payLatestReservation}>
+                결제하기
+              </button>
+            </div>
+            {paymentMessage && (
+              <div className={`message ${isPaymentError ? "error" : "success"}`}>{paymentMessage}</div>
+            )}
+            {latestPayment && (
+              <div className="meta">
+                <span>
+                  결제 수단 <strong>{paymentMethodLabel(latestPayment.method)}</strong>
+                </span>
+                <span>
+                  결제 상태 <StatusBadge status={latestPayment.status} />
+                </span>
+                <span>
+                  결제 금액 <strong>{formatMoney(latestPayment.amount)}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="actions">
+            <a href="/my-reservations">
+              <button type="button">내 예약 보기</button>
+            </a>
+            <a href="/my-payments">
+              <button type="button" className="secondary">
+                결제 내역 보기
+              </button>
+            </a>
+            <button type="button" className="secondary" onClick={continueBrowsing}>
+              계속 상품 보기
             </button>
           </div>
         </div>

@@ -9,15 +9,33 @@ function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
 }
 
+function reservationGuidance(status: string) {
+  switch (status) {
+    case "CONFIRMED":
+    case "PENDING":
+      return "매장에서 픽업 코드를 보여주세요.";
+    case "PICKED_UP":
+      return "픽업이 완료되었습니다.";
+    case "CANCELLED":
+      return "취소된 예약입니다.";
+    case "EXPIRED":
+      return "만료된 예약입니다.";
+    default:
+      return "예약 상태를 확인해 주세요.";
+  }
+}
+
 export default function MyReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function loadReservations() {
     setMessage("");
     setIsError(false);
+    setLoading(true);
 
     try {
       const [data, paymentData] = await Promise.all([
@@ -26,10 +44,12 @@ export default function MyReservationsPage() {
       ]);
       setReservations(data);
       setPayments(paymentData);
-      setMessage(`${data.length}개 예약을 불러왔습니다.`);
+      setMessage(data.length > 0 ? `${data.length}개 예약을 불러왔습니다.` : "");
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -40,41 +60,51 @@ export default function MyReservationsPage() {
         description="예약 상태, 결제 상태, 픽업코드를 한눈에 확인합니다."
         actions={
           <button type="button" onClick={loadReservations}>
-            예약 불러오기
+            {loading ? "불러오는 중" : "새로고침"}
           </button>
         }
       />
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       <div className="list">
         {reservations.length === 0 && !isError && (
-          <EmptyState title="예약 내역이 없습니다." description="상품 보기에서 마감 할인 상품을 예약해 보세요." />
+          <EmptyState
+            title="예약 내역이 없습니다."
+            description="상품을 둘러보고 마감 할인 상품을 예약해 보세요."
+          />
         )}
         {reservations.map((reservation) => {
           const payment = payments.find((item) => item.reservation_id === reservation.id);
+          const paymentStatus = reservation.payment_status || payment?.status || "없음";
           return (
             <article className="item" key={reservation.id}>
               <div className="card-title-row">
                 <div>
-                  <p className="eyebrow">픽업코드</p>
-                  <p className="pickup-code">{reservation.pickup_code}</p>
+                  <p className="eyebrow">예약 상품</p>
+                  <h3>{reservation.product_name || "마감 할인 상품"}</h3>
+                  <p>{reservation.store_name || "매장 정보 없음"}</p>
                 </div>
                 <StatusBadge status={reservation.status} />
               </div>
+              <div className="pickup-code-block">
+                <span>픽업 코드</span>
+                <p className="pickup-code">{reservation.pickup_code}</p>
+              </div>
+              <p className="guidance-text">{reservationGuidance(reservation.status)}</p>
               <div className="meta">
                 <span>
                   예약 상태 <StatusBadge status={reservation.status} />
                 </span>
                 <span>
-                  결제 상태 {payment ? <StatusBadge status={payment.status} /> : "없음"}
+                  결제 상태 {paymentStatus === "없음" ? "없음" : <StatusBadge status={paymentStatus} />}
                 </span>
                 <span>
                   총액 <strong>{formatMoney(reservation.total_price)}</strong>
                 </span>
                 <span>수량 {reservation.quantity}</span>
-                <span>상품 {reservation.product_id}</span>
               </div>
               <div className="meta">
                 <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>
+                <span>예약일 {new Date(reservation.created_at).toLocaleString()}</span>
               </div>
             </article>
           );

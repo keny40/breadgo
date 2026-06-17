@@ -109,6 +109,10 @@ export type Payment = {
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
+  product_name: string | null;
+  store_name: string | null;
+  reservation_status: string | null;
+  pickup_code: string | null;
 };
 
 export type AdminSummary = {

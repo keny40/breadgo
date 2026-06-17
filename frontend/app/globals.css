@@ -372,6 +372,60 @@ code {
   align-items: baseline;
 }
 
+.success-panel {
+  border-color: #86efac;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 38%);
+}
+
+.pickup-code-block {
+  display: grid;
+  gap: 8px;
+  width: fit-content;
+}
+
+.pickup-code-block span,
+.detail-grid span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.detail-grid div {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+}
+
+.detail-grid strong {
+  color: var(--text);
+}
+
+.payment-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(238, 244, 239, 0.55);
+  padding: 14px;
+}
+
+.guidance-text {
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 800;
+  padding: 12px;
+}
+
 .product-image,
 .product-image-placeholder {
   width: 100%;

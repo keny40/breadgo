@@ -35,5 +35,9 @@ class PaymentRead(BaseModel):
     cancelled_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    product_name: str | None = None
+    store_name: str | None = None
+    reservation_status: str | None = None
+    pickup_code: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
