@@ -2,13 +2,47 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { Product, Store } from "@/lib/types";
 
+type ProductFormState = {
+  name: string;
+  description: string;
+  imageUrl: string;
+  originalPrice: string;
+  discountPrice: string;
+  quantity: number;
+  pickupStartTime: string;
+  pickupEndTime: string;
+  status: string;
+};
+
+const emptyForm: ProductFormState = {
+  name: "",
+  description: "",
+  imageUrl: "",
+  originalPrice: "",
+  discountPrice: "",
+  quantity: 1,
+  pickupStartTime: "",
+  pickupEndTime: "",
+  status: "ACTIVE",
+};
+
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function toDateTimeLocal(value: string) {
+  const date = new Date(value);
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
@@ -23,18 +57,21 @@ export default function MerchantProductsPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [storeId, setStoreId] = useState("");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [originalPrice, setOriginalPrice] = useState("");
-  const [discountPrice, setDiscountPrice] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [pickupStartTime, setPickupStartTime] = useState("");
-  const [pickupEndTime, setPickupEndTime] = useState("");
+  const [createForm, setCreateForm] = useState<ProductFormState>(emptyForm);
+  const [createImageFile, setCreateImageFile] = useState<File | null>(null);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<ProductFormState>(emptyForm);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [uploadingImageTarget, setUploadingImageTarget] = useState<"create" | "edit" | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  const storeById = useMemo(() => {
+    return stores.reduce<Record<string, Store>>((acc, store) => {
+      acc[store.id] = store;
+      return acc;
+    }, {});
+  }, [stores]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +108,14 @@ export default function MerchantProductsPage() {
     };
   }, []);
 
+  function updateCreateForm(patch: Partial<ProductFormState>) {
+    setCreateForm((current) => ({ ...current, ...patch }));
+  }
+
+  function updateEditForm(patch: Partial<ProductFormState>) {
+    setEditForm((current) => ({ ...current, ...patch }));
+  }
+
   async function loadStores() {
     setMessage("");
     setIsError(false);
@@ -90,18 +135,95 @@ export default function MerchantProductsPage() {
     }
   }
 
-  async function loadProducts() {
+  async function loadProducts(successMessage = "상품 목록을 새로고침했습니다.") {
     setMessage("");
     setIsError(false);
 
     try {
       const data = await apiFetch<Product[]>("/api/v1/products/me", {}, true);
       setProducts(data);
-      setMessage(`${data.length}개 상품을 불러왔습니다.`);
+      setMessage(successMessage);
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
+  }
+
+  async function uploadImage(file: File, target: "create" | "edit") {
+    setMessage("");
+    setIsError(false);
+
+    if (!file.type.startsWith("image/")) {
+      setIsError(true);
+      setMessage("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setIsError(true);
+      setMessage("이미지 용량은 3MB 이하만 가능합니다.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    setUploadingImageTarget(target);
+
+    try {
+      const response = await fetch("/api/upload/product-image", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { url?: string; detail?: string };
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.detail || "이미지 업로드에 실패했습니다.");
+      }
+
+      if (target === "create") {
+        updateCreateForm({ imageUrl: data.url });
+      } else {
+        updateEditForm({ imageUrl: data.url });
+      }
+      setMessage("이미지 업로드가 완료되었습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploadingImageTarget(null);
+    }
+  }
+
+  async function uploadCreateImage() {
+    if (!createImageFile) {
+      setIsError(true);
+      setMessage("업로드할 이미지를 선택하세요.");
+      return;
+    }
+    await uploadImage(createImageFile, "create");
+  }
+
+  async function uploadEditImage() {
+    if (!editImageFile) {
+      setIsError(true);
+      setMessage("업로드할 이미지를 선택하세요.");
+      return;
+    }
+    await uploadImage(editImageFile, "edit");
+  }
+
+  function productPayload(form: ProductFormState) {
+    return {
+      name: form.name,
+      description: form.description || null,
+      image_url: form.imageUrl || null,
+      original_price: form.originalPrice,
+      discount_price: form.discountPrice,
+      quantity: form.quantity,
+      pickup_start_time: new Date(form.pickupStartTime).toISOString(),
+      pickup_end_time: new Date(form.pickupEndTime).toISOString(),
+      status: form.status,
+    };
   }
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
@@ -116,71 +238,102 @@ export default function MerchantProductsPage() {
           method: "POST",
           body: JSON.stringify({
             store_id: storeId,
-            name,
-            description: description || null,
-            image_url: imageUrl || null,
-            original_price: originalPrice,
-            discount_price: discountPrice,
-            quantity,
-            pickup_start_time: new Date(pickupStartTime).toISOString(),
-            pickup_end_time: new Date(pickupEndTime).toISOString(),
-            status: "ACTIVE",
+            ...productPayload(createForm),
           }),
         },
         true,
       );
-      setMessage("상품이 등록되었습니다.");
-      await loadProducts();
+      setCreateForm(emptyForm);
+      setCreateImageFile(null);
+      await loadProducts("상품이 등록되었습니다.");
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
   }
 
-  async function uploadProductImage() {
+  function startEdit(product: Product) {
+    setEditingProductId(product.id);
+    setEditImageFile(null);
+    setEditForm({
+      name: product.name,
+      description: product.description || "",
+      imageUrl: product.image_url || "",
+      originalPrice: product.original_price,
+      discountPrice: product.discount_price,
+      quantity: product.quantity,
+      pickupStartTime: toDateTimeLocal(product.pickup_start_time),
+      pickupEndTime: toDateTimeLocal(product.pickup_end_time),
+      status: product.status,
+    });
+    setMessage(`${product.name} 상품을 편집합니다.`);
+    setIsError(false);
+  }
+
+  function cancelEdit() {
+    setEditingProductId(null);
+    setEditForm(emptyForm);
+    setEditImageFile(null);
+  }
+
+  async function updateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingProductId) {
+      return;
+    }
     setMessage("");
     setIsError(false);
 
-    if (!imageFile) {
-      setIsError(true);
-      setMessage("업로드할 이미지를 선택하세요.");
-      return;
-    }
-
-    if (!imageFile.type.startsWith("image/")) {
-      setIsError(true);
-      setMessage("이미지 파일만 업로드할 수 있습니다.");
-      return;
-    }
-
-    if (imageFile.size > 3 * 1024 * 1024) {
-      setIsError(true);
-      setMessage("이미지 용량은 3MB 이하만 가능합니다.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", imageFile);
-    setUploadingImage(true);
-
     try {
-      const response = await fetch("/api/upload/product-image", {
-        method: "POST",
-        body: formData,
-      });
-      const data = (await response.json()) as { url?: string; detail?: string };
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.detail || "이미지 업로드에 실패했습니다.");
-      }
-
-      setImageUrl(data.url);
-      setMessage("이미지 업로드가 완료되었습니다.");
+      await apiFetch<Product>(
+        `/api/v1/products/${editingProductId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(productPayload(editForm)),
+        },
+        true,
+      );
+      cancelEdit();
+      await loadProducts("상품 정보가 수정되었습니다.");
     } catch (error) {
       setIsError(true);
-      setMessage(error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.");
-    } finally {
-      setUploadingImage(false);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function hideProduct(product: Product) {
+    if (!window.confirm(`${product.name} 상품을 숨김 처리할까요? 고객 상품 목록에서 보이지 않게 됩니다.`)) {
+      return;
+    }
+    setMessage("");
+    setIsError(false);
+
+    try {
+      await apiFetch<Product>(`/api/v1/products/${product.id}`, { method: "DELETE" }, true);
+      await loadProducts("상품이 숨김 처리되었습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function unhideProduct(product: Product) {
+    setMessage("");
+    setIsError(false);
+
+    try {
+      await apiFetch<Product>(
+        `/api/v1/products/${product.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "ACTIVE" }),
+        },
+        true,
+      );
+      await loadProducts("상품을 다시 판매 상태로 변경했습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
     }
   }
 
@@ -188,9 +341,9 @@ export default function MerchantProductsPage() {
     <section className="section">
       <PageHeader
         title="상품 관리"
-        description="매장을 선택하고 오늘 판매할 마감 할인 상품을 등록합니다."
+        description="상품 등록, 재고 수정, 이미지 변경, 판매 상태 관리를 한 화면에서 처리합니다."
         actions={
-          <button type="button" onClick={loadProducts}>
+          <button type="button" onClick={() => loadProducts()}>
             상품 불러오기
           </button>
         }
@@ -215,121 +368,215 @@ export default function MerchantProductsPage() {
             매장 새로고침
           </button>
         </div>
-        <label>
-          상품명
-          <input value={name} onChange={(event) => setName(event.target.value)} required />
-        </label>
-        <label>
-          상품 설명
-          <textarea value={description} onChange={(event) => setDescription(event.target.value)} />
-        </label>
-        <label>
-          이미지 URL
-          <input
-            type="url"
-            value={imageUrl}
-            onChange={(event) => setImageUrl(event.target.value)}
-            placeholder="https://example.com/product.jpg"
-          />
-          <span className="field-help">직접 URL을 입력하거나 파일을 업로드할 수 있습니다.</span>
-        </label>
-        <div className="upload-box form-grid">
-          <h3>대표 이미지 업로드</h3>
-          <label>
-            이미지 파일
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-            />
-          </label>
-          <div className="actions">
-            <button type="button" className="secondary" onClick={uploadProductImage} disabled={uploadingImage}>
-              {uploadingImage ? "업로드 중" : "이미지 업로드"}
-            </button>
-          </div>
-          <ProductImage imageUrl={imageUrl} name={name || "상품"} />
-        </div>
-        <div className="two-column">
-          <label>
-            정가
-            <input
-              type="number"
-              min="1"
-              step="0.01"
-              value={originalPrice}
-              onChange={(event) => setOriginalPrice(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            할인가
-            <input
-              type="number"
-              min="1"
-              step="0.01"
-              value={discountPrice}
-              onChange={(event) => setDiscountPrice(event.target.value)}
-              required
-            />
-          </label>
-        </div>
-        <label>
-          수량
-          <input
-            type="number"
-            min={0}
-            value={quantity}
-            onChange={(event) => setQuantity(Number(event.target.value))}
-            required
-          />
-        </label>
-        <div className="two-column">
-          <label>
-            픽업 시작
-            <input
-              type="datetime-local"
-              value={pickupStartTime}
-              onChange={(event) => setPickupStartTime(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            픽업 종료
-            <input
-              type="datetime-local"
-              value={pickupEndTime}
-              onChange={(event) => setPickupEndTime(event.target.value)}
-              required
-            />
-          </label>
-        </div>
+        <ProductFields
+          form={createForm}
+          onChange={updateCreateForm}
+          imageFile={createImageFile}
+          onImageFileChange={setCreateImageFile}
+          onUploadImage={uploadCreateImage}
+          uploading={uploadingImageTarget === "create"}
+          imageAltName={createForm.name || "상품"}
+          showStatus={false}
+        />
         <button type="submit">상품 등록</button>
       </form>
 
       <div className="list">
         {products.length === 0 && !isError && (
-          <EmptyState title="상품이 없습니다." description="매장을 선택한 뒤 첫 마감 할인 상품을 등록하세요." />
+          <EmptyState
+            title="등록된 상품이 없습니다. 오늘 판매할 마감 할인 상품을 등록해 보세요."
+            description="상품을 등록하면 고객 상품 목록과 가맹점 관리 화면에 표시됩니다."
+          />
         )}
-        {products.map((product) => (
-          <article className="item" key={product.id}>
-            <ProductImage imageUrl={product.image_url} name={product.name} />
-            <div className="card-title-row">
-              <h3>{product.name}</h3>
-              <StatusBadge status={product.status} />
-            </div>
-            <div className="price-row">
-              <span className="original-price">{formatMoney(product.original_price)}</span>
-              <span className="discount-price">{formatMoney(product.discount_price)}</span>
-            </div>
-            <div className="meta">
-              <span>ID {product.id}</span>
-              <span>Store {product.store_id}</span>
-              <span>수량 {product.quantity}</span>
-            </div>
-          </article>
-        ))}
+        {products.map((product) => {
+          const store = storeById[product.store_id];
+          const isEditing = editingProductId === product.id;
+
+          return (
+            <article className="item product-management-card" key={product.id}>
+              <ProductImage imageUrl={product.image_url} name={product.name} />
+              <div className="card-title-row">
+                <div>
+                  <h3>{product.name}</h3>
+                  <p>{store?.name || "매장 정보 없음"}</p>
+                </div>
+                <StatusBadge status={product.status} />
+              </div>
+              <div className="price-row">
+                <span className="original-price">{formatMoney(product.original_price)}</span>
+                <span className="discount-price">{formatMoney(product.discount_price)}</span>
+              </div>
+              <div className="meta">
+                <span>
+                  재고 <strong>{product.quantity}</strong>
+                </span>
+                <span>픽업 {formatDateTime(product.pickup_start_time)}</span>
+                <span>- {formatDateTime(product.pickup_end_time)}</span>
+              </div>
+              <div className="actions">
+                <button type="button" className="secondary" onClick={() => startEdit(product)}>
+                  편집
+                </button>
+                {product.status === "HIDDEN" ? (
+                  <button type="button" onClick={() => unhideProduct(product)}>
+                    다시 판매
+                  </button>
+                ) : (
+                  <button type="button" className="danger" onClick={() => hideProduct(product)}>
+                    숨김 처리
+                  </button>
+                )}
+              </div>
+
+              {isEditing && (
+                <form className="edit-product-form form-grid" onSubmit={updateProduct}>
+                  <h3>상품 수정</h3>
+                  <ProductFields
+                    form={editForm}
+                    onChange={updateEditForm}
+                    imageFile={editImageFile}
+                    onImageFileChange={setEditImageFile}
+                    onUploadImage={uploadEditImage}
+                    uploading={uploadingImageTarget === "edit"}
+                    imageAltName={editForm.name || product.name}
+                    showStatus
+                  />
+                  <div className="actions">
+                    <button type="submit">수정 저장</button>
+                    <button type="button" className="secondary" onClick={cancelEdit}>
+                      취소
+                    </button>
+                  </div>
+                </form>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function ProductFields({
+  form,
+  onChange,
+  imageFile,
+  onImageFileChange,
+  onUploadImage,
+  uploading,
+  imageAltName,
+  showStatus,
+}: {
+  form: ProductFormState;
+  onChange: (patch: Partial<ProductFormState>) => void;
+  imageFile: File | null;
+  onImageFileChange: (file: File | null) => void;
+  onUploadImage: () => void;
+  uploading: boolean;
+  imageAltName: string;
+  showStatus: boolean;
+}) {
+  return (
+    <>
+      <label>
+        상품명
+        <input value={form.name} onChange={(event) => onChange({ name: event.target.value })} required />
+      </label>
+      <label>
+        상품 설명
+        <textarea value={form.description} onChange={(event) => onChange({ description: event.target.value })} />
+      </label>
+      <label>
+        이미지 URL
+        <input
+          type="url"
+          value={form.imageUrl}
+          onChange={(event) => onChange({ imageUrl: event.target.value })}
+          placeholder="https://example.com/product.jpg"
+        />
+        <span className="field-help">직접 URL을 입력하거나 파일을 업로드할 수 있습니다.</span>
+      </label>
+      <div className="upload-box form-grid">
+        <h3>대표 이미지 업로드</h3>
+        <label>
+          이미지 파일
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) => onImageFileChange(event.target.files?.[0] || null)}
+          />
+        </label>
+        <div className="actions">
+          <button type="button" className="secondary" onClick={onUploadImage} disabled={uploading || !imageFile}>
+            {uploading ? "업로드 중" : "이미지 업로드"}
+          </button>
+        </div>
+        <ProductImage imageUrl={form.imageUrl} name={imageAltName} />
+      </div>
+      <div className="two-column">
+        <label>
+          정가
+          <input
+            type="number"
+            min="1"
+            step="0.01"
+            value={form.originalPrice}
+            onChange={(event) => onChange({ originalPrice: event.target.value })}
+            required
+          />
+        </label>
+        <label>
+          할인가
+          <input
+            type="number"
+            min="1"
+            step="0.01"
+            value={form.discountPrice}
+            onChange={(event) => onChange({ discountPrice: event.target.value })}
+            required
+          />
+        </label>
+      </div>
+      <label>
+        수량
+        <input
+          type="number"
+          min={0}
+          value={form.quantity}
+          onChange={(event) => onChange({ quantity: Number(event.target.value) })}
+          required
+        />
+      </label>
+      <div className="two-column">
+        <label>
+          픽업 시작
+          <input
+            type="datetime-local"
+            value={form.pickupStartTime}
+            onChange={(event) => onChange({ pickupStartTime: event.target.value })}
+            required
+          />
+        </label>
+        <label>
+          픽업 종료
+          <input
+            type="datetime-local"
+            value={form.pickupEndTime}
+            onChange={(event) => onChange({ pickupEndTime: event.target.value })}
+            required
+          />
+        </label>
+      </div>
+      {showStatus && (
+        <label>
+          상태
+          <select value={form.status} onChange={(event) => onChange({ status: event.target.value })}>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="SOLD_OUT">SOLD_OUT</option>
+            <option value="HIDDEN">HIDDEN</option>
+          </select>
+        </label>
+      )}
+    </>
   );
 }

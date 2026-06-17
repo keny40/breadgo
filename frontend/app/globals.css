@@ -401,6 +401,16 @@ code {
   margin: 0;
 }
 
+.product-management-card {
+  align-content: start;
+}
+
+.edit-product-form {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 16px;
+}
+
 .table-product-image {
   width: 72px;
   height: 54px;
