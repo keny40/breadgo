@@ -176,6 +176,14 @@ code {
   white-space: nowrap;
 }
 
+.nav-user-email {
+  max-width: 230px;
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  text-overflow: ellipsis;
+}
+
 .nav-button {
   min-height: 34px;
   padding: 0 11px;
@@ -869,6 +877,10 @@ tr:last-child td {
   .nav-session {
     grid-column: 1 / -1;
     justify-content: flex-start;
+  }
+
+  .nav-user-email {
+    max-width: min(100%, 260px);
   }
 
   .page-header {

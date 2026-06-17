@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { clearToken, getToken } from "@/lib/api";
+import { apiFetch, clearToken, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
+import type { AuthUser } from "@/lib/types";
 
 export default function NavBar() {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
@@ -22,7 +24,21 @@ export default function NavBar() {
 
   useEffect(() => {
     function syncAuth() {
-      setLoggedIn(Boolean(getToken()));
+      const token = getToken();
+      const storedUser = getStoredUser();
+      setLoggedIn(Boolean(token));
+      setUserEmail(storedUser?.email || null);
+
+      if (token && !storedUser?.email) {
+        void apiFetch<AuthUser>("/api/v1/auth/me", {}, true)
+          .then((user) => {
+            saveStoredUser(user);
+            setUserEmail(user.email || null);
+          })
+          .catch(() => {
+            setUserEmail(null);
+          });
+      }
     }
 
     syncAuth();
@@ -37,6 +53,7 @@ export default function NavBar() {
   function logout() {
     clearToken();
     setLoggedIn(false);
+    setUserEmail(null);
     setMenuOpen(false);
   }
 
@@ -69,7 +86,9 @@ export default function NavBar() {
       <div className="nav-session">
         {loggedIn ? (
           <>
-            <span>로그인됨</span>
+            <span className="nav-user-email" title={userEmail || "로그인됨"}>
+              {userEmail || "로그인됨"}
+            </span>
             <button type="button" className="secondary nav-button" onClick={logout}>
               로그아웃
             </button>

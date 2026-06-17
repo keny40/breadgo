@@ -6,6 +6,12 @@ export type ApiError = {
   detail?: string;
 };
 
+export type StoredUser = {
+  email?: string | null;
+  full_name?: string | null;
+  role?: string | null;
+};
+
 export function buildApiUrl(path: string): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return `${API_BASE_URL}${normalizedPath}`;
@@ -27,8 +33,32 @@ export function saveToken(token: string): void {
   window.dispatchEvent(new Event("breadgo-auth-changed"));
 }
 
+export function saveStoredUser(user: StoredUser): void {
+  window.localStorage.setItem("breadgo_user", JSON.stringify(user));
+  window.dispatchEvent(new Event("breadgo-auth-changed"));
+}
+
+export function getStoredUser(): StoredUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawUser = window.localStorage.getItem("breadgo_user");
+  if (!rawUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawUser) as StoredUser;
+  } catch {
+    window.localStorage.removeItem("breadgo_user");
+    return null;
+  }
+}
+
 export function clearToken(): void {
   window.localStorage.removeItem("access_token");
+  window.localStorage.removeItem("breadgo_user");
   window.dispatchEvent(new Event("breadgo-auth-changed"));
 }
 

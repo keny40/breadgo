@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, friendlyErrorMessage, routeForRole, saveToken } from "@/lib/api";
+import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
 import type { AuthResponse } from "@/lib/types";
 
 export default function RegisterPage() {
@@ -31,6 +31,7 @@ export default function RegisterPage() {
         }),
       });
       saveToken(data.access_token);
+      saveStoredUser(data.user);
       setMessage(`${data.user.full_name}님, 회원가입이 완료되었습니다. 이동합니다.`);
       router.replace(routeForRole(data.user.role));
     } catch (error) {
