@@ -55,6 +55,7 @@ export type RegionProduct = Product & {
   sido: string | null;
   sigungu: string | null;
   dong: string | null;
+  distance_km?: number | null;
 };
 
 export type Product = {

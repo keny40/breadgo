@@ -33,6 +33,8 @@ export default function ProductsPage() {
   const [sido, setSido] = useState("서울특별시");
   const [sigungu, setSigungu] = useState("강남구");
   const [dong, setDong] = useState("역삼동");
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [discoveryMode, setDiscoveryMode] = useState<"region" | "nearby">("region");
   const [products, setProducts] = useState<RegionProduct[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [pickupCode, setPickupCode] = useState("");
@@ -40,6 +42,7 @@ export default function ProductsPage() {
   const [paymentMethod, setPaymentMethod] = useState("MOCK_CARD");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +93,7 @@ export default function ProductsPage() {
     setIsError(false);
     setPickupCode("");
     setLatestReservation(null);
+    setDiscoveryMode("region");
 
     try {
       const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products?${buildRegionQuery()}`);
@@ -102,6 +106,62 @@ export default function ProductsPage() {
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  function getBrowserPosition(): Promise<GeolocationPosition> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("이 브라우저에서는 위치 기능을 사용할 수 없습니다."));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      });
+    });
+  }
+
+  async function loadNearbyProducts(lat: number, lng: number, announce = true) {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+    });
+    const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products/nearby?${params.toString()}`);
+    setProducts(data);
+    setDiscoveryMode("nearby");
+    setUserLocation({ lat, lng });
+    if (announce) {
+      setMessage(
+        data.length > 0
+          ? `내 위치 기준 가까운 상품 ${data.length}개를 불러왔습니다.`
+          : "내 위치 주변에 판매 중인 상품이 없습니다.",
+      );
+    }
+  }
+
+  async function findProductsNearMe() {
+    setMessage("");
+    setIsError(false);
+    setPickupCode("");
+    setLatestReservation(null);
+    setLocating(true);
+
+    try {
+      const position = await getBrowserPosition();
+      await loadNearbyProducts(position.coords.latitude, position.coords.longitude);
+    } catch (error) {
+      setIsError(true);
+      const isGeolocationError =
+        typeof error === "object" && error !== null && "code" in error && "message" in error;
+      const message = isGeolocationError
+        ? "위치 권한을 허용해야 내 위치로 상품을 찾을 수 있습니다."
+        : friendlyErrorMessage(error);
+      setMessage(message);
+    } finally {
+      setLocating(false);
     }
   }
 
@@ -123,8 +183,12 @@ export default function ProductsPage() {
       setPickupCode(reservation.pickup_code);
       setLatestReservation(reservation);
       setMessage("예약이 완료되었습니다.");
-      const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products?${buildRegionQuery()}`);
-      setProducts(data);
+      if (discoveryMode === "nearby" && userLocation) {
+        await loadNearbyProducts(userLocation.lat, userLocation.lng, false);
+      } else {
+        const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products?${buildRegionQuery()}`);
+        setProducts(data);
+      }
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -174,6 +238,7 @@ export default function ProductsPage() {
     setDong(region.dong);
     setMessage(`${region.label} 지역이 선택되었습니다.`);
     setIsError(false);
+    setDiscoveryMode("region");
   }
 
   const productsByStore = products.reduce<Record<string, RegionProduct[]>>((groups, product) => {
@@ -218,7 +283,12 @@ export default function ProductsPage() {
             </button>
           ))}
         </div>
-        <button type="submit">지역 상품 찾기</button>
+        <div className="actions">
+          <button type="submit">지역 상품 찾기</button>
+          <button type="button" className="secondary" onClick={findProductsNearMe} disabled={locating}>
+            {locating ? "위치 확인 중" : "내 위치로 찾기"}
+          </button>
+        </div>
       </form>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
@@ -232,7 +302,12 @@ export default function ProductsPage() {
             <div className="section">
               <div className="card-title-row">
                 <h2>{storeProducts[0].store_name}</h2>
-                <Badge tone="success">{storeProducts.length}개 상품</Badge>
+                <div className="actions">
+                  {storeProducts[0].distance_km != null && (
+                    <Badge tone="warning">{storeProducts[0].distance_km.toFixed(2)}km</Badge>
+                  )}
+                  <Badge tone="success">{storeProducts.length}개 상품</Badge>
+                </div>
               </div>
               <div className="meta">
                 <span>
@@ -263,6 +338,11 @@ export default function ProductsPage() {
                     <span>
                       매장 <strong>{product.store_name}</strong>
                     </span>
+                    {product.distance_km != null && (
+                      <span>
+                        거리 <strong>{product.distance_km.toFixed(2)}km</strong>
+                      </span>
+                    )}
                   </div>
                   <div className="meta">
                     <span>픽업 {new Date(product.pickup_start_time).toLocaleString()}</span>

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.region import RegionProductRead
 from app.schemas.store import StoreRead
-from app.services.region_service import get_region_products, get_region_stores
+from app.services.region_service import get_nearby_region_products, get_region_products, get_region_stores
 
 
 router = APIRouter()
@@ -48,4 +48,34 @@ def list_region_products(
             status=product.status,
         )
         for product in products
+    ]
+
+
+@router.get("/products/nearby", response_model=list[RegionProductRead])
+def list_nearby_region_products(
+    lat: float = Query(ge=-90, le=90),
+    lng: float = Query(ge=-180, le=180),
+    db: Session = Depends(get_db),
+) -> list[RegionProductRead]:
+    products = get_nearby_region_products(db, latitude=lat, longitude=lng)
+    return [
+        RegionProductRead(
+            id=product.id,
+            store_id=product.store_id,
+            store_name=product.store.name,
+            store_address=product.store.address,
+            sido=product.store.sido,
+            sigungu=product.store.sigungu,
+            dong=product.store.dong,
+            distance_km=round(distance_km, 2),
+            name=product.name,
+            description=product.description,
+            original_price=product.original_price,
+            discount_price=product.discount_price,
+            quantity=product.quantity,
+            pickup_start_time=product.pickup_start_time,
+            pickup_end_time=product.pickup_end_time,
+            status=product.status,
+        )
+        for product, distance_km in products
     ]

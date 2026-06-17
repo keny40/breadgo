@@ -15,6 +15,7 @@ class RegionProductRead(BaseModel):
     sido: str | None
     sigungu: str | None
     dong: str | None
+    distance_km: float | None = None
     name: str
     description: str | None
     original_price: Decimal
