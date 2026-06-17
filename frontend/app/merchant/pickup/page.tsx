@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { PageHeader, StatusBadge } from "@/components/UI";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import type { PickupConfirmResponse, Reservation } from "@/lib/types";
 
@@ -9,16 +9,40 @@ function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
 }
 
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function pickupErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const lower = message.toLowerCase();
+
+  if (lower.includes("pickup code") || lower.includes("not found")) {
+    return "픽업 코드를 찾을 수 없습니다.";
+  }
+  if (lower.includes("current status")) {
+    return "취소/만료/픽업 완료된 예약은 픽업 확정할 수 없습니다.";
+  }
+  return friendlyErrorMessage(error);
+}
+
+function isPickupBlocked(status: string) {
+  return ["PICKED_UP", "CANCELLED", "EXPIRED"].includes(status);
+}
+
 export default function MerchantPickupPage() {
   const [pickupCode, setPickupCode] = useState("");
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  async function findReservation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function findReservation(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
     setMessage("");
     setIsError(false);
+    setLoading(true);
 
     try {
       const data = await apiFetch<Reservation>(
@@ -31,7 +55,9 @@ export default function MerchantPickupPage() {
     } catch (error) {
       setReservation(null);
       setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      setMessage(pickupErrorMessage(error));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -45,6 +71,19 @@ export default function MerchantPickupPage() {
       return;
     }
 
+    if (reservation.status === "PICKED_UP") {
+      setIsError(true);
+      setMessage("이미 픽업 완료된 예약입니다.");
+      return;
+    }
+
+    if (["CANCELLED", "EXPIRED"].includes(reservation.status)) {
+      setIsError(true);
+      setMessage("취소/만료된 예약은 픽업 확정할 수 없습니다.");
+      return;
+    }
+
+    setConfirming(true);
     try {
       const data = await apiFetch<PickupConfirmResponse>(
         "/api/v1/reservations/pickup/confirm",
@@ -55,10 +94,12 @@ export default function MerchantPickupPage() {
         true,
       );
       setReservation(data.reservation);
-      setMessage(`픽업 확정 완료. 상태: ${data.reservation.status}`);
+      setMessage("픽업 확정이 완료되었습니다.");
     } catch (error) {
       setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      setMessage(pickupErrorMessage(error));
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -66,51 +107,99 @@ export default function MerchantPickupPage() {
     <section className="section">
       <PageHeader
         title="픽업 확인"
-        description="고객이 제시한 6자리 픽업코드를 조회한 뒤 픽업을 확정합니다."
+        description="고객이 제시한 6자리 픽업 코드를 조회하고 예약 상태를 확인한 뒤 픽업을 확정합니다."
       />
-      <form className="panel form-grid" onSubmit={findReservation}>
+
+      <form className="panel form-grid pickup-search-panel" onSubmit={findReservation}>
         <label>
-          픽업코드
+          픽업 코드
           <input
             value={pickupCode}
             onChange={(event) => setPickupCode(event.target.value)}
             minLength={6}
             maxLength={6}
+            placeholder="예) 363790"
+            inputMode="numeric"
             required
           />
         </label>
-        <div className="actions">
-          <button type="submit">예약 조회</button>
-          <button type="button" className="secondary" onClick={confirmPickup}>
-            픽업 확정
-          </button>
-        </div>
+        <button type="submit" disabled={loading}>
+          {loading ? "조회 중" : "예약 조회"}
+        </button>
       </form>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
+      {!reservation && !isError && (
+        <EmptyState
+          title="조회된 예약이 없습니다."
+          description="고객의 픽업 코드를 입력한 뒤 예약 조회를 눌러주세요."
+        />
+      )}
+
       {reservation && (
-        <article className="item">
+        <article className="item pickup-detail-card">
           <div className="card-title-row">
             <div>
-              <p className="eyebrow">조회된 픽업코드</p>
+              <p className="eyebrow">픽업 코드</p>
               <p className="pickup-code">{reservation.pickup_code}</p>
             </div>
             <StatusBadge status={reservation.status} />
           </div>
-          <div className="meta">
-            <span>예약 {reservation.id}</span>
-            <span>상품 {reservation.product_id}</span>
-            <span>매장 {reservation.store_id}</span>
-            <span>수량 {reservation.quantity}</span>
-            <span>총액 {formatMoney(reservation.total_price)}</span>
+
+          <div className="summary-grid">
+            <PickupInfo label="상품" value={reservation.product_name || "상품 정보 없음"} />
+            <PickupInfo label="매장" value={reservation.store_name || "매장 정보 없음"} />
+            <PickupInfo
+              label="고객"
+              value={reservation.customer_name || reservation.customer_email || "고객 정보 없음"}
+              helper={reservation.customer_email || undefined}
+            />
+            <PickupInfo label="수량" value={`${reservation.quantity}개`} />
+            <PickupInfo label="결제 금액" value={formatMoney(reservation.total_price)} />
+            <PickupInfo
+              label="결제 상태"
+              value={reservation.payment_status || "결제 정보 없음"}
+              badge={reservation.payment_status || undefined}
+            />
+            <PickupInfo label="픽업 마감" value={formatDateTime(reservation.pickup_deadline)} />
+            <PickupInfo label="예약 생성" value={formatDateTime(reservation.created_at)} />
           </div>
-          <div className="meta">
-            <span>예약 시간 {new Date(reservation.reserved_at).toLocaleString()}</span>
-            <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>
+
+          <div className="actions">
+            <button
+              type="button"
+              onClick={confirmPickup}
+              disabled={confirming || isPickupBlocked(reservation.status)}
+            >
+              {confirming ? "확정 중" : "픽업 확정"}
+            </button>
+            {isPickupBlocked(reservation.status) && (
+              <span className="field-help">현재 상태에서는 픽업 확정을 진행할 수 없습니다.</span>
+            )}
           </div>
         </article>
       )}
     </section>
+  );
+}
+
+function PickupInfo({
+  label,
+  value,
+  helper,
+  badge,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  badge?: string;
+}) {
+  return (
+    <div className="summary-card">
+      <span>{label}</span>
+      {badge ? <StatusBadge status={badge} /> : <strong>{value}</strong>}
+      {helper && <small>{helper}</small>}
+    </div>
   );
 }

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
 from app.db.session import get_db
+from app.models.reservation import Reservation
 from app.models.user import User
 from app.schemas.reservation import (
     PickupConfirmRequest,
@@ -29,6 +30,17 @@ router = APIRouter()
 store_router = APIRouter()
 
 
+def reservation_to_read(reservation: Reservation) -> ReservationRead:
+    payload = ReservationRead.model_validate(reservation)
+    payload.product_name = reservation.product.name if reservation.product else None
+    payload.store_name = reservation.store.name if reservation.store else None
+    payload.customer_email = reservation.user.email if reservation.user else None
+    payload.customer_name = reservation.user.full_name if reservation.user else None
+    if reservation.payment:
+        payload.payment_status = reservation.payment.status.value
+    return payload
+
+
 @router.post("", response_model=ReservationRead, status_code=status.HTTP_201_CREATED)
 def create_current_user_reservation(
     payload: ReservationCreate,
@@ -36,7 +48,7 @@ def create_current_user_reservation(
     db: Session = Depends(get_db),
 ) -> ReservationRead:
     reservation = create_reservation(db, current_user, payload)
-    return ReservationRead.model_validate(reservation)
+    return reservation_to_read(reservation)
 
 
 @router.get("/me", response_model=list[ReservationRead])
@@ -44,7 +56,7 @@ def get_current_user_reservations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[ReservationRead]:
-    return [ReservationRead.model_validate(item) for item in get_my_reservations(db, current_user)]
+    return [reservation_to_read(item) for item in get_my_reservations(db, current_user)]
 
 
 @router.get("/pickup/{pickup_code}", response_model=ReservationRead)
@@ -55,7 +67,7 @@ def get_pickup_reservation(
 ) -> ReservationRead:
     merchant = require_merchant_for_user(db, current_user)
     reservation = get_reservation_by_pickup_code_for_merchant(db, merchant, pickup_code)
-    return ReservationRead.model_validate(reservation)
+    return reservation_to_read(reservation)
 
 
 @router.post("/pickup/confirm", response_model=PickupConfirmResponse)
@@ -66,7 +78,7 @@ def confirm_pickup(
 ) -> PickupConfirmResponse:
     merchant = require_merchant_for_user(db, current_user)
     reservation = confirm_pickup_by_code(db, merchant, payload)
-    return PickupConfirmResponse(reservation=ReservationRead.model_validate(reservation))
+    return PickupConfirmResponse(reservation=reservation_to_read(reservation))
 
 
 @router.patch("/{reservation_id}/cancel", response_model=ReservationRead)
@@ -76,7 +88,7 @@ def cancel_current_user_reservation(
     db: Session = Depends(get_db),
 ) -> ReservationRead:
     reservation = cancel_reservation(db, current_user, reservation_id)
-    return ReservationRead.model_validate(reservation)
+    return reservation_to_read(reservation)
 
 
 @router.patch("/{reservation_id}/status", response_model=ReservationRead)
@@ -88,7 +100,7 @@ def update_current_merchant_reservation_status(
 ) -> ReservationRead:
     merchant = require_merchant_for_user(db, current_user)
     reservation = update_reservation_status(db, merchant, reservation_id, payload)
-    return ReservationRead.model_validate(reservation)
+    return reservation_to_read(reservation)
 
 
 @store_router.get("/{store_id}/reservations", response_model=list[ReservationRead])
@@ -99,4 +111,4 @@ def get_current_merchant_store_reservations(
 ) -> list[ReservationRead]:
     merchant = require_merchant_for_user(db, current_user)
     reservations = get_store_reservations_for_merchant(db, merchant, store_id)
-    return [ReservationRead.model_validate(item) for item in reservations]
+    return [reservation_to_read(item) for item in reservations]

@@ -25,6 +25,11 @@ class ReservationRead(BaseModel):
     pickup_deadline: datetime
     created_at: datetime
     updated_at: datetime
+    product_name: str | None = None
+    store_name: str | None = None
+    customer_email: str | None = None
+    customer_name: str | None = None
+    payment_status: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

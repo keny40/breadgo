@@ -3,7 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import { PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
-import type { Merchant, MerchantMeResponse } from "@/lib/types";
+import type { Merchant, MerchantMeResponse, Reservation, Store } from "@/lib/types";
+
+type ReservationSummary = {
+  todayConfirmed: number;
+  pickedUp: number;
+  cancelled: number;
+};
 
 export default function MerchantPage() {
   const [merchant, setMerchant] = useState<Merchant | null>(null);
@@ -11,11 +17,13 @@ export default function MerchantPage() {
   const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
   const [representativeName, setRepresentativeName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [summary, setSummary] = useState<ReservationSummary | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     void loadMerchant();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadMerchant() {
@@ -25,12 +33,32 @@ export default function MerchantPage() {
     try {
       const data = await apiFetch<MerchantMeResponse>("/api/v1/merchants/me", {}, true);
       setMerchant(data.merchant);
+      await loadReservationSummary();
       setMessage("가맹점 정보를 불러왔습니다.");
     } catch (error) {
       setMerchant(null);
+      setSummary(null);
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
+  }
+
+  async function loadReservationSummary() {
+    const stores = await apiFetch<Store[]>("/api/v1/stores/me", {}, true);
+    const reservationGroups = await Promise.all(
+      stores.map((store) => apiFetch<Reservation[]>(`/api/v1/stores/${store.id}/reservations`, {}, true)),
+    );
+    const reservations = reservationGroups.flat();
+    const todayKey = new Date().toDateString();
+
+    setSummary({
+      todayConfirmed: reservations.filter(
+        (reservation) =>
+          reservation.status === "CONFIRMED" && new Date(reservation.created_at).toDateString() === todayKey,
+      ).length,
+      pickedUp: reservations.filter((reservation) => reservation.status === "PICKED_UP").length,
+      cancelled: reservations.filter((reservation) => reservation.status === "CANCELLED").length,
+    });
   }
 
   async function registerMerchant(event: FormEvent<HTMLFormElement>) {
@@ -74,17 +102,35 @@ export default function MerchantPage() {
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {merchant ? (
-        <article className="item">
-          <div className="card-title-row">
-            <h3>{merchant.business_name}</h3>
-            <StatusBadge status={merchant.status} />
-          </div>
-          <div className="meta">
-            <span>사업자번호 {merchant.business_registration_number}</span>
-            <span>대표자 {merchant.representative_name}</span>
-            <span>전화 {merchant.phone_number}</span>
-          </div>
-        </article>
+        <>
+          <article className="item">
+            <div className="card-title-row">
+              <h3>{merchant.business_name}</h3>
+              <StatusBadge status={merchant.status} />
+            </div>
+            <div className="meta">
+              <span>사업자번호 {merchant.business_registration_number}</span>
+              <span>대표자 {merchant.representative_name}</span>
+              <span>전화 {merchant.phone_number}</span>
+            </div>
+          </article>
+          {summary && (
+            <div className="summary-grid">
+              <div className="summary-card">
+                <span>오늘 확정 예약</span>
+                <strong>{summary.todayConfirmed}</strong>
+              </div>
+              <div className="summary-card">
+                <span>픽업 완료</span>
+                <strong>{summary.pickedUp}</strong>
+              </div>
+              <div className="summary-card">
+                <span>취소 예약</span>
+                <strong>{summary.cancelled}</strong>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <form className="panel form-grid" onSubmit={registerMerchant}>
           <h2>가맹점 등록</h2>

@@ -87,6 +87,11 @@ export type Reservation = {
   pickup_deadline: string;
   created_at: string;
   updated_at: string;
+  product_name: string | null;
+  store_name: string | null;
+  customer_email: string | null;
+  customer_name: string | null;
+  payment_status: string | null;
 };
 
 export type PickupConfirmResponse = {

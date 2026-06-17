@@ -411,6 +411,15 @@ code {
   padding-top: 16px;
 }
 
+.pickup-search-panel {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.pickup-detail-card {
+  gap: 18px;
+}
+
 .table-product-image {
   width: 72px;
   height: 54px;
@@ -841,6 +850,7 @@ tr:last-child td {
 
   .two-column,
   .three-column,
+  .pickup-search-panel,
   .select-row {
     grid-template-columns: 1fr;
   }
