@@ -19,6 +19,7 @@ from app.schemas.reservation import (
     ReservationCreate,
     ReservationStatusUpdate,
 )
+from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
     mark_settlement_ready_for_reservation,
@@ -173,6 +174,16 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
         pickup_deadline=product.pickup_end_time,
     )
     db.add(reservation)
+    db.flush()
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="RESERVATION_CREATED",
+        actor=user,
+        from_status=None,
+        to_status=reservation.status,
+        message="예약 생성",
+    )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -262,6 +273,8 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
     if product is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
 
+    previous_reservation_status = reservation.status
+    previous_payment_status = payment.status
     _restore_product_quantity(product, reservation.quantity)
     reservation.status = ReservationStatus.CANCELLED
     if reservation.fulfillment_method != FulfillmentMethod.PICKUP:
@@ -269,6 +282,24 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
     payment.status = PaymentStatus.REFUNDED
     payment.cancelled_at = datetime.now(timezone.utc)
     mark_settlement_cancelled_for_reservation(db, reservation)
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="RESERVATION_CANCELLED",
+        actor=user,
+        from_status=previous_reservation_status,
+        to_status=reservation.status,
+        message="예약 취소",
+    )
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="MOCK_REFUND_PROCESSED",
+        actor=user,
+        from_status=previous_payment_status,
+        to_status=payment.status,
+        message="Mock 환불 처리",
+    )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -288,11 +319,21 @@ def update_reservation_status(
             detail="Cancelled reservations cannot be reopened.",
         )
 
+    previous_status = reservation.status
     reservation.status = payload.status
     if reservation.status == ReservationStatus.PICKED_UP:
         mark_settlement_ready_for_reservation(db, reservation)
     elif reservation.status == ReservationStatus.CANCELLED:
         mark_settlement_cancelled_for_reservation(db, reservation)
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="PICKUP_CONFIRMED" if reservation.status == ReservationStatus.PICKED_UP else "RESERVATION_STATUS_CHANGED",
+        actor=merchant.user,
+        from_status=previous_status,
+        to_status=reservation.status,
+        message="픽업 완료" if reservation.status == ReservationStatus.PICKED_UP else "예약 상태 변경",
+    )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -305,24 +346,26 @@ def update_delivery_status_for_merchant(
     payload: DeliveryStatusUpdate,
 ) -> Reservation:
     reservation = _get_reservation_for_merchant(db, merchant, reservation_id)
-    return _update_delivery_status(db, reservation, payload)
+    return _update_delivery_status(db, reservation, payload, actor=merchant.user)
 
 
 def update_delivery_status_for_admin(
     db: Session,
     reservation_id: UUID,
     payload: DeliveryStatusUpdate,
+    actor: User,
 ) -> Reservation:
     reservation = db.scalar(select(Reservation).where(Reservation.id == reservation_id))
     if reservation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found.")
-    return _update_delivery_status(db, reservation, payload)
+    return _update_delivery_status(db, reservation, payload, actor=actor)
 
 
 def _update_delivery_status(
     db: Session,
     reservation: Reservation,
     payload: DeliveryStatusUpdate,
+    actor: User | None = None,
 ) -> Reservation:
     if reservation.fulfillment_method == FulfillmentMethod.PICKUP:
         raise HTTPException(
@@ -330,7 +373,17 @@ def _update_delivery_status(
             detail="Pickup reservations do not require delivery status.",
         )
 
+    previous_status = reservation.delivery_status
     reservation.delivery_status = payload.delivery_status
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="DELIVERY_STATUS_CHANGED",
+        actor=actor,
+        from_status=previous_status,
+        to_status=reservation.delivery_status,
+        message="배송 상태 변경",
+    )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -353,8 +406,18 @@ def confirm_pickup_by_code(
             detail="Reservation cannot be picked up in its current status.",
         )
 
+    previous_status = reservation.status
     reservation.status = ReservationStatus.PICKED_UP
     mark_settlement_ready_for_reservation(db, reservation)
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="PICKUP_CONFIRMED",
+        actor=merchant.user,
+        from_status=previous_status,
+        to_status=reservation.status,
+        message="픽업 완료",
+    )
     db.commit()
     db.refresh(reservation)
     return reservation

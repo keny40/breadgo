@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.db.session import get_db
 from app.models.reservation import Reservation
+from app.models.reservation_history import ReservationHistory
+from app.schemas.reservation_history import ReservationHistoryRead
 from app.models.user import User
 from app.schemas.reservation import (
     PickupConfirmRequest,
@@ -27,10 +29,15 @@ from app.services.reservation_service import (
     update_reservation_status,
     update_delivery_status_for_merchant,
 )
+from app.services.reservation_history_service import (
+    get_history_for_customer,
+    get_history_for_merchant,
+)
 
 
 router = APIRouter()
 store_router = APIRouter()
+merchant_router = APIRouter()
 
 
 def reservation_to_read(reservation: Reservation) -> ReservationRead:
@@ -41,6 +48,12 @@ def reservation_to_read(reservation: Reservation) -> ReservationRead:
     payload.customer_name = reservation.user.full_name if reservation.user else None
     if reservation.payment:
         payload.payment_status = reservation.payment.status.value
+    return payload
+
+
+def reservation_history_to_read(event: ReservationHistory) -> ReservationHistoryRead:
+    payload = ReservationHistoryRead.model_validate(event)
+    payload.actor_email = event.actor.email if event.actor else None
     return payload
 
 
@@ -60,6 +73,16 @@ def get_current_user_reservations(
     db: Session = Depends(get_db),
 ) -> list[ReservationRead]:
     return [reservation_to_read(item) for item in get_my_reservations(db, current_user)]
+
+
+@router.get("/{reservation_id}/history", response_model=list[ReservationHistoryRead])
+def get_current_user_reservation_history(
+    reservation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReservationHistoryRead]:
+    events = get_history_for_customer(db, current_user, reservation_id)
+    return [reservation_history_to_read(event) for event in events]
 
 
 @router.get("/merchant", response_model=list[ReservationRead])
@@ -146,3 +169,14 @@ def get_current_merchant_store_reservations(
     merchant = require_merchant_for_user(db, current_user)
     reservations = get_store_reservations_for_merchant(db, merchant, store_id)
     return [reservation_to_read(item) for item in reservations]
+
+
+@merchant_router.get("/{reservation_id}/history", response_model=list[ReservationHistoryRead])
+def get_current_merchant_reservation_history(
+    reservation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReservationHistoryRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    events = get_history_for_merchant(db, merchant, reservation_id)
+    return [reservation_history_to_read(event) for event in events]

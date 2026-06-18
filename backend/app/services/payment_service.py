@@ -10,6 +10,7 @@ from app.models.product import Product, ProductStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.user import User
 from app.schemas.payment import PaymentCancelRequest, PaymentConfirmRequest, PaymentFailRequest, PaymentReadyRequest
+from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import sync_settlement_for_payment
 
 
@@ -75,9 +76,19 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
             detail="Only READY payments can be confirmed.",
         )
 
+    previous_status = payment.status
     payment.status = PaymentStatus.PAID
     payment.paid_at = datetime.now(timezone.utc)
     sync_settlement_for_payment(db, payment)
+    record_reservation_history(
+        db,
+        reservation_id=payment.reservation_id,
+        event_type="PAYMENT_COMPLETED",
+        actor=user,
+        from_status=previous_status,
+        to_status=payment.status,
+        message="결제 완료",
+    )
     db.commit()
     db.refresh(payment)
     return payment
@@ -120,6 +131,9 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
             detail="Payment is already cancelled.",
         )
 
+    previous_reservation_status = reservation.status
+    previous_payment_status = payment.status
+
     if reservation.status != ReservationStatus.CANCELLED:
         product = db.scalar(
             select(Product)
@@ -133,10 +147,28 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
         if product.quantity > 0 and product.status == ProductStatus.SOLD_OUT:
             product.status = ProductStatus.ACTIVE
         reservation.status = ReservationStatus.CANCELLED
+        record_reservation_history(
+            db,
+            reservation_id=reservation.id,
+            event_type="RESERVATION_CANCELLED",
+            actor=user,
+            from_status=previous_reservation_status,
+            to_status=reservation.status,
+            message="예약 취소",
+        )
 
     payment.status = PaymentStatus.CANCELLED
     payment.cancelled_at = datetime.now(timezone.utc)
     sync_settlement_for_payment(db, payment)
+    record_reservation_history(
+        db,
+        reservation_id=reservation.id,
+        event_type="MOCK_REFUND_PROCESSED",
+        actor=user,
+        from_status=previous_payment_status,
+        to_status=payment.status,
+        message="Mock 환불 처리",
+    )
     db.commit()
     db.refresh(payment)
     return payment

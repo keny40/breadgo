@@ -64,10 +64,10 @@ def get_admin_settlement_summary(
 def change_settlement_status(
     settlement_id: UUID,
     payload: SettlementStatusUpdate,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> SettlementRead:
-    return settlement_to_read(update_settlement_status(db, settlement_id, payload))
+    return settlement_to_read(update_settlement_status(db, settlement_id, payload, actor=current_admin))
 
 
 @merchant_router.get("", response_model=list[SettlementRead])

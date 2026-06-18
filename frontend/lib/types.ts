@@ -131,6 +131,19 @@ export type PickupConfirmResponse = {
   reservation: Reservation;
 };
 
+export type ReservationHistory = {
+  id: string;
+  reservation_id: string;
+  actor_user_id: string | null;
+  actor_role: string | null;
+  actor_email: string | null;
+  event_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  message: string;
+  created_at: string;
+};
+
 export type Payment = {
   id: string;
   reservation_id: string;

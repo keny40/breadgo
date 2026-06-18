@@ -12,6 +12,7 @@ from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.product import ProductRead
 from app.schemas.reservation import DeliveryStatusUpdate, ReservationRead
+from app.schemas.reservation_history import ReservationHistoryRead
 from app.schemas.store import StoreRead
 from app.services.admin_service import (
     get_admin_summary,
@@ -25,7 +26,8 @@ from app.services.admin_service import (
     update_merchant_status,
 )
 from app.services.reservation_service import update_delivery_status_for_admin
-from app.api.v1.reservations import reservation_to_read
+from app.services.reservation_history_service import get_history_for_admin
+from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
 
 
@@ -88,11 +90,21 @@ def list_reservations(
 def change_reservation_delivery_status(
     reservation_id: UUID,
     payload: DeliveryStatusUpdate,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ReservationRead:
-    reservation = update_delivery_status_for_admin(db, reservation_id, payload)
+    reservation = update_delivery_status_for_admin(db, reservation_id, payload, current_admin)
     return reservation_to_read(reservation)
+
+
+@router.get("/reservations/{reservation_id}/history", response_model=list[ReservationHistoryRead])
+def get_admin_reservation_history(
+    reservation_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> list[ReservationHistoryRead]:
+    events = get_history_for_admin(db, reservation_id)
+    return [reservation_history_to_read(event) for event in events]
 
 
 @router.get("/payments", response_model=list[PaymentRead])

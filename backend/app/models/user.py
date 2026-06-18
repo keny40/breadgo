@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.merchant import Merchant
     from app.models.payment import Payment
     from app.models.reservation import Reservation
+    from app.models.reservation_history import ReservationHistory
 
 
 class UserRole(str, enum.Enum):
@@ -58,4 +59,8 @@ class User(Base):
     payments: Mapped[list["Payment"]] = relationship(
         "Payment",
         back_populates="user",
+    )
+    reservation_history_events: Mapped[list["ReservationHistory"]] = relationship(
+        "ReservationHistory",
+        back_populates="actor",
     )

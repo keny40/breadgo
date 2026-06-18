@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -16,10 +16,25 @@ import {
   type Payment,
   type Product,
   type Reservation,
+  type ReservationHistory,
   type Store,
 } from "@/lib/types";
 
 const merchantStatuses = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"];
+
+function historyEventLabel(value: string) {
+  const labels: Record<string, string> = {
+    RESERVATION_CREATED: "예약 생성",
+    PAYMENT_COMPLETED: "결제 완료",
+    PICKUP_CONFIRMED: "픽업 완료",
+    DELIVERY_STATUS_CHANGED: "배송 상태 변경",
+    RESERVATION_CANCELLED: "예약 취소",
+    MOCK_REFUND_PROCESSED: "Mock 환불 처리",
+    SETTLEMENT_STATUS_CHANGED: "정산 상태 변경",
+    RESERVATION_STATUS_CHANGED: "예약 상태 변경",
+  };
+  return labels[value] || value;
+}
 
 export default function AdminPage() {
   const guard = useRoleGuard("ADMIN");
@@ -30,6 +45,9 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [historyByReservation, setHistoryByReservation] = useState<Record<string, ReservationHistory[]>>({});
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
@@ -142,6 +160,33 @@ export default function AdminPage() {
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function toggleReservationHistory(reservationId: string) {
+    if (expandedHistoryId === reservationId) {
+      setExpandedHistoryId(null);
+      return;
+    }
+
+    setExpandedHistoryId(reservationId);
+    if (historyByReservation[reservationId]) {
+      return;
+    }
+
+    setHistoryLoadingId(reservationId);
+    try {
+      const history = await apiFetch<ReservationHistory[]>(
+        `/api/v1/admin/reservations/${reservationId}/history`,
+        {},
+        true,
+      );
+      setHistoryByReservation((current) => ({ ...current, [reservationId]: history }));
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setHistoryLoadingId(null);
     }
   }
 
@@ -318,40 +363,73 @@ export default function AdminPage() {
                 <th>Fulfillment</th>
                 <th>Total</th>
                 <th>Status</th>
+                <th>History</th>
               </tr>
             </thead>
             <tbody>
               {reservations.map((reservation) => (
-                <tr key={reservation.id}>
-                  <td>{reservation.pickup_code}</td>
-                  <td>{reservation.user_id}</td>
-                  <td>{reservation.product_id}</td>
-                  <td>
-                    {reservation.fulfillment_method}
-                    <br />
-                    {reservation.fulfillment_method === "PICKUP"
-                      ? `Pickup ${reservation.pickup_code}`
-                      : reservation.delivery_address || "-"}
-                    <br />
-                    {reservation.fulfillment_method === "PICKUP" ? (
-                      <span>배송 상태 {deliveryStatusLabel(reservation.delivery_status)}</span>
-                    ) : (
-                      <select
-                        value={reservation.delivery_status}
-                        onChange={(event) => updateReservationDeliveryStatus(reservation.id, event)}
-                        aria-label={`${reservation.id} delivery status`}
-                      >
-                        {deliveryStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {deliveryStatusLabel(status)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </td>
-                  <td>{reservation.total_price}</td>
-                  <td><StatusBadge status={reservation.status} /></td>
-                </tr>
+                <Fragment key={reservation.id}>
+                  <tr>
+                    <td>{reservation.pickup_code}</td>
+                    <td>{reservation.user_id}</td>
+                    <td>{reservation.product_id}</td>
+                    <td>
+                      {reservation.fulfillment_method}
+                      <br />
+                      {reservation.fulfillment_method === "PICKUP"
+                        ? `Pickup ${reservation.pickup_code}`
+                        : reservation.delivery_address || "-"}
+                      <br />
+                      {reservation.fulfillment_method === "PICKUP" ? (
+                        <span>배송 상태 {deliveryStatusLabel(reservation.delivery_status)}</span>
+                      ) : (
+                        <select
+                          value={reservation.delivery_status}
+                          onChange={(event) => updateReservationDeliveryStatus(reservation.id, event)}
+                          aria-label={`${reservation.id} delivery status`}
+                        >
+                          {deliveryStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {deliveryStatusLabel(status)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    <td>{reservation.total_price}</td>
+                    <td><StatusBadge status={reservation.status} /></td>
+                    <td>
+                      <button type="button" className="secondary" onClick={() => toggleReservationHistory(reservation.id)}>
+                        {expandedHistoryId === reservation.id ? "닫기" : "이력"}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedHistoryId === reservation.id && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="timeline">
+                          {historyLoadingId === reservation.id && <p className="field-help">상태 이력을 불러오는 중입니다.</p>}
+                          {(historyByReservation[reservation.id] || []).map((event) => (
+                            <div className="timeline-item" key={event.id}>
+                              <strong>{historyEventLabel(event.event_type)}</strong>
+                              <span>{event.message}</span>
+                              <small>
+                                {[event.actor_email || event.actor_role, event.from_status && event.to_status
+                                  ? `${event.from_status} → ${event.to_status}`
+                                  : null, new Date(event.created_at).toLocaleString()]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </small>
+                            </div>
+                          ))}
+                          {!historyLoadingId && (historyByReservation[reservation.id] || []).length === 0 && (
+                            <p className="field-help">상태 이력이 없습니다.</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </AdminTable>

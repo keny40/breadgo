@@ -4,7 +4,7 @@ import { useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import { deliveryStatusLabel, type Payment, type Reservation } from "@/lib/types";
+import { deliveryStatusLabel, type Payment, type Reservation, type ReservationHistory } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -15,6 +15,20 @@ function fulfillmentMethodLabel(value: string) {
     PICKUP: "매장 직접 픽업",
     QUICK_DELIVERY: "퀵배달 요청",
     PARCEL_DELIVERY: "택배 배송",
+  };
+  return labels[value] || value;
+}
+
+function historyEventLabel(value: string) {
+  const labels: Record<string, string> = {
+    RESERVATION_CREATED: "예약 생성",
+    PAYMENT_COMPLETED: "결제 완료",
+    PICKUP_CONFIRMED: "픽업 완료",
+    DELIVERY_STATUS_CHANGED: "배송 상태 변경",
+    RESERVATION_CANCELLED: "예약 취소",
+    MOCK_REFUND_PROCESSED: "Mock 환불 처리",
+    SETTLEMENT_STATUS_CHANGED: "정산 상태 변경",
+    RESERVATION_STATUS_CHANGED: "예약 상태 변경",
   };
   return labels[value] || value;
 }
@@ -50,6 +64,9 @@ export default function MyReservationsPage() {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [historyByReservation, setHistoryByReservation] = useState<Record<string, ReservationHistory[]>>({});
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
 
   async function loadReservations() {
     setMessage("");
@@ -108,6 +125,33 @@ export default function MyReservationsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setCancellingId(null);
+    }
+  }
+
+  async function toggleHistory(reservationId: string) {
+    if (expandedHistoryId === reservationId) {
+      setExpandedHistoryId(null);
+      return;
+    }
+
+    setExpandedHistoryId(reservationId);
+    if (historyByReservation[reservationId]) {
+      return;
+    }
+
+    setHistoryLoadingId(reservationId);
+    try {
+      const history = await apiFetch<ReservationHistory[]>(
+        `/api/v1/reservations/${reservationId}/history`,
+        {},
+        true,
+      );
+      setHistoryByReservation((current) => ({ ...current, [reservationId]: history }));
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setHistoryLoadingId(null);
     }
   }
 
@@ -209,6 +253,32 @@ export default function MyReservationsPage() {
                 <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>
                 <span>예약일 {new Date(reservation.created_at).toLocaleString()}</span>
               </div>
+              <div className="actions">
+                <button type="button" className="secondary" onClick={() => toggleHistory(reservation.id)}>
+                  {expandedHistoryId === reservation.id ? "상태 이력 닫기" : "상태 이력"}
+                </button>
+              </div>
+              {expandedHistoryId === reservation.id && (
+                <div className="timeline">
+                  {historyLoadingId === reservation.id && <p className="field-help">상태 이력을 불러오는 중입니다.</p>}
+                  {(historyByReservation[reservation.id] || []).map((event) => (
+                    <div className="timeline-item" key={event.id}>
+                      <strong>{historyEventLabel(event.event_type)}</strong>
+                      <span>{event.message}</span>
+                      <small>
+                        {[event.actor_email || event.actor_role, event.from_status && event.to_status
+                          ? `${event.from_status} → ${event.to_status}`
+                          : null, new Date(event.created_at).toLocaleString()]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </small>
+                    </div>
+                  ))}
+                  {!historyLoadingId && (historyByReservation[reservation.id] || []).length === 0 && (
+                    <p className="field-help">상태 이력이 없습니다.</p>
+                  )}
+                </div>
+              )}
               {canCancelReservation(reservation, paymentStatus) && (
                 <div className="actions">
                   <button

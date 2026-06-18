@@ -36,4 +36,5 @@ api_router.include_router(products.router, prefix="/products", tags=["products"]
 api_router.include_router(products.store_router, prefix="/stores", tags=["products"])
 api_router.include_router(regions.router, prefix="/regions", tags=["regions"])
 api_router.include_router(reservations.router, prefix="/reservations", tags=["reservations"])
+api_router.include_router(reservations.merchant_router, prefix="/merchant/reservations", tags=["reservations"])
 api_router.include_router(reservations.store_router, prefix="/stores", tags=["reservations"])

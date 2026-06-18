@@ -13,6 +13,7 @@ from app.db.session import Base
 if TYPE_CHECKING:
     from app.models.payment import Payment
     from app.models.product import Product
+    from app.models.reservation_history import ReservationHistory
     from app.models.settlement import Settlement
     from app.models.store import Store
     from app.models.user import User
@@ -117,4 +118,10 @@ class Reservation(Base):
         "Settlement",
         back_populates="reservation",
         uselist=False,
+    )
+    history_events: Mapped[list["ReservationHistory"]] = relationship(
+        "ReservationHistory",
+        back_populates="reservation",
+        cascade="all, delete-orphan",
+        order_by="ReservationHistory.created_at",
     )

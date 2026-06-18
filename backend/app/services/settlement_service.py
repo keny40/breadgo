@@ -10,7 +10,9 @@ from app.models.merchant import Merchant
 from app.models.payment import Payment, PaymentStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.settlement import Settlement, SettlementStatus
+from app.models.user import User
 from app.schemas.settlement import SettlementStatusUpdate, SettlementSummary
+from app.services.reservation_history_service import record_reservation_history
 
 
 PLATFORM_FEE_RATE = Decimal("0.1000")
@@ -136,6 +138,7 @@ def update_settlement_status(
     db: Session,
     settlement_id: UUID,
     payload: SettlementStatusUpdate,
+    actor: User | None = None,
 ) -> Settlement:
     settlement = db.scalar(select(Settlement).where(Settlement.id == settlement_id))
     if settlement is None:
@@ -153,6 +156,7 @@ def update_settlement_status(
             detail="Cancelled settlements cannot be paid.",
         )
 
+    previous_status = settlement.status
     settlement.status = payload.status
     settlement.settled_at = datetime.now(timezone.utc) if payload.status == SettlementStatus.PAID else None
     if payload.admin_memo is not None:
@@ -162,6 +166,15 @@ def update_settlement_status(
             settlement.hold_reason = payload.hold_reason.strip() or None
     elif payload.status == SettlementStatus.PAID and payload.hold_reason is not None:
         settlement.hold_reason = payload.hold_reason.strip() or None
+    record_reservation_history(
+        db,
+        reservation_id=settlement.reservation_id,
+        event_type="SETTLEMENT_STATUS_CHANGED",
+        actor=actor,
+        from_status=previous_status,
+        to_status=settlement.status,
+        message="정산 상태 변경",
+    )
     db.commit()
     db.refresh(settlement)
     return settlement
