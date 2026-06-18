@@ -21,6 +21,7 @@ from app.services.reservation_service import (
     confirm_pickup_by_code,
     create_reservation,
     get_my_reservations,
+    get_reservations_for_merchant,
     get_reservation_by_pickup_code_for_merchant,
     get_store_reservations_for_merchant,
     update_reservation_status,
@@ -59,6 +60,15 @@ def get_current_user_reservations(
     db: Session = Depends(get_db),
 ) -> list[ReservationRead]:
     return [reservation_to_read(item) for item in get_my_reservations(db, current_user)]
+
+
+@router.get("/merchant", response_model=list[ReservationRead])
+def get_current_merchant_reservations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ReservationRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return [reservation_to_read(item) for item in get_reservations_for_merchant(db, merchant)]
 
 
 @router.get("/pickup/{pickup_code}", response_model=ReservationRead)

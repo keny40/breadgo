@@ -210,6 +210,17 @@ def get_store_reservations_for_merchant(
     )
 
 
+def get_reservations_for_merchant(db: Session, merchant: Merchant) -> list[Reservation]:
+    return list(
+        db.scalars(
+            select(Reservation)
+            .join(Store, Reservation.store_id == Store.id)
+            .where(Store.merchant_id == merchant.id)
+            .order_by(Reservation.created_at.desc())
+        )
+    )
+
+
 def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reservation:
     reservation = _get_reservation_for_user(db, user, reservation_id)
     if reservation.status in {ReservationStatus.PICKED_UP, ReservationStatus.CANCELLED}:
