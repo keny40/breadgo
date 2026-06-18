@@ -8,21 +8,33 @@ import type { AuthUser } from "@/lib/types";
 export default function NavBar() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const normalizedRole = userRole?.toLowerCase();
   const links = [
     { href: "/demo", label: "데모 가이드" },
-    { href: "/products", label: "상품 보기" },
-    { href: "/my-reservations", label: "내 예약" },
-    { href: "/my-payments", label: "내 결제" },
-    { href: "/merchant", label: "가맹점" },
-    { href: "/merchant/stores", label: "매장" },
-    { href: "/merchant/products", label: "상품 관리" },
-    { href: "/merchant/pickup", label: "픽업 확인" },
-    { href: "/merchant/settlement-account", label: "정산 계좌" },
-    { href: "/merchant/settlements", label: "정산 내역" },
-    { href: "/admin", label: "Admin" },
-    { href: "/admin/settlements", label: "정산 관리" },
+    ...(!loggedIn
+      ? [{ href: "/products", label: "상품 보기" }]
+      : normalizedRole === "merchant"
+        ? [
+            { href: "/merchant", label: "가맹점" },
+            { href: "/merchant/stores", label: "매장" },
+            { href: "/merchant/products", label: "상품 관리" },
+            { href: "/merchant/pickup", label: "픽업 확인" },
+            { href: "/merchant/settlement-account", label: "정산 계좌" },
+            { href: "/merchant/settlements", label: "정산 내역" },
+          ]
+        : normalizedRole === "admin"
+          ? [
+              { href: "/admin", label: "Admin" },
+              { href: "/admin/settlements", label: "정산 관리" },
+            ]
+          : [
+              { href: "/products", label: "상품 보기" },
+              { href: "/my-reservations", label: "내 예약" },
+              { href: "/my-payments", label: "내 결제" },
+            ]),
   ];
 
   useEffect(() => {
@@ -31,15 +43,18 @@ export default function NavBar() {
       const storedUser = getStoredUser();
       setLoggedIn(Boolean(token));
       setUserEmail(storedUser?.email || null);
+      setUserRole(storedUser?.role || null);
 
-      if (token && !storedUser?.email) {
+      if (token && (!storedUser?.email || !storedUser?.role)) {
         void apiFetch<AuthUser>("/api/v1/auth/me", {}, true)
           .then((user) => {
             saveStoredUser(user);
             setUserEmail(user.email || null);
+            setUserRole(user.role || null);
           })
           .catch(() => {
             setUserEmail(null);
+            setUserRole(null);
           });
       }
     }
@@ -57,6 +72,7 @@ export default function NavBar() {
     clearToken();
     setLoggedIn(false);
     setUserEmail(null);
+    setUserRole(null);
     setMenuOpen(false);
   }
 
