@@ -3,9 +3,11 @@
 import { FormEvent, useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Store } from "@/lib/types";
 
 export default function MerchantStoresPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [stores, setStores] = useState<Store[]>([]);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
@@ -23,8 +25,11 @@ export default function MerchantStoresPage() {
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
     void loadStores();
-  }, []);
+  }, [guard.allowed]);
 
   async function loadStores() {
     setMessage("");
@@ -73,6 +78,14 @@ export default function MerchantStoresPage() {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (

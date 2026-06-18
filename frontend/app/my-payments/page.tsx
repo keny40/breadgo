@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Payment } from "@/lib/types";
 
 function formatMoney(value: string) {
@@ -22,7 +23,17 @@ function paymentMethodLabel(value: string) {
   }
 }
 
+function fulfillmentMethodLabel(value: string | null) {
+  const labels: Record<string, string> = {
+    PICKUP: "매장 직접 픽업",
+    QUICK_DELIVERY: "퀵배달 요청",
+    PARCEL_DELIVERY: "택배 배송",
+  };
+  return value ? labels[value] || value : "-";
+}
+
 export default function MyPaymentsPage() {
+  const guard = useRoleGuard("CUSTOMER");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -43,6 +54,14 @@ export default function MyPaymentsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (
@@ -87,6 +106,14 @@ export default function MyPaymentsPage() {
                 </strong>
               </div>
               <div>
+                <span>수령 방법</span>
+                <strong>{fulfillmentMethodLabel(payment.fulfillment_method)}</strong>
+              </div>
+              <div>
+                <span>배송비</span>
+                <strong>{payment.delivery_fee ? formatMoney(payment.delivery_fee) : "0원"}</strong>
+              </div>
+              <div>
                 <span>예약 상태</span>
                 <strong>
                   {payment.reservation_status ? <StatusBadge status={payment.reservation_status} /> : "-"}
@@ -94,7 +121,8 @@ export default function MyPaymentsPage() {
               </div>
             </div>
             <div className="meta">
-              {payment.pickup_code && <span>픽업코드 {payment.pickup_code}</span>}
+              {payment.fulfillment_method === "PICKUP" && payment.pickup_code && <span>픽업코드 {payment.pickup_code}</span>}
+              {payment.delivery_status && <span>배송 상태 {payment.delivery_status}</span>}
               <span>생성일 {new Date(payment.created_at).toLocaleString()}</span>
               <span>결제일 {payment.paid_at ? new Date(payment.paid_at).toLocaleString() : "-"}</span>
               {payment.cancelled_at && <span>취소일 {new Date(payment.cancelled_at).toLocaleString()}</span>}

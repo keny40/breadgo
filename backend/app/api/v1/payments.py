@@ -29,6 +29,9 @@ def payment_to_read(payment: Payment) -> PaymentRead:
     if payment.reservation:
         payload.reservation_status = payment.reservation.status.value
         payload.pickup_code = payment.reservation.pickup_code
+        payload.fulfillment_method = payment.reservation.fulfillment_method.value
+        payload.delivery_fee = payment.reservation.delivery_fee
+        payload.delivery_status = payment.reservation.delivery_status.value
         payload.product_name = payment.reservation.product.name if payment.reservation.product else None
         payload.store_name = payment.reservation.store.name if payment.reservation.store else None
     return payload

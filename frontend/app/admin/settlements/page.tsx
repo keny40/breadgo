@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { AuthUser, Settlement, SettlementSummary } from "@/lib/types";
 
 const settlementStatuses = ["ALL", "PENDING", "READY", "PAID", "HOLD", "CANCELLED"];
@@ -23,7 +24,7 @@ function statusLabel(status: string) {
 }
 
 export default function AdminSettlementsPage() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const guard = useRoleGuard("ADMIN");
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -33,6 +34,10 @@ export default function AdminSettlementsPage() {
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadInitialData() {
@@ -42,7 +47,6 @@ export default function AdminSettlementsPage() {
       try {
         const me = await apiFetch<AuthUser>("/api/v1/auth/me", {}, true);
         if (cancelled) return;
-        setCurrentUser(me);
 
         if (me.role.toLowerCase() !== "admin") {
           setIsError(true);
@@ -69,7 +73,7 @@ export default function AdminSettlementsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [guard.allowed]);
 
   const filteredSettlements = useMemo(() => {
     if (statusFilter === "ALL") {
@@ -117,7 +121,15 @@ export default function AdminSettlementsPage() {
     }
   }
 
-  const blocked = !currentUser || currentUser.role.toLowerCase() !== "admin";
+  const blocked = !guard.allowed;
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
+  }
 
   return (
     <section className="section">
@@ -220,6 +232,14 @@ export default function AdminSettlementsPage() {
                         예약 {settlement.reservation_status || "-"}
                         <br />
                         결제 {settlement.payment_status || "-"}
+                        <br />
+                        수령 {settlement.fulfillment_method || "-"}
+                        {settlement.delivery_status && (
+                          <>
+                            <br />
+                            배송 {settlement.delivery_status}
+                          </>
+                        )}
                         {settlement.hold_reason && (
                           <>
                             <br />

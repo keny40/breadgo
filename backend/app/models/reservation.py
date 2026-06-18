@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,21 @@ class ReservationStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
     PICKED_UP = "PICKED_UP"
     EXPIRED = "EXPIRED"
+
+
+class FulfillmentMethod(str, enum.Enum):
+    PICKUP = "PICKUP"
+    QUICK_DELIVERY = "QUICK_DELIVERY"
+    PARCEL_DELIVERY = "PARCEL_DELIVERY"
+
+
+class DeliveryStatus(str, enum.Enum):
+    NOT_REQUIRED = "NOT_REQUIRED"
+    REQUESTED = "REQUESTED"
+    PREPARING = "PREPARING"
+    SENT = "SENT"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 
 class Reservation(Base):
@@ -49,7 +64,23 @@ class Reservation(Base):
         nullable=False,
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    product_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    delivery_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     total_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    fulfillment_method: Mapped[FulfillmentMethod] = mapped_column(
+        Enum(FulfillmentMethod, name="fulfillment_method"),
+        nullable=False,
+        default=FulfillmentMethod.PICKUP,
+    )
+    recipient_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recipient_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    delivery_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    delivery_request_memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    delivery_status: Mapped[DeliveryStatus] = mapped_column(
+        Enum(DeliveryStatus, name="delivery_status"),
+        nullable=False,
+        default=DeliveryStatus.NOT_REQUIRED,
+    )
     status: Mapped[ReservationStatus] = mapped_column(
         Enum(ReservationStatus, name="reservation_status"),
         nullable=False,

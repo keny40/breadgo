@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.merchant import Merchant
 from app.models.product import Product, ProductStatus
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import DeliveryStatus, FulfillmentMethod, Reservation, ReservationStatus
 from app.models.store import Store
 from app.models.user import User
 from app.schemas.reservation import PickupConfirmRequest, ReservationCreate, ReservationStatusUpdate
@@ -101,6 +101,26 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
             detail="Insufficient product quantity.",
         )
 
+    product_amount = product.discount_price * payload.quantity
+    delivery_fee = 0
+    delivery_status = (
+        DeliveryStatus.NOT_REQUIRED
+        if payload.fulfillment_method == FulfillmentMethod.PICKUP
+        else DeliveryStatus.REQUESTED
+    )
+
+    if payload.fulfillment_method != FulfillmentMethod.PICKUP:
+        missing_delivery_info = not (
+            payload.recipient_name
+            and payload.recipient_phone
+            and payload.delivery_address
+        )
+        if missing_delivery_info:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Recipient name, phone, and delivery address are required for delivery.",
+            )
+
     product.quantity -= payload.quantity
     if product.quantity == 0:
         product.status = ProductStatus.SOLD_OUT
@@ -110,7 +130,15 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
         product_id=product.id,
         store_id=product.store_id,
         quantity=payload.quantity,
-        total_price=product.discount_price * payload.quantity,
+        product_amount=product_amount,
+        delivery_fee=delivery_fee,
+        total_price=product_amount + delivery_fee,
+        fulfillment_method=payload.fulfillment_method,
+        recipient_name=payload.recipient_name.strip() if payload.recipient_name else None,
+        recipient_phone=payload.recipient_phone.strip() if payload.recipient_phone else None,
+        delivery_address=payload.delivery_address.strip() if payload.delivery_address else None,
+        delivery_request_memo=payload.delivery_request_memo.strip() if payload.delivery_request_memo else None,
+        delivery_status=delivery_status,
         status=ReservationStatus.CONFIRMED,
         pickup_code=_generate_pickup_code(db),
         reserved_at=datetime.now(timezone.utc),

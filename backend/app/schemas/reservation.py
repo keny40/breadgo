@@ -4,12 +4,17 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.reservation import ReservationStatus
+from app.models.reservation import DeliveryStatus, FulfillmentMethod, ReservationStatus
 
 
 class ReservationCreate(BaseModel):
     product_id: UUID
     quantity: int = Field(ge=1)
+    fulfillment_method: FulfillmentMethod = FulfillmentMethod.PICKUP
+    recipient_name: str | None = None
+    recipient_phone: str | None = None
+    delivery_address: str | None = None
+    delivery_request_memo: str | None = None
 
 
 class ReservationRead(BaseModel):
@@ -18,7 +23,15 @@ class ReservationRead(BaseModel):
     product_id: UUID
     store_id: UUID
     quantity: int
+    product_amount: Decimal
+    delivery_fee: Decimal
     total_price: Decimal
+    fulfillment_method: FulfillmentMethod
+    recipient_name: str | None = None
+    recipient_phone: str | None = None
+    delivery_address: str | None = None
+    delivery_request_memo: str | None = None
+    delivery_status: DeliveryStatus
     status: ReservationStatus
     pickup_code: str
     reserved_at: datetime

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { EmptyState, PageHeader } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { SettlementAccount } from "@/lib/types";
 
 type AccountForm = {
@@ -36,6 +37,7 @@ function hasAccount(account: SettlementAccount | null) {
 }
 
 export default function MerchantSettlementAccountPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [account, setAccount] = useState<SettlementAccount | null>(null);
   const [form, setForm] = useState<AccountForm>(emptyForm);
   const [message, setMessage] = useState("");
@@ -43,6 +45,10 @@ export default function MerchantSettlementAccountPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadAccount() {
@@ -69,7 +75,7 @@ export default function MerchantSettlementAccountPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [guard.allowed]);
 
   function updateField(field: keyof AccountForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -99,6 +105,14 @@ export default function MerchantSettlementAccountPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (

@@ -39,5 +39,8 @@ class PaymentRead(BaseModel):
     store_name: str | None = None
     reservation_status: str | None = None
     pickup_code: str | None = None
+    fulfillment_method: str | None = None
+    delivery_fee: Decimal | None = None
+    delivery_status: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -3,10 +3,20 @@
 import { useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Payment, Reservation } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
+}
+
+function fulfillmentMethodLabel(value: string) {
+  const labels: Record<string, string> = {
+    PICKUP: "매장 직접 픽업",
+    QUICK_DELIVERY: "퀵배달 요청",
+    PARCEL_DELIVERY: "택배 배송",
+  };
+  return labels[value] || value;
 }
 
 function reservationGuidance(status: string) {
@@ -26,6 +36,7 @@ function reservationGuidance(status: string) {
 }
 
 export default function MyReservationsPage() {
+  const guard = useRoleGuard("CUSTOMER");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [message, setMessage] = useState("");
@@ -51,6 +62,14 @@ export default function MyReservationsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (
@@ -85,12 +104,17 @@ export default function MyReservationsPage() {
                 </div>
                 <StatusBadge status={reservation.status} />
               </div>
-              <div className="pickup-code-block">
-                <span>픽업 코드</span>
-                <p className="pickup-code">{reservation.pickup_code}</p>
-              </div>
+              {reservation.fulfillment_method === "PICKUP" && (
+                <div className="pickup-code-block">
+                  <span>픽업 코드</span>
+                  <p className="pickup-code">{reservation.pickup_code}</p>
+                </div>
+              )}
               <p className="guidance-text">{reservationGuidance(reservation.status)}</p>
               <div className="meta">
+                <span>
+                  수령 방법 <strong>{fulfillmentMethodLabel(reservation.fulfillment_method)}</strong>
+                </span>
                 <span>
                   예약 상태 <StatusBadge status={reservation.status} />
                 </span>
@@ -98,10 +122,39 @@ export default function MyReservationsPage() {
                   결제 상태 {paymentStatus === "없음" ? "없음" : <StatusBadge status={paymentStatus} />}
                 </span>
                 <span>
-                  총액 <strong>{formatMoney(reservation.total_price)}</strong>
+                  상품 금액 <strong>{formatMoney(reservation.product_amount)}</strong>
+                </span>
+                <span>
+                  배송비 <strong>{formatMoney(reservation.delivery_fee)}</strong>
+                </span>
+                <span>
+                  총 고객 결제금액 <strong>{formatMoney(reservation.total_price)}</strong>
                 </span>
                 <span>수량 {reservation.quantity}</span>
               </div>
+              {reservation.fulfillment_method !== "PICKUP" && (
+                <div className="detail-grid">
+                  <div>
+                    <span>배송 상태</span>
+                    <strong>{reservation.delivery_status}</strong>
+                  </div>
+                  <div>
+                    <span>받는 사람</span>
+                    <strong>{reservation.recipient_name || "-"}</strong>
+                  </div>
+                  <div>
+                    <span>연락처</span>
+                    <strong>{reservation.recipient_phone || "-"}</strong>
+                  </div>
+                  <div>
+                    <span>주소</span>
+                    <strong>{reservation.delivery_address || "-"}</strong>
+                  </div>
+                </div>
+              )}
+              {reservation.delivery_request_memo && (
+                <p className="message">배송 요청사항: {reservation.delivery_request_memo}</p>
+              )}
               <div className="meta">
                 <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>
                 <span>예약일 {new Date(reservation.created_at).toLocaleString()}</span>

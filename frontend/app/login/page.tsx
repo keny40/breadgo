@@ -3,14 +3,16 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
+import { consumeAuthMessage } from "@/lib/authGuard";
 import type { AuthResponse } from "@/lib/types";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [initialAuthMessage] = useState(() => consumeAuthMessage());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [isError, setIsError] = useState(false);
+  const [message, setMessage] = useState(initialAuthMessage);
+  const [isError, setIsError] = useState(Boolean(initialAuthMessage));
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -80,7 +80,15 @@ export type Reservation = {
   product_id: string;
   store_id: string;
   quantity: number;
+  product_amount: string;
+  delivery_fee: string;
   total_price: string;
+  fulfillment_method: string;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  delivery_address: string | null;
+  delivery_request_memo: string | null;
+  delivery_status: string;
   status: string;
   pickup_code: string;
   reserved_at: string;
@@ -113,6 +121,9 @@ export type Payment = {
   store_name: string | null;
   reservation_status: string | null;
   pickup_code: string | null;
+  fulfillment_method: string | null;
+  delivery_fee: string | null;
+  delivery_status: string | null;
 };
 
 export type Settlement = {
@@ -140,6 +151,9 @@ export type Settlement = {
   reservation_status: string | null;
   payment_status: string | null;
   pickup_code: string | null;
+  fulfillment_method: string | null;
+  delivery_fee: string | null;
+  delivery_status: string | null;
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_holder: string | null;

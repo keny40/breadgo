@@ -35,6 +35,9 @@ def settlement_to_read(settlement: Settlement) -> SettlementRead:
     if settlement.reservation:
         payload.reservation_status = settlement.reservation.status.value
         payload.pickup_code = settlement.reservation.pickup_code
+        payload.fulfillment_method = settlement.reservation.fulfillment_method.value
+        payload.delivery_fee = settlement.reservation.delivery_fee
+        payload.delivery_status = settlement.reservation.delivery_status.value
         payload.product_name = settlement.reservation.product.name if settlement.reservation.product else None
     if settlement.payment:
         payload.payment_status = settlement.payment.status.value

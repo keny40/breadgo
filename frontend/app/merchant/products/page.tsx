@@ -5,6 +5,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Product, Store } from "@/lib/types";
 
 type ProductFormState = {
@@ -54,6 +55,7 @@ function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined;
 }
 
 export default function MerchantProductsPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [storeId, setStoreId] = useState("");
@@ -74,6 +76,10 @@ export default function MerchantProductsPage() {
   }, [stores]);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadInitialData() {
@@ -106,7 +112,7 @@ export default function MerchantProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [guard.allowed]);
 
   function updateCreateForm(patch: Partial<ProductFormState>) {
     setCreateForm((current) => ({ ...current, ...patch }));
@@ -335,6 +341,14 @@ export default function MerchantProductsPage() {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (

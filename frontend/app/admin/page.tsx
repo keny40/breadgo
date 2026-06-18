@@ -6,12 +6,13 @@ import { ChangeEvent, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { AdminSummary, AuthUser, Merchant, Payment, Product, Reservation, Store } from "@/lib/types";
 
 const merchantStatuses = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"];
 
 export default function AdminPage() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const guard = useRoleGuard("ADMIN");
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
@@ -23,6 +24,10 @@ export default function AdminPage() {
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadAdminDashboard() {
@@ -34,7 +39,6 @@ export default function AdminPage() {
         if (cancelled) {
           return;
         }
-        setCurrentUser(me);
 
         if (me.role.toLowerCase() !== "admin") {
           setIsError(true);
@@ -78,7 +82,7 @@ export default function AdminPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [guard.allowed]);
 
   async function updateMerchantStatus(merchantId: string, event: ChangeEvent<HTMLSelectElement>) {
     const nextStatus = event.target.value;
@@ -104,7 +108,15 @@ export default function AdminPage() {
     }
   }
 
-  const blocked = !currentUser || currentUser.role.toLowerCase() !== "admin";
+  const blocked = !guard.allowed;
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
+  }
 
   return (
     <section className="section">
@@ -112,11 +124,11 @@ export default function AdminPage() {
         title="Admin Dashboard"
         description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 모니터링합니다."
       />
-      <p className="message">
-        로컬 데모 관리자 승격 SQL:
-        <br />
-        <code>UPDATE users SET role = &apos;ADMIN&apos; WHERE email = &apos;owner@test.com&apos;;</code>
-      </p>
+      {process.env.NODE_ENV === "development" && (
+        <p className="message">
+          로컬 개발 환경에서는 seed_demo.py 또는 직접 SQL로 관리자 계정을 준비할 수 있습니다.
+        </p>
+      )}
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
@@ -258,6 +270,7 @@ export default function AdminPage() {
                 <th>Pickup</th>
                 <th>User</th>
                 <th>Product</th>
+                <th>Fulfillment</th>
                 <th>Total</th>
                 <th>Status</th>
               </tr>
@@ -268,6 +281,13 @@ export default function AdminPage() {
                   <td>{reservation.pickup_code}</td>
                   <td>{reservation.user_id}</td>
                   <td>{reservation.product_id}</td>
+                  <td>
+                    {reservation.fulfillment_method}
+                    <br />
+                    {reservation.fulfillment_method === "PICKUP"
+                      ? `Pickup ${reservation.pickup_code}`
+                      : reservation.delivery_address || "-"}
+                  </td>
                   <td>{reservation.total_price}</td>
                   <td><StatusBadge status={reservation.status} /></td>
                 </tr>

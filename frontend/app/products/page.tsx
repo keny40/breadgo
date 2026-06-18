@@ -12,6 +12,11 @@ const paymentMethods = [
   { value: "MOCK_KAKAO_PAY", label: "카카오페이 모의결제" },
   { value: "MOCK_NAVER_PAY", label: "네이버페이 모의결제" },
 ];
+const fulfillmentMethods = [
+  { value: "PICKUP", label: "매장 직접 픽업" },
+  { value: "QUICK_DELIVERY", label: "퀵배달 요청" },
+  { value: "PARCEL_DELIVERY", label: "택배 배송" },
+];
 const demoRegions = [
   { label: "서울특별시 강남구 역삼동", sido: "서울특별시", sigungu: "강남구", dong: "역삼동" },
   { label: "서울특별시 강남구 삼성동", sido: "서울특별시", sigungu: "강남구", dong: "삼성동" },
@@ -35,6 +40,10 @@ function paymentMethodLabel(value: string) {
   return paymentMethods.find((method) => method.value === value)?.label || value;
 }
 
+function fulfillmentMethodLabel(value: string | null | undefined) {
+  return fulfillmentMethods.find((method) => method.value === value)?.label || value || "-";
+}
+
 function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
   if (!imageUrl) {
     return <div className="product-image-placeholder">이미지 없음</div>;
@@ -56,6 +65,11 @@ export default function ProductsPage() {
   const [latestReservedProduct, setLatestReservedProduct] = useState<RegionProduct | null>(null);
   const [latestPayment, setLatestPayment] = useState<Payment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("MOCK_CARD");
+  const [fulfillmentMethod, setFulfillmentMethod] = useState("PICKUP");
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryRequestMemo, setDeliveryRequestMemo] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -200,20 +214,35 @@ export default function ProductsPage() {
     setIsPaymentError(false);
     const quantity = quantities[productId] || 1;
     const reservedProduct = products.find((product) => product.id === productId) || null;
+    const requiresDeliveryInfo = fulfillmentMethod !== "PICKUP";
+
+    if (requiresDeliveryInfo && (!recipientName.trim() || !recipientPhone.trim() || !deliveryAddress.trim())) {
+      setIsError(true);
+      setMessage("배송 요청을 위해 받는 사람, 연락처, 주소를 입력해 주세요.");
+      return;
+    }
 
     try {
       const reservation = await apiFetch<Reservation>(
         "/api/v1/reservations",
         {
           method: "POST",
-          body: JSON.stringify({ product_id: productId, quantity }),
+          body: JSON.stringify({
+            product_id: productId,
+            quantity,
+            fulfillment_method: fulfillmentMethod,
+            recipient_name: requiresDeliveryInfo ? recipientName : null,
+            recipient_phone: requiresDeliveryInfo ? recipientPhone : null,
+            delivery_address: requiresDeliveryInfo ? deliveryAddress : null,
+            delivery_request_memo: requiresDeliveryInfo ? deliveryRequestMemo : null,
+          }),
         },
         true,
       );
       setPickupCode(reservation.pickup_code);
       setLatestReservation(reservation);
       setLatestReservedProduct(reservedProduct);
-      setMessage("예약이 완료되었습니다. 픽업코드를 확인하고 Mock 결제를 진행해 보세요.");
+      setMessage("예약이 완료되었습니다. 수령 방법을 확인하고 Mock 결제를 진행해 보세요.");
       if (discoveryMode === "nearby" && userLocation) {
         await loadNearbyProducts(userLocation.lat, userLocation.lng, false);
       } else {
@@ -336,6 +365,64 @@ export default function ProductsPage() {
         </div>
       </form>
 
+      <section className="panel form-grid">
+        <h2>수령 방법을 선택해 주세요.</h2>
+        <p className="field-help">
+          신선식품 특성상 매장 직접 픽업이 기본입니다. 퀵배달과 택배 배송은 현재 실제 배송 연동이 아닌 요청 정보 저장 단계입니다.
+        </p>
+        <div className="chip-row">
+          {fulfillmentMethods.map((method) => (
+            <button
+              type="button"
+              className={`chip ${fulfillmentMethod === method.value ? "active" : ""}`}
+              key={method.value}
+              onClick={() => setFulfillmentMethod(method.value)}
+            >
+              {method.label}
+            </button>
+          ))}
+        </div>
+        {fulfillmentMethod !== "PICKUP" && (
+          <>
+            <div className="message">
+              현재는 실제 배송 연동이 아닌 요청 정보 저장 단계입니다. 배송비는 MVP에서 0원으로 표시됩니다.
+            </div>
+            <div className="two-column">
+              <label>
+                받는 사람
+                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} />
+              </label>
+              <label>
+                연락처
+                <input value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} />
+              </label>
+            </div>
+            <label>
+              주소
+              <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} />
+            </label>
+            <label>
+              배송 요청사항
+              <textarea
+                value={deliveryRequestMemo}
+                onChange={(event) => setDeliveryRequestMemo(event.target.value)}
+                placeholder="문 앞에 놓아주세요, 도착 전 연락 주세요 등"
+              />
+            </label>
+          </>
+        )}
+        <div className="detail-grid">
+          <div>
+            <span>선택한 수령 방법</span>
+            <strong>{fulfillmentMethodLabel(fulfillmentMethod)}</strong>
+          </div>
+          <div>
+            <span>배송비</span>
+            <strong>0원</strong>
+          </div>
+        </div>
+      </section>
+
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       {products.length === 0 && !isError && (
         <EmptyState title="선택한 지역에 판매 중인 상품이 없습니다." description="다른 데모 지역을 선택해 보세요." />
@@ -428,12 +515,22 @@ export default function ProductsPage() {
             </div>
             {latestReservation && <StatusBadge status={latestReservation.status} />}
           </div>
-          <p>매장에서 아래 픽업코드를 보여주면 픽업 확인을 받을 수 있습니다.</p>
-          <div className="pickup-code-block">
-            <span>픽업 코드</span>
-            <p className="pickup-code">{pickupCode}</p>
-          </div>
+          {latestReservation?.fulfillment_method === "PICKUP" ? (
+            <>
+              <p>매장에서 아래 픽업코드를 보여주면 픽업 확인을 받을 수 있습니다.</p>
+              <div className="pickup-code-block">
+                <span>픽업 코드</span>
+                <p className="pickup-code">{pickupCode}</p>
+              </div>
+            </>
+          ) : (
+            <p className="message">배송 요청 정보가 저장되었습니다. 현재는 실제 배송 연동이 아닌 MVP 단계입니다.</p>
+          )}
           <div className="detail-grid">
+            <div>
+              <span>수령 방법</span>
+              <strong>{fulfillmentMethodLabel(latestReservation?.fulfillment_method)}</strong>
+            </div>
             <div>
               <span>매장</span>
               <strong>{latestReservedProduct?.store_name || latestReservation?.store_name || "-"}</strong>
@@ -443,7 +540,15 @@ export default function ProductsPage() {
               <strong>{latestReservation?.quantity ?? "-"}</strong>
             </div>
             <div>
-              <span>총 결제 금액</span>
+              <span>상품 금액</span>
+              <strong>{latestReservation ? formatMoney(latestReservation.product_amount) : "-"}</strong>
+            </div>
+            <div>
+              <span>배송비</span>
+              <strong>{latestReservation ? formatMoney(latestReservation.delivery_fee) : "0원"}</strong>
+            </div>
+            <div>
+              <span>총 고객 결제금액</span>
               <strong>{latestReservation ? formatMoney(latestReservation.total_price) : "-"}</strong>
             </div>
             <div>
@@ -453,6 +558,26 @@ export default function ProductsPage() {
               </strong>
             </div>
           </div>
+          {latestReservation?.fulfillment_method !== "PICKUP" && (
+            <div className="detail-grid">
+              <div>
+                <span>받는 사람</span>
+                <strong>{latestReservation?.recipient_name || "-"}</strong>
+              </div>
+              <div>
+                <span>연락처</span>
+                <strong>{latestReservation?.recipient_phone || "-"}</strong>
+              </div>
+              <div>
+                <span>주소</span>
+                <strong>{latestReservation?.delivery_address || "-"}</strong>
+              </div>
+              <div>
+                <span>배송 상태</span>
+                <strong>{latestReservation?.delivery_status || "-"}</strong>
+              </div>
+            </div>
+          )}
           <div className="payment-box">
             <div className="form-grid">
               <label>

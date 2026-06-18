@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Settlement, SettlementAccount, SettlementSummary } from "@/lib/types";
 
 function formatMoney(value: string) {
@@ -19,6 +20,7 @@ function hasAccount(account: SettlementAccount | null) {
 }
 
 export default function MerchantSettlementsPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [account, setAccount] = useState<SettlementAccount | null>(null);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
@@ -26,6 +28,10 @@ export default function MerchantSettlementsPage() {
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
+
     let cancelled = false;
 
     async function loadSettlements() {
@@ -54,7 +60,15 @@ export default function MerchantSettlementsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [guard.allowed]);
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
+  }
 
   return (
     <section className="section">
@@ -157,6 +171,8 @@ export default function MerchantSettlementsPage() {
                 <span>픽업코드 {settlement.pickup_code || "-"}</span>
                 <span>예약 상태 {settlement.reservation_status || "-"}</span>
                 <span>결제 상태 {settlement.payment_status || "-"}</span>
+                <span>수령 방법 {settlement.fulfillment_method || "-"}</span>
+                <span>배송비 {settlement.delivery_fee ? formatMoney(settlement.delivery_fee) : "0원"}</span>
                 <span>생성일 {formatDate(settlement.created_at)}</span>
                 <span>정산일 {formatDate(settlement.settled_at)}</span>
               </div>

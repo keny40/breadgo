@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { PickupConfirmResponse, Reservation } from "@/lib/types";
 
 function formatMoney(value: string) {
@@ -11,6 +12,15 @@ function formatMoney(value: string) {
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function fulfillmentMethodLabel(value: string) {
+  const labels: Record<string, string> = {
+    PICKUP: "매장 직접 픽업",
+    QUICK_DELIVERY: "퀵배달 요청",
+    PARCEL_DELIVERY: "택배 배송",
+  };
+  return labels[value] || value;
 }
 
 function pickupErrorMessage(error: unknown) {
@@ -31,6 +41,7 @@ function isPickupBlocked(status: string) {
 }
 
 export default function MerchantPickupPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [pickupCode, setPickupCode] = useState("");
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [message, setMessage] = useState("");
@@ -103,6 +114,14 @@ export default function MerchantPickupPage() {
     }
   }
 
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
+  }
+
   return (
     <section className="section">
       <PageHeader
@@ -156,7 +175,10 @@ export default function MerchantPickupPage() {
               helper={reservation.customer_email || undefined}
             />
             <PickupInfo label="수량" value={`${reservation.quantity}개`} />
-            <PickupInfo label="결제 금액" value={formatMoney(reservation.total_price)} />
+            <PickupInfo label="수령 방법" value={fulfillmentMethodLabel(reservation.fulfillment_method)} />
+            <PickupInfo label="상품 금액" value={formatMoney(reservation.product_amount)} />
+            <PickupInfo label="배송비" value={formatMoney(reservation.delivery_fee)} />
+            <PickupInfo label="총 고객 결제금액" value={formatMoney(reservation.total_price)} />
             <PickupInfo
               label="결제 상태"
               value={reservation.payment_status || "결제 정보 없음"}
@@ -165,6 +187,30 @@ export default function MerchantPickupPage() {
             <PickupInfo label="픽업 마감" value={formatDateTime(reservation.pickup_deadline)} />
             <PickupInfo label="예약 생성" value={formatDateTime(reservation.created_at)} />
           </div>
+
+          {reservation.fulfillment_method !== "PICKUP" && (
+            <div className="detail-grid">
+              <div>
+                <span>배송 상태</span>
+                <strong>{reservation.delivery_status}</strong>
+              </div>
+              <div>
+                <span>받는 사람</span>
+                <strong>{reservation.recipient_name || "-"}</strong>
+              </div>
+              <div>
+                <span>연락처</span>
+                <strong>{reservation.recipient_phone || "-"}</strong>
+              </div>
+              <div>
+                <span>주소</span>
+                <strong>{reservation.delivery_address || "-"}</strong>
+              </div>
+            </div>
+          )}
+          {reservation.delivery_request_memo && (
+            <p className="message">배송 요청사항: {reservation.delivery_request_memo}</p>
+          )}
 
           <div className="actions">
             <button

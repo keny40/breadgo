@@ -56,6 +56,8 @@ def sync_settlement_for_payment(db: Session, payment: Payment) -> Settlement | N
     if payment.status not in {PaymentStatus.PAID, PaymentStatus.CANCELLED, PaymentStatus.FAILED, PaymentStatus.REFUNDED}:
         return None
 
+    settlement_gross_amount = payment.reservation.product_amount or payment.amount
+
     settlement = db.scalar(select(Settlement).where(Settlement.payment_id == payment.id))
     if settlement is None:
         settlement = Settlement(
@@ -64,7 +66,7 @@ def sync_settlement_for_payment(db: Session, payment: Payment) -> Settlement | N
             reservation_id=payment.reservation.id,
             payment_id=payment.id,
             status=_status_for_payment(payment),
-            **_calculate_amounts(payment.amount),
+            **_calculate_amounts(settlement_gross_amount),
         )
         db.add(settlement)
         return settlement
@@ -72,7 +74,7 @@ def sync_settlement_for_payment(db: Session, payment: Payment) -> Settlement | N
     if settlement.status not in {SettlementStatus.PAID, SettlementStatus.HOLD}:
         settlement.status = _status_for_payment(payment)
 
-    for field, value in _calculate_amounts(payment.amount).items():
+    for field, value in _calculate_amounts(settlement_gross_amount).items():
         setattr(settlement, field, value)
     return settlement
 

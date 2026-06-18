@@ -1,8 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { PageHeader, StatusBadge } from "@/components/UI";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { useRoleGuard } from "@/lib/authGuard";
 import type { Merchant, MerchantMeResponse, Reservation, Store } from "@/lib/types";
 
 type ReservationSummary = {
@@ -12,6 +13,7 @@ type ReservationSummary = {
 };
 
 export default function MerchantPage() {
+  const guard = useRoleGuard("MERCHANT");
   const [merchant, setMerchant] = useState<Merchant | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
@@ -22,9 +24,12 @@ export default function MerchantPage() {
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    if (!guard.allowed) {
+      return;
+    }
     void loadMerchant();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [guard.allowed]);
 
   async function loadMerchant() {
     setMessage("");
@@ -86,6 +91,14 @@ export default function MerchantPage() {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
     }
+  }
+
+  if (!guard.allowed) {
+    return (
+      <section className="section">
+        <EmptyState title={guard.message || "권한을 확인하고 있습니다."} />
+      </section>
+    );
   }
 
   return (
