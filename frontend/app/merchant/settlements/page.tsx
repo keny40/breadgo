@@ -76,7 +76,7 @@ export default function MerchantSettlementsPage() {
             <h3>{account?.business_name || "가맹점 계좌 정보"}</h3>
           </div>
           <Link className="secondary button-link" href="/merchant/settlement-account">
-            정산 계좌 관리
+            {hasAccount(account) ? "정산 계좌 관리" : "정산 계좌 등록"}
           </Link>
         </div>
         {hasAccount(account) ? (

@@ -20,6 +20,7 @@ class SettlementAccountRead(BaseModel):
     bank_account_holder: str | None = None
     settlement_cycle: str | None = None
     settlement_memo: str | None = None
+    created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

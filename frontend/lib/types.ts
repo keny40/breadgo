@@ -168,6 +168,7 @@ export type SettlementAccount = {
   bank_account_holder: string | null;
   settlement_cycle: string | null;
   settlement_memo: string | null;
+  created_at: string;
   updated_at: string;
 };
 

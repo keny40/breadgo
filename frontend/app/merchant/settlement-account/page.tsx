@@ -108,7 +108,7 @@ export default function MerchantSettlementAccountPage() {
         description="점주 정산금을 받을 계좌 정보를 등록합니다."
       />
       <p className="message">
-        MVP 계좌 등록용 정보입니다. 실제 은행 송금은 아직 발생하지 않습니다.
+        현재는 실제 송금이 아닌 MVP용 정산 계좌 등록입니다.
       </p>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
@@ -143,7 +143,7 @@ export default function MerchantSettlementAccountPage() {
           ) : (
             <EmptyState
               title="정산 계좌가 등록되지 않았습니다."
-              description="아래 양식을 입력하면 정산 내역 화면에서 계좌 요약을 확인할 수 있습니다."
+              description="정산 계좌를 등록하면 관리자 정산 화면에서도 계좌 요약을 확인할 수 있습니다."
             />
           )}
           {account.settlement_memo && <p className="meta">정산 메모: {account.settlement_memo}</p>}

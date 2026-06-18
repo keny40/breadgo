@@ -198,7 +198,7 @@ export default function AdminSettlementsPage() {
                           계좌{" "}
                           {settlement.bank_name && settlement.bank_account_number && settlement.bank_account_holder
                             ? `${settlement.bank_name} ${settlement.bank_account_number} (${settlement.bank_account_holder})`
-                            : "미등록"}
+                            : "정산 계좌 미등록"}
                         </small>
                         {settlement.settlement_cycle && (
                           <>

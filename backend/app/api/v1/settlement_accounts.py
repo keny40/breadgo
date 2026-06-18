@@ -29,6 +29,7 @@ def account_to_read(merchant: Merchant) -> SettlementAccountRead:
         bank_account_holder=merchant.bank_account_holder,
         settlement_cycle=merchant.settlement_cycle,
         settlement_memo=merchant.settlement_memo,
+        created_at=merchant.created_at,
         updated_at=merchant.updated_at,
     )
 
@@ -59,14 +60,3 @@ def get_merchant_settlement_account_for_admin(
     db: Session = Depends(get_db),
 ) -> SettlementAccountRead:
     return account_to_read(get_merchant_by_id(db, merchant_id))
-
-
-@admin_router.patch("/{merchant_id}/settlement-account", response_model=SettlementAccountRead)
-def update_merchant_settlement_account_for_admin(
-    merchant_id: UUID,
-    payload: SettlementAccountUpdate,
-    _: User = Depends(get_current_admin),
-    db: Session = Depends(get_db),
-) -> SettlementAccountRead:
-    merchant = get_merchant_by_id(db, merchant_id)
-    return account_to_read(update_settlement_account(db, merchant, payload))
