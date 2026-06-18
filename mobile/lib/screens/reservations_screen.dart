@@ -76,6 +76,13 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+              if (widget.reservationController.successMessage != null) ...[
+                Text(
+                  widget.reservationController.successMessage!,
+                  style: const TextStyle(color: Color(0xFF087A3A)),
+                ),
+                const SizedBox(height: 12),
+              ],
               if (widget.reservationController.loading)
                 const Padding(
                   padding: EdgeInsets.only(top: 80),
@@ -95,12 +102,44 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                 )
               else
                 ...widget.reservationController.reservations.map(
-                  (reservation) => ReservationCard(reservation: reservation),
+                  (reservation) => ReservationCard(
+                    reservation: reservation,
+                    isCancelling: widget.reservationController.isCancelling(
+                      reservation.id,
+                    ),
+                    onCancel: reservation.canCancel
+                        ? () => _confirmCancel(reservation.id)
+                        : null,
+                  ),
                 ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _confirmCancel(String reservationId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('예약 취소'),
+        content: const Text('예약을 취소하시겠습니까? MVP에서는 실제 카드 환불이 아닌 Mock 환불 처리입니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('아니요'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('예약 취소'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await widget.reservationController.cancelReservation(reservationId);
+    }
   }
 }

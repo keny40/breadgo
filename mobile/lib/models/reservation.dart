@@ -31,6 +31,19 @@ class Reservation {
   final DateTime createdAt;
   final String? paymentStatus;
 
+  bool get canCancel {
+    if (status != 'CONFIRMED') {
+      return false;
+    }
+    if (paymentStatus != 'PAID') {
+      return false;
+    }
+    if (deliveryStatus == 'SENT' || deliveryStatus == 'DELIVERED') {
+      return false;
+    }
+    return true;
+  }
+
   factory Reservation.fromJson(Map<String, dynamic> json) {
     return Reservation(
       id: json['id'] as String? ?? '',

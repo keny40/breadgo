@@ -4,6 +4,7 @@ import 'package:breadgo_mobile/core/api_client.dart';
 import 'package:breadgo_mobile/core/session_store.dart';
 import 'package:breadgo_mobile/main.dart';
 import 'package:breadgo_mobile/state/auth_controller.dart';
+import 'package:breadgo_mobile/state/notification_controller.dart';
 import 'package:breadgo_mobile/state/product_controller.dart';
 import 'package:breadgo_mobile/state/reservation_controller.dart';
 
@@ -20,6 +21,7 @@ void main() {
         authController: AuthController(apiClient: apiClient),
         productController: ProductController(apiClient: apiClient),
         reservationController: ReservationController(apiClient: apiClient),
+        notificationController: NotificationController(apiClient: apiClient),
       ),
     );
 

@@ -12,6 +12,7 @@ class ReservationController extends ChangeNotifier {
   List<Reservation> reservations = [];
   bool loading = false;
   bool submitting = false;
+  final Set<String> cancellingReservationIds = {};
   String? errorMessage;
   String? successMessage;
   Reservation? lastReservation;
@@ -86,6 +87,42 @@ class ReservationController extends ChangeNotifier {
     }
   }
 
+  bool isCancelling(String reservationId) {
+    return cancellingReservationIds.contains(reservationId);
+  }
+
+  Future<bool> cancelReservation(String reservationId) async {
+    cancellingReservationIds.add(reservationId);
+    errorMessage = null;
+    successMessage = null;
+    notifyListeners();
+
+    try {
+      final cancelledReservation = await apiClient.cancelReservation(
+        reservationId: reservationId,
+      );
+      reservations = reservations
+          .map(
+            (reservation) => reservation.id == reservationId
+                ? cancelledReservation
+                : reservation,
+          )
+          .toList();
+      successMessage = '예약이 취소되었습니다. MVP에서는 Mock 환불 상태로 처리됩니다.';
+      await loadMyReservations();
+      return true;
+    } on ApiException catch (error) {
+      errorMessage = _friendlyError(error.message);
+      return false;
+    } catch (_) {
+      errorMessage = '예약 취소에 실패했습니다.';
+      return false;
+    } finally {
+      cancellingReservationIds.remove(reservationId);
+      notifyListeners();
+    }
+  }
+
   String _friendlyError(String message) {
     final lower = message.toLowerCase();
     if (lower.contains('authentication') || lower.contains('401')) {
@@ -99,6 +136,15 @@ class ReservationController extends ChangeNotifier {
     }
     if (lower.contains('recipient')) {
       return '배송 수령자, 연락처, 주소를 입력해 주세요.';
+    }
+    if (lower.contains('reservation cannot be cancelled')) {
+      return '취소할 수 없는 예약입니다.';
+    }
+    if (lower.contains('delivery is already in progress')) {
+      return '이미 배송이 시작되었거나 완료되어 취소할 수 없습니다.';
+    }
+    if (lower.contains('only paid reservations')) {
+      return '결제 완료된 예약만 취소할 수 있습니다.';
     }
     return message;
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/auth_user.dart';
+import '../models/notification_item.dart';
 import '../models/payment.dart';
 import '../models/product.dart';
 import '../models/reservation.dart';
@@ -155,6 +156,15 @@ class ApiClient {
     return Reservation.fromJson(body);
   }
 
+  Future<Reservation> cancelReservation({required String reservationId}) async {
+    final response = await http.post(
+      _uri('/api/v1/reservations/$reservationId/cancel'),
+      headers: _headers(auth: true),
+    );
+    final body = await _decodeResponse(response) as Map<String, dynamic>;
+    return Reservation.fromJson(body);
+  }
+
   Future<Payment> createMockPaymentReady({
     required String reservationId,
     String method = 'MOCK_CARD',
@@ -176,5 +186,38 @@ class ApiClient {
     );
     final body = await _decodeResponse(response) as Map<String, dynamic>;
     return Payment.fromJson(body);
+  }
+
+  Future<List<NotificationItem>> fetchMyNotifications() async {
+    final response = await http.get(
+      _uri('/api/v1/notifications/me'),
+      headers: _headers(auth: true),
+    );
+    final body = await _decodeResponse(response) as List<dynamic>;
+    return body
+        .map((item) => NotificationItem.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<NotificationItem> markNotificationAsRead({
+    required String notificationId,
+  }) async {
+    final response = await http.patch(
+      _uri('/api/v1/notifications/$notificationId/read'),
+      headers: _headers(auth: true),
+    );
+    final body = await _decodeResponse(response) as Map<String, dynamic>;
+    return NotificationItem.fromJson(body);
+  }
+
+  Future<List<NotificationItem>> markAllNotificationsAsRead() async {
+    final response = await http.patch(
+      _uri('/api/v1/notifications/read-all'),
+      headers: _headers(auth: true),
+    );
+    final body = await _decodeResponse(response) as List<dynamic>;
+    return body
+        .map((item) => NotificationItem.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }

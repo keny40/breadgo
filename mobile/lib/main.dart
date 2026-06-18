@@ -8,6 +8,7 @@ import 'screens/notifications_screen.dart';
 import 'screens/product_list_screen.dart';
 import 'screens/reservations_screen.dart';
 import 'state/auth_controller.dart';
+import 'state/notification_controller.dart';
 import 'state/product_controller.dart';
 import 'state/reservation_controller.dart';
 
@@ -22,6 +23,7 @@ void main() {
       authController: AuthController(apiClient: apiClient),
       productController: ProductController(apiClient: apiClient),
       reservationController: ReservationController(apiClient: apiClient),
+      notificationController: NotificationController(apiClient: apiClient),
     ),
   );
 }
@@ -32,11 +34,13 @@ class BreadGoApp extends StatefulWidget {
     required this.authController,
     required this.productController,
     required this.reservationController,
+    required this.notificationController,
   });
 
   final AuthController authController;
   final ProductController productController;
   final ReservationController reservationController;
+  final NotificationController notificationController;
 
   @override
   State<BreadGoApp> createState() => _BreadGoAppState();
@@ -84,7 +88,10 @@ class _BreadGoAppState extends State<BreadGoApp> {
         ),
       ),
       home: AnimatedBuilder(
-        animation: widget.authController,
+        animation: Listenable.merge([
+          widget.authController,
+          widget.notificationController,
+        ]),
         builder: (context, _) {
           final pages = [
             ProductListScreen(
@@ -97,7 +104,10 @@ class _BreadGoAppState extends State<BreadGoApp> {
               authController: widget.authController,
               reservationController: widget.reservationController,
             ),
-            NotificationsScreen(authController: widget.authController),
+            NotificationsScreen(
+              authController: widget.authController,
+              notificationController: widget.notificationController,
+            ),
             LoginScreen(authController: widget.authController),
           ];
 
@@ -121,20 +131,24 @@ class _BreadGoAppState extends State<BreadGoApp> {
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) =>
                   setState(() => _selectedIndex = index),
-              destinations: const [
-                NavigationDestination(
+              destinations: [
+                const NavigationDestination(
                   icon: Icon(Icons.storefront_outlined),
                   label: '상품',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.receipt_long_outlined),
                   label: '내 예약',
                 ),
                 NavigationDestination(
-                  icon: Icon(Icons.notifications_outlined),
+                  icon: _NotificationIcon(
+                    unreadCount: widget.authController.isLoggedIn
+                        ? widget.notificationController.unreadCount
+                        : 0,
+                  ),
                   label: '알림',
                 ),
-                NavigationDestination(
+                const NavigationDestination(
                   icon: Icon(Icons.person_outline),
                   label: '로그인',
                 ),
@@ -143,6 +157,21 @@ class _BreadGoAppState extends State<BreadGoApp> {
           );
         },
       ),
+    );
+  }
+}
+
+class _NotificationIcon extends StatelessWidget {
+  const _NotificationIcon({required this.unreadCount});
+
+  final int unreadCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Badge(
+      isLabelVisible: unreadCount > 0,
+      label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
+      child: const Icon(Icons.notifications_outlined),
     );
   }
 }

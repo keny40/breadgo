@@ -4,9 +4,16 @@ import '../models/reservation.dart';
 import 'status_badge.dart';
 
 class ReservationCard extends StatelessWidget {
-  const ReservationCard({super.key, required this.reservation});
+  const ReservationCard({
+    super.key,
+    required this.reservation,
+    this.onCancel,
+    this.isCancelling = false,
+  });
 
   final Reservation reservation;
+  final VoidCallback? onCancel;
+  final bool isCancelling;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +63,12 @@ class ReservationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '수량 ${reservation.quantity}개 · 총 ${reservation.totalPrice.toStringAsFixed(0)}원',
+              '수량 ${reservation.quantity}개 · 상품 ${reservation.productAmount.toStringAsFixed(0)}원 · 배송비 ${reservation.deliveryFee.toStringAsFixed(0)}원',
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '총 고객 결제금액 ${reservation.totalPrice.toStringAsFixed(0)}원',
+              style: const TextStyle(fontWeight: FontWeight.w900),
             ),
             if (isPickup) ...[
               const SizedBox(height: 12),
@@ -86,6 +98,18 @@ class ReservationCard extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            if (reservation.canCancel)
+              OutlinedButton.icon(
+                onPressed: isCancelling ? null : onCancel,
+                icon: const Icon(Icons.cancel_outlined),
+                label: Text(isCancelling ? '취소 처리 중' : '예약 취소'),
+              )
+            else
+              Text(
+                _cancelGuide(reservation),
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              ),
           ],
         ),
       ),
@@ -101,5 +125,22 @@ class ReservationCard extends StatelessWidget {
       default:
         return '매장 픽업';
     }
+  }
+
+  String _cancelGuide(Reservation reservation) {
+    if (reservation.status == 'CANCELLED') {
+      return '취소된 예약입니다. Mock 환불 상태를 확인해 주세요.';
+    }
+    if (reservation.status == 'PICKED_UP') {
+      return '픽업 완료된 예약은 취소할 수 없습니다.';
+    }
+    if (reservation.deliveryStatus == 'SENT' ||
+        reservation.deliveryStatus == 'DELIVERED') {
+      return '배송이 시작되었거나 완료되어 취소할 수 없습니다.';
+    }
+    if (reservation.paymentStatus != 'PAID') {
+      return '결제 완료 후 취소할 수 있습니다.';
+    }
+    return '현재 상태에서는 취소할 수 없습니다.';
   }
 }
