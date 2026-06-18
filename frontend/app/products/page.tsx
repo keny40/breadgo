@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
-import type { AuthUser, Payment, RegionProduct, Reservation } from "@/lib/types";
+import type { AuthUser, Payment, RegionProduct, Reservation, Store } from "@/lib/types";
 
 const paymentMethods = [
   { value: "MOCK_CARD", label: "카드 모의결제" },
@@ -60,6 +60,8 @@ export default function ProductsPage() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [discoveryMode, setDiscoveryMode] = useState<"region" | "nearby">("region");
   const [products, setProducts] = useState<RegionProduct[]>([]);
+  const [mapStores, setMapStores] = useState<Store[]>([]);
+  const [selectedMapStoreId, setSelectedMapStoreId] = useState<string | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [fulfillmentByProduct, setFulfillmentByProduct] = useState<Record<string, string>>({});
   const [latestReservation, setLatestReservation] = useState<Reservation | null>(null);
@@ -92,11 +94,16 @@ export default function ProductsPage() {
           sigungu: "강남구",
           dong: "역삼동",
         });
-        const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products?${params.toString()}`);
+        const query = params.toString();
+        const [data, storeData] = await Promise.all([
+          apiFetch<RegionProduct[]>(`/api/v1/regions/products?${query}`),
+          apiFetch<Store[]>(`/api/v1/regions/stores?${query}`),
+        ]);
         if (cancelled) {
           return;
         }
         setProducts(data);
+        setMapStores(storeData);
         setMessage(
           data.length > 0
             ? `${data.length}개 상품을 불러왔습니다.`
@@ -163,6 +170,17 @@ export default function ProductsPage() {
     return params.toString();
   }
 
+  async function loadRegionStores(query: string) {
+    const data = await apiFetch<Store[]>(`/api/v1/regions/stores?${query}`);
+    setMapStores(data);
+    setSelectedMapStoreId((current) => {
+      if (current && data.some((store) => store.id === current)) {
+        return current;
+      }
+      return null;
+    });
+  }
+
   async function loadProducts(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setMessage("");
@@ -175,7 +193,11 @@ export default function ProductsPage() {
     setDiscoveryMode("region");
 
     try {
-      const data = await apiFetch<RegionProduct[]>(`/api/v1/regions/products?${buildRegionQuery()}`);
+      const query = buildRegionQuery();
+      const [data] = await Promise.all([
+        apiFetch<RegionProduct[]>(`/api/v1/regions/products?${query}`),
+        loadRegionStores(query),
+      ]);
       setProducts(data);
       setMessage(
         data.length > 0
@@ -404,6 +426,51 @@ export default function ProductsPage() {
     return groups;
   }, {});
 
+  const storeById = mapStores.reduce<Record<string, Store>>((stores, store) => {
+    stores[store.id] = store;
+    return stores;
+  }, {});
+
+  const mapStoreSummaries = Object.entries(productsByStore)
+    .map(([storeId, storeProducts]) => {
+      const store = storeById[storeId];
+      if (!store?.latitude || !store.longitude) {
+        return null;
+      }
+      return {
+        storeId,
+        store,
+        products: storeProducts,
+        latitude: Number(store.latitude),
+        longitude: Number(store.longitude),
+        distanceKm: storeProducts.find((product) => product.distance_km != null)?.distance_km ?? null,
+      };
+    })
+    .filter((summary): summary is NonNullable<typeof summary> => Boolean(summary));
+
+  const storesWithoutCoordinates = Object.keys(productsByStore).length - mapStoreSummaries.length;
+  const mapLatitudes = [
+    ...mapStoreSummaries.map((summary) => summary.latitude),
+    ...(userLocation ? [userLocation.lat] : []),
+  ];
+  const mapLongitudes = [
+    ...mapStoreSummaries.map((summary) => summary.longitude),
+    ...(userLocation ? [userLocation.lng] : []),
+  ];
+  const minLatitude = mapLatitudes.length > 0 ? Math.min(...mapLatitudes) : 0;
+  const maxLatitude = mapLatitudes.length > 0 ? Math.max(...mapLatitudes) : 0;
+  const minLongitude = mapLongitudes.length > 0 ? Math.min(...mapLongitudes) : 0;
+  const maxLongitude = mapLongitudes.length > 0 ? Math.max(...mapLongitudes) : 0;
+  const latitudeRange = Math.max(maxLatitude - minLatitude, 0.01);
+  const longitudeRange = Math.max(maxLongitude - minLongitude, 0.01);
+
+  function mapPosition(latitude: number, longitude: number) {
+    return {
+      top: `${8 + ((maxLatitude - latitude) / latitudeRange) * 84}%`,
+      left: `${8 + ((longitude - minLongitude) / longitudeRange) * 84}%`,
+    };
+  }
+
   return (
     <section className="section">
       <PageHeader
@@ -506,9 +573,73 @@ export default function ProductsPage() {
         <EmptyState title="선택한 지역에 판매 중인 상품이 없습니다." description="다른 데모 지역을 선택해 보세요." />
       )}
 
-      <div className="list">
+      <div className="discovery-layout">
+        <section className="panel map-panel" aria-label="상품 지도 보기">
+          <div className="card-title-row">
+            <div>
+              <p className="eyebrow">Map View</p>
+              <h2>지도 보기</h2>
+            </div>
+            <Badge tone={discoveryMode === "nearby" ? "success" : "muted"}>
+              {discoveryMode === "nearby" ? "내 위치 기준" : "선택 지역 기준"}
+            </Badge>
+          </div>
+          <p className="field-help">
+            외부 지도 API 없이 매장 좌표를 시각화한 MVP 지도입니다. 좌표가 등록된 매장만 지도에 표시됩니다.
+          </p>
+          <div className="mock-map">
+            <div className="mock-map-grid" />
+            {userLocation && (
+              <div className="map-marker user-location" style={mapPosition(userLocation.lat, userLocation.lng)}>
+                내 위치
+              </div>
+            )}
+            {mapStoreSummaries.map((summary, index) => (
+              <button
+                type="button"
+                className={`map-marker store-marker ${selectedMapStoreId === summary.storeId ? "active" : ""}`}
+                style={mapPosition(summary.latitude, summary.longitude)}
+                key={summary.storeId}
+                onClick={() => setSelectedMapStoreId(summary.storeId)}
+                aria-label={`${summary.store.name} 지도 마커`}
+              >
+                {index + 1}
+              </button>
+            ))}
+            {mapStoreSummaries.length === 0 && !userLocation && (
+              <div className="map-empty">
+                <strong>지도에 표시할 좌표가 없습니다.</strong>
+                <span>매장에 위도/경도가 등록되면 이곳에 표시됩니다.</span>
+              </div>
+            )}
+          </div>
+          <div className="map-store-list">
+            {mapStoreSummaries.map((summary, index) => (
+              <button
+                type="button"
+                className={`map-store-summary ${selectedMapStoreId === summary.storeId ? "active" : ""}`}
+                key={summary.storeId}
+                onClick={() => setSelectedMapStoreId(summary.storeId)}
+              >
+                <span>{index + 1}</span>
+                <strong>{summary.store.name}</strong>
+                <small>
+                  {summary.products.length}개 상품
+                  {summary.distanceKm != null ? ` · ${summary.distanceKm.toFixed(2)}km` : ""}
+                </small>
+              </button>
+            ))}
+          </div>
+          {storesWithoutCoordinates > 0 && (
+            <p className="field-help">
+              좌표가 없는 {storesWithoutCoordinates}개 매장은 지도에서 제외되지만 상품 리스트에는 표시됩니다.
+            </p>
+          )}
+        </section>
+
+        <div className="list">
         {Object.entries(productsByStore).map(([storeId, storeProducts]) => (
-          <section className="panel" key={storeId}>
+          <section className={`panel ${selectedMapStoreId === storeId ? "map-selected-panel" : ""}`} key={storeId}>
             <div className="section">
               <div className="card-title-row">
                 <h2>{storeProducts[0].store_name}</h2>
@@ -624,6 +755,7 @@ export default function ProductsPage() {
             </div>
           </section>
         ))}
+        </div>
       </div>
 
       {isCustomer && latestReservation && (
