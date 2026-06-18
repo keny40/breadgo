@@ -9,6 +9,7 @@ from app.models.merchant import Merchant
 from app.models.store import Store
 from app.models.user import User, UserRole
 from app.schemas.merchant import MerchantCreate
+from app.schemas.settlement_account import SettlementAccountUpdate
 from app.schemas.store import StoreCreate, StoreUpdate
 
 
@@ -54,6 +55,29 @@ def require_merchant_for_user(db: Session, user: User) -> Merchant:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Merchant profile is required for this action.",
         )
+    return merchant
+
+
+def get_merchant_by_id(db: Session, merchant_id: UUID) -> Merchant:
+    merchant = db.scalar(select(Merchant).where(Merchant.id == merchant_id))
+    if merchant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Merchant not found.")
+    return merchant
+
+
+def update_settlement_account(
+    db: Session,
+    merchant: Merchant,
+    payload: SettlementAccountUpdate,
+) -> Merchant:
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if isinstance(value, str):
+            value = value.strip() or None
+        setattr(merchant, field, value)
+
+    db.commit()
+    db.refresh(merchant)
     return merchant
 
 

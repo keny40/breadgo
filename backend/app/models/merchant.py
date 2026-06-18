@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -42,6 +42,11 @@ class Merchant(Base):
     )
     representative_name: Mapped[str] = mapped_column(String(255), nullable=False)
     phone_number: Mapped[str] = mapped_column(String(32), nullable=False)
+    bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bank_account_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    bank_account_holder: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    settlement_cycle: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    settlement_memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[MerchantStatus] = mapped_column(
         Enum(MerchantStatus, name="merchant_status"),
         nullable=False,

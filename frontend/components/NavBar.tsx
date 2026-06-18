@@ -19,6 +19,7 @@ export default function NavBar() {
     { href: "/merchant/stores", label: "매장" },
     { href: "/merchant/products", label: "상품 관리" },
     { href: "/merchant/pickup", label: "픽업 확인" },
+    { href: "/merchant/settlement-account", label: "정산 계좌" },
     { href: "/merchant/settlements", label: "정산 내역" },
     { href: "/admin", label: "Admin" },
     { href: "/admin/settlements", label: "정산 관리" },

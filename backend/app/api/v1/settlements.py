@@ -26,6 +26,12 @@ def settlement_to_read(settlement: Settlement) -> SettlementRead:
     payload.store_name = settlement.store.name if settlement.store else None
     payload.merchant_name = settlement.merchant.business_name if settlement.merchant else None
     payload.merchant_email = settlement.merchant.user.email if settlement.merchant and settlement.merchant.user else None
+    if settlement.merchant:
+        payload.bank_name = settlement.merchant.bank_name
+        payload.bank_account_number = settlement.merchant.bank_account_number
+        payload.bank_account_holder = settlement.merchant.bank_account_holder
+        payload.settlement_cycle = settlement.merchant.settlement_cycle
+        payload.settlement_memo = settlement.merchant.settlement_memo
     if settlement.reservation:
         payload.reservation_status = settlement.reservation.status.value
         payload.pickup_code = settlement.reservation.pickup_code

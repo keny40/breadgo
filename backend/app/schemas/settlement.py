@@ -9,6 +9,8 @@ from app.models.settlement import SettlementStatus
 
 class SettlementStatusUpdate(BaseModel):
     status: SettlementStatus
+    admin_memo: str | None = None
+    hold_reason: str | None = None
 
 
 class SettlementRead(BaseModel):
@@ -25,6 +27,8 @@ class SettlementRead(BaseModel):
     merchant_settlement_amount: Decimal
     status: SettlementStatus
     settled_at: datetime | None
+    admin_memo: str | None = None
+    hold_reason: str | None = None
     created_at: datetime
     updated_at: datetime
     product_name: str | None = None
@@ -34,6 +38,11 @@ class SettlementRead(BaseModel):
     reservation_status: str | None = None
     payment_status: str | None = None
     pickup_code: str | None = None
+    bank_name: str | None = None
+    bank_account_number: str | None = None
+    bank_account_holder: str | None = None
+    settlement_cycle: str | None = None
+    settlement_memo: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

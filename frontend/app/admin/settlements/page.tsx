@@ -27,6 +27,8 @@ export default function AdminSettlementsPage() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [holdReasons, setHoldReasons] = useState<Record<string, string>>({});
+  const [adminMemos, setAdminMemos] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
@@ -89,16 +91,25 @@ export default function AdminSettlementsPage() {
     setMessage("");
     setIsError(false);
 
+    const holdReason = holdReasons[settlementId]?.trim();
+    const adminMemo = adminMemos[settlementId]?.trim();
+
     try {
       await apiFetch<Settlement>(
         `/api/v1/admin/settlements/${settlementId}/status`,
         {
           method: "PATCH",
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({
+            status,
+            hold_reason: status === "HOLD" ? holdReason || null : undefined,
+            admin_memo: adminMemo || undefined,
+          }),
         },
         true,
       );
       await refreshSettlements();
+      setHoldReasons((current) => ({ ...current, [settlementId]: "" }));
+      setAdminMemos((current) => ({ ...current, [settlementId]: "" }));
       setMessage(`정산 상태가 ${statusLabel(status)}(으)로 변경되었습니다.`);
     } catch (error) {
       setIsError(true);
@@ -180,7 +191,22 @@ export default function AdminSettlementsPage() {
                         픽업 {settlement.pickup_code || "-"}
                       </td>
                       <td>{settlement.merchant_name || settlement.merchant_email || "-"}</td>
-                      <td>{settlement.store_name || "-"}</td>
+                      <td>
+                        {settlement.store_name || "-"}
+                        <br />
+                        <small>
+                          계좌{" "}
+                          {settlement.bank_name && settlement.bank_account_number && settlement.bank_account_holder
+                            ? `${settlement.bank_name} ${settlement.bank_account_number} (${settlement.bank_account_holder})`
+                            : "미등록"}
+                        </small>
+                        {settlement.settlement_cycle && (
+                          <>
+                            <br />
+                            <small>정산 주기 {settlement.settlement_cycle}</small>
+                          </>
+                        )}
+                      </td>
                       <td>{formatMoney(settlement.gross_amount)}</td>
                       <td>
                         플랫폼 {formatMoney(settlement.platform_fee_amount)}
@@ -194,9 +220,43 @@ export default function AdminSettlementsPage() {
                         예약 {settlement.reservation_status || "-"}
                         <br />
                         결제 {settlement.payment_status || "-"}
+                        {settlement.hold_reason && (
+                          <>
+                            <br />
+                            보류 사유 {settlement.hold_reason}
+                          </>
+                        )}
+                        {settlement.admin_memo && (
+                          <>
+                            <br />
+                            관리 메모 {settlement.admin_memo}
+                          </>
+                        )}
                       </td>
                       <td>
                         <div className="actions">
+                          <input
+                            value={holdReasons[settlement.id] || ""}
+                            onChange={(event) =>
+                              setHoldReasons((current) => ({
+                                ...current,
+                                [settlement.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="보류 사유"
+                            aria-label="보류 사유"
+                          />
+                          <input
+                            value={adminMemos[settlement.id] || ""}
+                            onChange={(event) =>
+                              setAdminMemos((current) => ({
+                                ...current,
+                                [settlement.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="관리 메모"
+                            aria-label="관리 메모"
+                          />
                           <button
                             type="button"
                             onClick={() => updateSettlementStatus(settlement.id, "PAID")}

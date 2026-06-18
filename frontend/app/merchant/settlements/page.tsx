@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
-import type { Settlement, SettlementSummary } from "@/lib/types";
+import type { Settlement, SettlementAccount, SettlementSummary } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -13,8 +14,13 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toLocaleString() : "-";
 }
 
+function hasAccount(account: SettlementAccount | null) {
+  return Boolean(account?.bank_name && account.bank_account_number && account.bank_account_holder);
+}
+
 export default function MerchantSettlementsPage() {
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [account, setAccount] = useState<SettlementAccount | null>(null);
   const [summary, setSummary] = useState<SettlementSummary | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -27,13 +33,15 @@ export default function MerchantSettlementsPage() {
       setIsError(false);
 
       try {
-        const [settlementData, summaryData] = await Promise.all([
+        const [settlementData, summaryData, accountData] = await Promise.all([
           apiFetch<Settlement[]>("/api/v1/merchant/settlements", {}, true),
           apiFetch<SettlementSummary>("/api/v1/merchant/settlements/summary", {}, true),
+          apiFetch<SettlementAccount>("/api/v1/merchant/settlement-account", {}, true),
         ]);
         if (cancelled) return;
         setSettlements(settlementData);
         setSummary(summaryData);
+        setAccount(accountData);
         setMessage("정산 내역을 불러왔습니다.");
       } catch (error) {
         if (cancelled) return;
@@ -60,6 +68,44 @@ export default function MerchantSettlementsPage() {
       </p>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
+
+      <div className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">정산 계좌</p>
+            <h3>{account?.business_name || "가맹점 계좌 정보"}</h3>
+          </div>
+          <Link className="secondary button-link" href="/merchant/settlement-account">
+            정산 계좌 관리
+          </Link>
+        </div>
+        {hasAccount(account) ? (
+          <div className="detail-grid">
+            <div>
+              <span>은행명</span>
+              <strong>{account?.bank_name}</strong>
+            </div>
+            <div>
+              <span>계좌번호</span>
+              <strong>{account?.bank_account_number}</strong>
+            </div>
+            <div>
+              <span>예금주</span>
+              <strong>{account?.bank_account_holder}</strong>
+            </div>
+            <div>
+              <span>정산 주기</span>
+              <strong>{account?.settlement_cycle || "-"}</strong>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            title="정산 계좌가 등록되지 않았습니다."
+            description="정산 계좌를 등록하면 관리자 정산 화면에서도 계좌 요약을 확인할 수 있습니다."
+          />
+        )}
+        {account?.settlement_memo && <p className="meta">정산 메모: {account.settlement_memo}</p>}
+      </div>
 
       {summary && (
         <div className="summary-grid">

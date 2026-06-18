@@ -153,6 +153,13 @@ def update_settlement_status(
 
     settlement.status = payload.status
     settlement.settled_at = datetime.now(timezone.utc) if payload.status == SettlementStatus.PAID else None
+    if payload.admin_memo is not None:
+        settlement.admin_memo = payload.admin_memo.strip() or None
+    if payload.status == SettlementStatus.HOLD:
+        if payload.hold_reason is not None:
+            settlement.hold_reason = payload.hold_reason.strip() or None
+    elif payload.status == SettlementStatus.PAID and payload.hold_reason is not None:
+        settlement.hold_reason = payload.hold_reason.strip() or None
     db.commit()
     db.refresh(settlement)
     return settlement

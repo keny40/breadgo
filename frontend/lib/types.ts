@@ -129,6 +129,8 @@ export type Settlement = {
   merchant_settlement_amount: string;
   status: string;
   settled_at: string | null;
+  admin_memo: string | null;
+  hold_reason: string | null;
   created_at: string;
   updated_at: string;
   product_name: string | null;
@@ -138,6 +140,11 @@ export type Settlement = {
   reservation_status: string | null;
   payment_status: string | null;
   pickup_code: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_holder: string | null;
+  settlement_cycle: string | null;
+  settlement_memo: string | null;
 };
 
 export type SettlementSummary = {
@@ -151,6 +158,17 @@ export type SettlementSummary = {
   hold_amount: string;
   cancelled_amount: string;
   count_by_status: Record<string, number>;
+};
+
+export type SettlementAccount = {
+  merchant_id: string;
+  business_name: string;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_holder: string | null;
+  settlement_cycle: string | null;
+  settlement_memo: string | null;
+  updated_at: string;
 };
 
 export type AdminSummary = {

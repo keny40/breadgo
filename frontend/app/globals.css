@@ -75,6 +75,25 @@ button.danger {
   background: var(--danger);
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-weight: 800;
+}
+
+.button-link.secondary {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.button-link.secondary:hover {
+  background: var(--surface-strong);
+}
+
 input,
 textarea,
 select {
@@ -314,6 +333,10 @@ code {
 .form-grid {
   display: grid;
   gap: 15px;
+}
+
+.form-grid .full-width {
+  grid-column: 1 / -1;
 }
 
 .two-column {
