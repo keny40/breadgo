@@ -3,9 +3,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
-import { apiFetch, friendlyErrorMessage } from "@/lib/api";
-import type { Payment, RegionProduct, Reservation } from "@/lib/types";
+import { apiFetch, friendlyErrorMessage, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
+import type { AuthUser, Payment, RegionProduct, Reservation } from "@/lib/types";
 
 const paymentMethods = [
   { value: "MOCK_CARD", label: "카드 모의결제" },
@@ -74,6 +75,12 @@ export default function ProductsPage() {
   const [isError, setIsError] = useState(false);
   const [isPaymentError, setIsPaymentError] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [hasLogin, setHasLogin] = useState(false);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+
+  const normalizedRole = currentRole?.toUpperCase() || null;
+  const isCustomer = normalizedRole === "CUSTOMER";
+  const isNonCustomerUser = normalizedRole === "MERCHANT" || normalizedRole === "ADMIN";
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +114,44 @@ export default function ProductsPage() {
     void loadInitialProducts();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function applyStoredAuth() {
+      const token = getToken();
+      const storedUser = getStoredUser();
+      setHasLogin(Boolean(token));
+      setCurrentRole(storedUser?.role || null);
+
+      if (token && !storedUser?.role) {
+        void apiFetch<AuthUser>("/api/v1/auth/me", {}, true)
+          .then((user) => {
+            if (cancelled) {
+              return;
+            }
+            saveStoredUser(user);
+            setHasLogin(true);
+            setCurrentRole(user.role || null);
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setCurrentRole(null);
+            }
+          });
+      }
+    }
+
+    applyStoredAuth();
+    window.addEventListener("breadgo-auth-changed", applyStoredAuth);
+    window.addEventListener("storage", applyStoredAuth);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("breadgo-auth-changed", applyStoredAuth);
+      window.removeEventListener("storage", applyStoredAuth);
     };
   }, []);
 
@@ -203,6 +248,12 @@ export default function ProductsPage() {
   }
 
   async function reserveProduct(productId: string) {
+    if (!isCustomer) {
+      setIsError(true);
+      setMessage(hasLogin ? "고객 예약은 CUSTOMER 계정에서만 가능합니다." : "예약하려면 로그인해 주세요.");
+      return;
+    }
+
     setMessage("");
     setIsError(false);
     setLatestPayment(null);
@@ -397,41 +448,58 @@ export default function ProductsPage() {
         </div>
       </form>
 
-      <section className="panel form-grid">
-        <h2>수령 방법 안내</h2>
-        <p className="field-help">
-          상품마다 가능한 수령 방식이 다릅니다. 각 상품 카드에서 수령 방법을 선택해 주세요. 택배 배송은 배송 가능한 상품에 한해 선택할 수 있습니다.
-        </p>
-        {products.some((product) => product.allow_quick_delivery || product.allow_parcel_delivery) && (
-          <>
-            <div className="message">
-              현재는 실제 배송 연동이 아닌 요청 정보 저장 단계입니다. 배송 상태는 점주가 수동으로 변경합니다.
-            </div>
-            <div className="two-column">
+      {isCustomer && (
+        <section className="panel form-grid">
+          <h2>수령 방법 안내</h2>
+          <p className="field-help">
+            상품마다 가능한 수령 방식이 다릅니다. 각 상품 카드에서 수령 방법을 선택해 주세요. 택배 배송은 배송 가능한 상품에 한해 선택할 수 있습니다.
+          </p>
+          {products.some((product) => product.allow_quick_delivery || product.allow_parcel_delivery) && (
+            <>
+              <div className="message">
+                현재는 실제 배송 연동이 아닌 요청 정보 저장 단계입니다. 배송 상태는 점주가 수동으로 변경합니다.
+              </div>
+              <div className="two-column">
+                <label>
+                  받는 사람
+                  <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} />
+                </label>
+                <label>
+                  받는 사람 연락처
+                  <input value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} />
+                </label>
+              </div>
               <label>
-                받는 사람
-                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} />
+                주소
+                <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} />
               </label>
               <label>
-                받는 사람 연락처
-                <input value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} />
+                배송 요청사항
+                <textarea
+                  value={deliveryRequestMemo}
+                  onChange={(event) => setDeliveryRequestMemo(event.target.value)}
+                  placeholder="문 앞에 놓아주세요, 도착 전 연락 주세요 등"
+                />
               </label>
+            </>
+          )}
+        </section>
+      )}
+
+      {!isCustomer && (
+        <section className="panel">
+          {isNonCustomerUser ? (
+            <p className="field-help">고객 예약은 CUSTOMER 계정에서만 가능합니다.</p>
+          ) : (
+            <div className="card-title-row">
+              <p className="field-help">예약하려면 로그인해 주세요.</p>
+              <Link className="button-link" href="/login">
+                로그인
+              </Link>
             </div>
-            <label>
-              주소
-              <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} />
-            </label>
-            <label>
-              배송 요청사항
-              <textarea
-                value={deliveryRequestMemo}
-                onChange={(event) => setDeliveryRequestMemo(event.target.value)}
-                placeholder="문 앞에 놓아주세요, 도착 전 연락 주세요 등"
-              />
-            </label>
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       {products.length === 0 && !isError && (
@@ -491,58 +559,66 @@ export default function ProductsPage() {
                     <span>픽업 {new Date(product.pickup_start_time).toLocaleString()}</span>
                     <span>- {new Date(product.pickup_end_time).toLocaleString()}</span>
                   </div>
-                  <div className="payment-box">
-                    <h3>수령 방법을 선택해 주세요.</h3>
-                    <div className="chip-row">
-                      {availableFulfillmentMethods(product).map((method) => (
-                        <button
-                          type="button"
-                          className={`chip ${selectedFulfillmentForProduct(product) === method.value ? "active" : ""}`}
-                          key={method.value}
-                          onClick={() =>
-                            setFulfillmentByProduct((current) => ({
+                  {isCustomer && (
+                    <>
+                      <div className="payment-box">
+                        <h3>수령 방법을 선택해 주세요.</h3>
+                        <div className="chip-row">
+                          {availableFulfillmentMethods(product).map((method) => (
+                            <button
+                              type="button"
+                              className={`chip ${
+                                selectedFulfillmentForProduct(product) === method.value ? "active" : ""
+                              }`}
+                              key={method.value}
+                              onClick={() =>
+                                setFulfillmentByProduct((current) => ({
+                                  ...current,
+                                  [product.id]: method.value,
+                                }))
+                              }
+                            >
+                              {method.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="detail-grid">
+                          <div>
+                            <span>상품 금액</span>
+                            <strong>{formatMoney(String(productAmountFor(product)))}</strong>
+                          </div>
+                          <div>
+                            <span>배송비</span>
+                            <strong>{formatMoney(String(selectedDeliveryFeeFor(product)))}</strong>
+                          </div>
+                          <div>
+                            <span>총 고객 결제금액</span>
+                            <strong>
+                              {formatMoney(String(productAmountFor(product) + selectedDeliveryFeeFor(product)))}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="actions">
+                        <input
+                          type="number"
+                          min={1}
+                          max={product.quantity}
+                          value={quantities[product.id] || 1}
+                          onChange={(event) =>
+                            setQuantities((current) => ({
                               ...current,
-                              [product.id]: method.value,
+                              [product.id]: Number(event.target.value),
                             }))
                           }
-                        >
-                          {method.label}
+                          aria-label={`${product.name} reservation quantity`}
+                        />
+                        <button type="button" onClick={() => reserveProduct(product.id)}>
+                          이 상품 예약하기
                         </button>
-                      ))}
-                    </div>
-                    <div className="detail-grid">
-                      <div>
-                        <span>상품 금액</span>
-                        <strong>{formatMoney(String(productAmountFor(product)))}</strong>
                       </div>
-                      <div>
-                        <span>배송비</span>
-                        <strong>{formatMoney(String(selectedDeliveryFeeFor(product)))}</strong>
-                      </div>
-                      <div>
-                        <span>총 고객 결제금액</span>
-                        <strong>{formatMoney(String(productAmountFor(product) + selectedDeliveryFeeFor(product)))}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="actions">
-                    <input
-                      type="number"
-                      min={1}
-                      max={product.quantity}
-                      value={quantities[product.id] || 1}
-                      onChange={(event) =>
-                        setQuantities((current) => ({
-                          ...current,
-                          [product.id]: Number(event.target.value),
-                        }))
-                      }
-                      aria-label={`${product.name} reservation quantity`}
-                    />
-                    <button type="button" onClick={() => reserveProduct(product.id)}>
-                      이 상품 예약하기
-                    </button>
-                  </div>
+                    </>
+                  )}
                 </article>
               ))}
             </div>
@@ -550,7 +626,7 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {latestReservation && (
+      {isCustomer && latestReservation && (
         <div className="panel success-panel">
           <div className="card-title-row">
             <div>
