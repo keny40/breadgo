@@ -7,6 +7,7 @@ import '../models/notification_item.dart';
 import '../models/payment.dart';
 import '../models/product.dart';
 import '../models/reservation.dart';
+import '../models/reservation_history.dart';
 import 'session_store.dart';
 
 class ApiException implements Exception {
@@ -163,6 +164,22 @@ class ApiClient {
     );
     final body = await _decodeResponse(response) as Map<String, dynamic>;
     return Reservation.fromJson(body);
+  }
+
+  Future<List<ReservationHistoryItem>> fetchReservationHistory({
+    required String reservationId,
+  }) async {
+    final response = await http.get(
+      _uri('/api/v1/reservations/$reservationId/history'),
+      headers: _headers(auth: true),
+    );
+    final body = await _decodeResponse(response) as List<dynamic>;
+    return body
+        .map(
+          (item) =>
+              ReservationHistoryItem.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
   }
 
   Future<Payment> createMockPaymentReady({

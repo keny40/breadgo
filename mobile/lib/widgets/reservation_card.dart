@@ -8,12 +8,16 @@ class ReservationCard extends StatelessWidget {
     super.key,
     required this.reservation,
     this.onCancel,
+    this.onShowHistory,
     this.isCancelling = false,
+    this.isLoadingHistory = false,
   });
 
   final Reservation reservation;
   final VoidCallback? onCancel;
+  final VoidCallback? onShowHistory;
   final bool isCancelling;
+  final bool isLoadingHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +103,12 @@ class ReservationCard extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: isLoadingHistory ? null : onShowHistory,
+              icon: const Icon(Icons.history),
+              label: Text(isLoadingHistory ? '이력 불러오는 중' : '상태 이력 보기'),
+            ),
+            const SizedBox(height: 8),
             if (reservation.canCancel)
               OutlinedButton.icon(
                 onPressed: isCancelling ? null : onCancel,

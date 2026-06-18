@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
 import '../models/payment.dart';
 import '../models/reservation.dart';
+import '../models/reservation_history.dart';
 
 class ReservationController extends ChangeNotifier {
   ReservationController({required this.apiClient});
@@ -13,8 +14,11 @@ class ReservationController extends ChangeNotifier {
   bool loading = false;
   bool submitting = false;
   final Set<String> cancellingReservationIds = {};
+  final Set<String> loadingHistoryReservationIds = {};
+  final Map<String, List<ReservationHistoryItem>> historyByReservationId = {};
   String? errorMessage;
   String? successMessage;
+  String? historyErrorMessage;
   Reservation? lastReservation;
   Payment? lastPayment;
 
@@ -89,6 +93,39 @@ class ReservationController extends ChangeNotifier {
 
   bool isCancelling(String reservationId) {
     return cancellingReservationIds.contains(reservationId);
+  }
+
+  bool isLoadingHistory(String reservationId) {
+    return loadingHistoryReservationIds.contains(reservationId);
+  }
+
+  List<ReservationHistoryItem> historyFor(String reservationId) {
+    return historyByReservationId[reservationId] ?? [];
+  }
+
+  Future<List<ReservationHistoryItem>> loadReservationHistory(
+    String reservationId,
+  ) async {
+    loadingHistoryReservationIds.add(reservationId);
+    historyErrorMessage = null;
+    notifyListeners();
+
+    try {
+      final history = await apiClient.fetchReservationHistory(
+        reservationId: reservationId,
+      );
+      historyByReservationId[reservationId] = history;
+      return history;
+    } on ApiException catch (error) {
+      historyErrorMessage = _friendlyError(error.message);
+      return [];
+    } catch (_) {
+      historyErrorMessage = '상태 이력을 불러오지 못했습니다.';
+      return [];
+    } finally {
+      loadingHistoryReservationIds.remove(reservationId);
+      notifyListeners();
+    }
   }
 
   Future<bool> cancelReservation(String reservationId) async {

@@ -4,6 +4,7 @@ import '../state/auth_controller.dart';
 import '../state/reservation_controller.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/reservation_card.dart';
+import '../widgets/reservation_history_sheet.dart';
 
 class ReservationsScreen extends StatefulWidget {
   const ReservationsScreen({
@@ -107,6 +108,9 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                     isCancelling: widget.reservationController.isCancelling(
                       reservation.id,
                     ),
+                    isLoadingHistory: widget.reservationController
+                        .isLoadingHistory(reservation.id),
+                    onShowHistory: () => _showHistory(reservation.id),
                     onCancel: reservation.canCancel
                         ? () => _confirmCancel(reservation.id)
                         : null,
@@ -141,5 +145,24 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
     if (confirmed == true) {
       await widget.reservationController.cancelReservation(reservationId);
     }
+  }
+
+  Future<void> _showHistory(String reservationId) async {
+    final history = await widget.reservationController.loadReservationHistory(
+      reservationId,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => ReservationHistorySheet(
+        history: history,
+        errorMessage: widget.reservationController.historyErrorMessage,
+      ),
+    );
   }
 }
