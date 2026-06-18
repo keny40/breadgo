@@ -343,11 +343,16 @@ Neon PostgreSQL:
 
 ## 관련 문서
 
+- [CHANGELOG](CHANGELOG.md)
 - [통합 데모 시나리오 v0.3.0](docs/demo-scenario-v0.3.0.md)
 - [통합 릴리즈 요약 v0.3.0](docs/release-summary-v0.3.0.md)
+- [릴리즈 노트 v0.3.0](docs/release-note-v0.3.0.md)
+- [GitHub Release 본문 v0.3.0](docs/github-release-v0.3.0.md)
+- [태그 생성 가이드 v0.3.0](docs/tagging-guide-v0.3.0.md)
 - [배포 환경 점검 체크리스트 v0.3.0](docs/deployment-checklist-v0.3.0.md)
 - [운영 URL Smoke Test v0.3.0](docs/production-smoke-test-v0.3.0.md)
 - [운영 URL Smoke Test 결과 v0.3.0](docs/production-smoke-result-v0.3.0.md)
+- [Phase 48 릴리즈 체크](docs/release-check-phase48.md)
 - [Phase 46 릴리즈 체크](docs/release-check-phase46.md)
 - [Phase 47 릴리즈 체크](docs/release-check-phase47.md)
 - [Phase 45 릴리즈 체크](docs/release-check-phase45.md)
