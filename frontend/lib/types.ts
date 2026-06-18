@@ -144,6 +144,21 @@ export type ReservationHistory = {
   created_at: string;
 };
 
+export type Notification = {
+  id: string;
+  user_id: string;
+  role: string;
+  title: string;
+  message: string;
+  notification_type: string;
+  related_reservation_id: string | null;
+  related_payment_id: string | null;
+  related_settlement_id: string | null;
+  is_read: boolean;
+  created_at: string;
+  read_at: string | null;
+};
+
 export type Payment = {
   id: string;
   reservation_id: string;

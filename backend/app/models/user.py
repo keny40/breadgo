@@ -11,6 +11,7 @@ from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.models.merchant import Merchant
+    from app.models.notification import Notification
     from app.models.payment import Payment
     from app.models.reservation import Reservation
     from app.models.reservation_history import ReservationHistory
@@ -63,4 +64,8 @@ class User(Base):
     reservation_history_events: Mapped[list["ReservationHistory"]] = relationship(
         "ReservationHistory",
         back_populates="actor",
+    )
+    notifications: Mapped[list["Notification"]] = relationship(
+        "Notification",
+        back_populates="user",
     )

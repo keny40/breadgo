@@ -19,6 +19,7 @@ from app.schemas.reservation import (
     ReservationCreate,
     ReservationStatusUpdate,
 )
+from app.services.notification_service import create_admin_notifications, create_notification
 from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
@@ -282,6 +283,43 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
     payment.status = PaymentStatus.REFUNDED
     payment.cancelled_at = datetime.now(timezone.utc)
     mark_settlement_cancelled_for_reservation(db, reservation)
+    create_notification(
+        db,
+        user=user,
+        title="예약이 취소되었습니다.",
+        message="예약이 취소되었고 상품 재고가 복구되었습니다.",
+        notification_type="RESERVATION_CANCELLED",
+        related_reservation_id=reservation.id,
+        related_payment_id=payment.id,
+    )
+    create_notification(
+        db,
+        user=user,
+        title="Mock 환불 처리되었습니다.",
+        message="현재는 실제 PG 환불이 아닌 MVP용 Mock 환불 상태입니다.",
+        notification_type="MOCK_REFUNDED",
+        related_reservation_id=reservation.id,
+        related_payment_id=payment.id,
+    )
+    if reservation.store and reservation.store.merchant:
+        create_notification(
+            db,
+            user=reservation.store.merchant.user,
+            role="MERCHANT",
+            title="고객 예약이 취소되었습니다.",
+            message="고객이 결제 완료 예약을 취소했습니다.",
+            notification_type="RESERVATION_CANCELLED",
+            related_reservation_id=reservation.id,
+            related_payment_id=payment.id,
+        )
+    create_admin_notifications(
+        db,
+        title="예약 취소 및 Mock 환불이 발생했습니다.",
+        message="고객 예약이 취소되고 Mock 환불 처리되었습니다.",
+        notification_type="MOCK_REFUNDED",
+        related_reservation_id=reservation.id,
+        related_payment_id=payment.id,
+    )
     record_reservation_history(
         db,
         reservation_id=reservation.id,
@@ -321,8 +359,9 @@ def update_reservation_status(
 
     previous_status = reservation.status
     reservation.status = payload.status
+    settlement = None
     if reservation.status == ReservationStatus.PICKED_UP:
-        mark_settlement_ready_for_reservation(db, reservation)
+        settlement = mark_settlement_ready_for_reservation(db, reservation)
     elif reservation.status == ReservationStatus.CANCELLED:
         mark_settlement_cancelled_for_reservation(db, reservation)
     record_reservation_history(
@@ -334,6 +373,45 @@ def update_reservation_status(
         to_status=reservation.status,
         message="픽업 완료" if reservation.status == ReservationStatus.PICKED_UP else "예약 상태 변경",
     )
+    if reservation.status == ReservationStatus.PICKED_UP:
+        create_notification(
+            db,
+            user=reservation.user,
+            title="픽업이 완료되었습니다.",
+            message="예약 상품 픽업이 완료 처리되었습니다.",
+            notification_type="PICKUP_CONFIRMED",
+            related_reservation_id=reservation.id,
+            related_settlement_id=settlement.id if settlement else None,
+        )
+        create_notification(
+            db,
+            user=merchant.user,
+            role="MERCHANT",
+            title="픽업이 완료되었습니다.",
+            message="고객 픽업을 완료 처리했습니다.",
+            notification_type="PICKUP_CONFIRMED",
+            related_reservation_id=reservation.id,
+            related_settlement_id=settlement.id if settlement else None,
+        )
+        if settlement:
+            create_notification(
+                db,
+                user=merchant.user,
+                role="MERCHANT",
+                title="정산 가능 상태가 되었습니다.",
+                message="픽업 완료된 결제 건이 정산 가능 상태가 되었습니다.",
+                notification_type="SETTLEMENT_READY",
+                related_reservation_id=reservation.id,
+                related_settlement_id=settlement.id,
+            )
+            create_admin_notifications(
+                db,
+                title="새 정산 가능 건이 생성되었습니다.",
+                message="픽업 완료된 결제 건이 정산 가능 상태가 되었습니다.",
+                notification_type="SETTLEMENT_READY",
+                related_reservation_id=reservation.id,
+                related_settlement_id=settlement.id,
+            )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -384,6 +462,14 @@ def _update_delivery_status(
         to_status=reservation.delivery_status,
         message="배송 상태 변경",
     )
+    create_notification(
+        db,
+        user=reservation.user,
+        title="배송 상태가 변경되었습니다.",
+        message=f"배송 상태가 {reservation.delivery_status.value}(으)로 변경되었습니다.",
+        notification_type="DELIVERY_STATUS_CHANGED",
+        related_reservation_id=reservation.id,
+    )
     db.commit()
     db.refresh(reservation)
     return reservation
@@ -408,7 +494,7 @@ def confirm_pickup_by_code(
 
     previous_status = reservation.status
     reservation.status = ReservationStatus.PICKED_UP
-    mark_settlement_ready_for_reservation(db, reservation)
+    settlement = mark_settlement_ready_for_reservation(db, reservation)
     record_reservation_history(
         db,
         reservation_id=reservation.id,
@@ -418,6 +504,44 @@ def confirm_pickup_by_code(
         to_status=reservation.status,
         message="픽업 완료",
     )
+    create_notification(
+        db,
+        user=reservation.user,
+        title="픽업이 완료되었습니다.",
+        message="예약 상품 픽업이 완료 처리되었습니다.",
+        notification_type="PICKUP_CONFIRMED",
+        related_reservation_id=reservation.id,
+        related_settlement_id=settlement.id if settlement else None,
+    )
+    create_notification(
+        db,
+        user=merchant.user,
+        role="MERCHANT",
+        title="픽업이 완료되었습니다.",
+        message="고객 픽업을 완료 처리했습니다.",
+        notification_type="PICKUP_CONFIRMED",
+        related_reservation_id=reservation.id,
+        related_settlement_id=settlement.id if settlement else None,
+    )
+    if settlement:
+        create_notification(
+            db,
+            user=merchant.user,
+            role="MERCHANT",
+            title="정산 가능 상태가 되었습니다.",
+            message="픽업 완료된 결제 건이 정산 가능 상태가 되었습니다.",
+            notification_type="SETTLEMENT_READY",
+            related_reservation_id=reservation.id,
+            related_settlement_id=settlement.id,
+        )
+        create_admin_notifications(
+            db,
+            title="새 정산 가능 건이 생성되었습니다.",
+            message="픽업 완료된 결제 건이 정산 가능 상태가 되었습니다.",
+            notification_type="SETTLEMENT_READY",
+            related_reservation_id=reservation.id,
+            related_settlement_id=settlement.id,
+        )
     db.commit()
     db.refresh(reservation)
     return reservation

@@ -167,6 +167,11 @@ label {
   line-height: 1.45;
 }
 
+.notification-unread {
+  border-color: #facc15;
+  background: #fffbeb;
+}
+
 code {
   border-radius: 6px;
   background: var(--surface-muted);

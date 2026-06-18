@@ -3,17 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, clearToken, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
-import type { AuthUser } from "@/lib/types";
+import type { AuthUser, Notification } from "@/lib/types";
 
 export default function NavBar() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const normalizedRole = userRole?.toLowerCase();
   const links = [
     { href: "/demo", label: "데모 가이드" },
+    ...(loggedIn ? [{ href: "/notifications", label: unreadCount > 0 ? `알림 ${unreadCount}` : "알림" }] : []),
     ...(!loggedIn
       ? [{ href: "/products", label: "상품 보기" }]
       : normalizedRole === "merchant"
@@ -45,6 +47,9 @@ export default function NavBar() {
       setLoggedIn(Boolean(token));
       setUserEmail(storedUser?.email || null);
       setUserRole(storedUser?.role || null);
+      if (!token) {
+        setUnreadCount(0);
+      }
 
       if (token && (!storedUser?.email || !storedUser?.role)) {
         void apiFetch<AuthUser>("/api/v1/auth/me", {}, true)
@@ -58,14 +63,26 @@ export default function NavBar() {
             setUserRole(null);
           });
       }
+
+      if (token) {
+        void apiFetch<Notification[]>("/api/v1/notifications/me", {}, true)
+          .then((notifications) => {
+            setUnreadCount(notifications.filter((notification) => !notification.is_read).length);
+          })
+          .catch(() => {
+            setUnreadCount(0);
+          });
+      }
     }
 
     syncAuth();
     window.addEventListener("storage", syncAuth);
     window.addEventListener("breadgo-auth-changed", syncAuth);
+    window.addEventListener("breadgo-notifications-changed", syncAuth);
     return () => {
       window.removeEventListener("storage", syncAuth);
       window.removeEventListener("breadgo-auth-changed", syncAuth);
+      window.removeEventListener("breadgo-notifications-changed", syncAuth);
     };
   }, []);
 
@@ -74,6 +91,7 @@ export default function NavBar() {
     setLoggedIn(false);
     setUserEmail(null);
     setUserRole(null);
+    setUnreadCount(0);
     setMenuOpen(false);
   }
 

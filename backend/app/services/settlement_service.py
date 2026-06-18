@@ -12,6 +12,7 @@ from app.models.reservation import Reservation, ReservationStatus
 from app.models.settlement import Settlement, SettlementStatus
 from app.models.user import User
 from app.schemas.settlement import SettlementStatusUpdate, SettlementSummary
+from app.services.notification_service import create_admin_notifications, create_notification
 from app.services.reservation_history_service import record_reservation_history
 
 
@@ -175,6 +176,48 @@ def update_settlement_status(
         to_status=settlement.status,
         message="정산 상태 변경",
     )
+    if settlement.status == SettlementStatus.PAID:
+        create_notification(
+            db,
+            user=settlement.merchant.user if settlement.merchant else None,
+            role="MERCHANT",
+            title="정산이 완료되었습니다.",
+            message="관리자가 MVP 정산 상태를 완료로 변경했습니다.",
+            notification_type="SETTLEMENT_PAID",
+            related_reservation_id=settlement.reservation_id,
+            related_payment_id=settlement.payment_id,
+            related_settlement_id=settlement.id,
+        )
+        create_admin_notifications(
+            db,
+            title="정산이 완료되었습니다.",
+            message="정산 상태가 완료로 변경되었습니다.",
+            notification_type="SETTLEMENT_PAID",
+            related_reservation_id=settlement.reservation_id,
+            related_payment_id=settlement.payment_id,
+            related_settlement_id=settlement.id,
+        )
+    elif settlement.status == SettlementStatus.HOLD:
+        create_notification(
+            db,
+            user=settlement.merchant.user if settlement.merchant else None,
+            role="MERCHANT",
+            title="정산이 보류되었습니다.",
+            message=settlement.hold_reason or "관리자가 MVP 정산 상태를 보류로 변경했습니다.",
+            notification_type="SETTLEMENT_HOLD",
+            related_reservation_id=settlement.reservation_id,
+            related_payment_id=settlement.payment_id,
+            related_settlement_id=settlement.id,
+        )
+        create_admin_notifications(
+            db,
+            title="정산이 보류되었습니다.",
+            message="정산 상태가 보류로 변경되었습니다.",
+            notification_type="SETTLEMENT_HOLD",
+            related_reservation_id=settlement.reservation_id,
+            related_payment_id=settlement.payment_id,
+            related_settlement_id=settlement.id,
+        )
     db.commit()
     db.refresh(settlement)
     return settlement

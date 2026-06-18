@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.models.payment import Payment, PaymentStatus
 from app.models.product import Product, ProductStatus
-from app.models.reservation import Reservation, ReservationStatus
+from app.models.reservation import FulfillmentMethod, Reservation, ReservationStatus
 from app.models.user import User
 from app.schemas.payment import PaymentCancelRequest, PaymentConfirmRequest, PaymentFailRequest, PaymentReadyRequest
+from app.services.notification_service import create_admin_notifications, create_notification
 from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import sync_settlement_for_payment
 
@@ -79,7 +80,7 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
     previous_status = payment.status
     payment.status = PaymentStatus.PAID
     payment.paid_at = datetime.now(timezone.utc)
-    sync_settlement_for_payment(db, payment)
+    settlement = sync_settlement_for_payment(db, payment)
     record_reservation_history(
         db,
         reservation_id=payment.reservation_id,
@@ -89,6 +90,42 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
         to_status=payment.status,
         message="결제 완료",
     )
+    reservation = payment.reservation or db.scalar(select(Reservation).where(Reservation.id == payment.reservation_id))
+    create_notification(
+        db,
+        user=user,
+        title="결제가 완료되었습니다.",
+        message="예약 상품의 Mock 결제가 완료되었습니다.",
+        notification_type="PAYMENT_COMPLETED",
+        related_reservation_id=payment.reservation_id,
+        related_payment_id=payment.id,
+        related_settlement_id=settlement.id if settlement else None,
+    )
+    if reservation and reservation.store and reservation.store.merchant:
+        merchant_user = reservation.store.merchant.user
+        create_notification(
+            db,
+            user=merchant_user,
+            role="MERCHANT",
+            title="새 결제 예약이 들어왔습니다.",
+            message=f"{reservation.product.name if reservation.product else '상품'} 예약 결제가 완료되었습니다.",
+            notification_type="PAYMENT_COMPLETED",
+            related_reservation_id=reservation.id,
+            related_payment_id=payment.id,
+            related_settlement_id=settlement.id if settlement else None,
+        )
+        if reservation.fulfillment_method != FulfillmentMethod.PICKUP:
+            create_notification(
+                db,
+                user=merchant_user,
+                role="MERCHANT",
+                title="배송 요청이 접수되었습니다.",
+                message="퀵배달 또는 택배 배송 요청 정보를 확인해 주세요.",
+                notification_type="DELIVERY_STATUS_CHANGED",
+                related_reservation_id=reservation.id,
+                related_payment_id=payment.id,
+                related_settlement_id=settlement.id if settlement else None,
+            )
     db.commit()
     db.refresh(payment)
     return payment
@@ -168,6 +205,34 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
         from_status=previous_payment_status,
         to_status=payment.status,
         message="Mock 환불 처리",
+    )
+    create_notification(
+        db,
+        user=user,
+        title="Mock 환불 처리되었습니다.",
+        message="예약 취소에 따라 Mock 결제가 취소 처리되었습니다.",
+        notification_type="MOCK_REFUNDED",
+        related_reservation_id=reservation.id,
+        related_payment_id=payment.id,
+    )
+    if reservation.store and reservation.store.merchant:
+        create_notification(
+            db,
+            user=reservation.store.merchant.user,
+            role="MERCHANT",
+            title="고객 예약이 취소되었습니다.",
+            message="고객이 예약을 취소했습니다. 주문 목록에서 상태를 확인해 주세요.",
+            notification_type="RESERVATION_CANCELLED",
+            related_reservation_id=reservation.id,
+            related_payment_id=payment.id,
+        )
+    create_admin_notifications(
+        db,
+        title="예약 취소 및 Mock 환불이 발생했습니다.",
+        message="취소/환불된 예약을 관리자 화면에서 확인해 주세요.",
+        notification_type="MOCK_REFUNDED",
+        related_reservation_id=reservation.id,
+        related_payment_id=payment.id,
     )
     db.commit()
     db.refresh(payment)
