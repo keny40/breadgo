@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,13 @@ class PaymentMethod(str, enum.Enum):
     MOCK_NAVER_PAY = "MOCK_NAVER_PAY"
 
 
+class PaymentProvider(str, enum.Enum):
+    MOCK = "MOCK"
+    TOSS = "TOSS"
+    KAKAO_PAY = "KAKAO_PAY"
+    NAVER_PAY = "NAVER_PAY"
+
+
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -51,6 +58,7 @@ class Payment(Base):
         Enum(PaymentMethod, name="payment_method"),
         nullable=False,
     )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, default=PaymentProvider.MOCK.value)
     status: Mapped[PaymentStatus] = mapped_column(
         Enum(PaymentStatus, name="payment_status"),
         nullable=False,

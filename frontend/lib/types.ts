@@ -165,6 +165,7 @@ export type Payment = {
   user_id: string;
   amount: string;
   method: string;
+  provider: string;
   status: string;
   paid_at: string | null;
   cancelled_at: string | null;

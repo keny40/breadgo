@@ -11,11 +11,13 @@ from app.models.reservation import FulfillmentMethod, Reservation, ReservationSt
 from app.models.user import User
 from app.schemas.payment import PaymentCancelRequest, PaymentConfirmRequest, PaymentFailRequest, PaymentReadyRequest
 from app.services.notification_service import create_admin_notifications, create_notification
+from app.services.payments.mock import MockPaymentProvider
 from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import sync_settlement_for_payment
 
 
 ACTIVE_PAYMENT_STATUSES = {PaymentStatus.READY, PaymentStatus.PAID}
+mock_payment_provider = MockPaymentProvider()
 
 
 def _get_user_reservation(db: Session, user: User, reservation_id: UUID) -> Reservation:
@@ -56,12 +58,18 @@ def create_mock_payment_ready(db: Session, user: User, payload: PaymentReadyRequ
             detail="Active payment already exists for this reservation.",
         )
 
+    provider_result = mock_payment_provider.ready(
+        reservation_id=reservation.id,
+        amount=reservation.total_price,
+        method=payload.method,
+    )
     payment = Payment(
         reservation_id=reservation.id,
         user_id=user.id,
-        amount=reservation.total_price,
-        method=payload.method,
-        status=PaymentStatus.READY,
+        amount=provider_result.amount,
+        method=provider_result.method,
+        provider=provider_result.provider,
+        status=provider_result.status,
     )
     db.add(payment)
     db.commit()
@@ -78,7 +86,12 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
         )
 
     previous_status = payment.status
-    payment.status = PaymentStatus.PAID
+    provider_result = mock_payment_provider.confirm(
+        payment_id=payment.id,
+        amount=payment.amount,
+        method=payment.method,
+    )
+    payment.status = provider_result.status
     payment.paid_at = datetime.now(timezone.utc)
     settlement = sync_settlement_for_payment(db, payment)
     record_reservation_history(
@@ -139,7 +152,12 @@ def fail_mock_payment(db: Session, user: User, payload: PaymentFailRequest) -> P
             detail="Payment cannot be failed in its current status.",
         )
 
-    payment.status = PaymentStatus.FAILED
+    provider_result = mock_payment_provider.fail(
+        payment_id=payment.id,
+        amount=payment.amount,
+        method=payment.method,
+    )
+    payment.status = provider_result.status
     sync_settlement_for_payment(db, payment)
     db.commit()
     db.refresh(payment)
@@ -194,7 +212,12 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
             message="예약 취소",
         )
 
-    payment.status = PaymentStatus.CANCELLED
+    provider_result = mock_payment_provider.cancel(
+        payment_id=payment.id,
+        amount=payment.amount,
+        method=payment.method,
+    )
+    payment.status = provider_result.status
     payment.cancelled_at = datetime.now(timezone.utc)
     sync_settlement_for_payment(db, payment)
     record_reservation_history(

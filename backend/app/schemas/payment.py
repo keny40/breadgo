@@ -30,6 +30,7 @@ class PaymentRead(BaseModel):
     user_id: UUID
     amount: Decimal
     method: PaymentMethod
+    provider: str
     status: PaymentStatus
     paid_at: datetime | None
     cancelled_at: datetime | None

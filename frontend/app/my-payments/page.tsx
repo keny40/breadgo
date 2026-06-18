@@ -100,6 +100,10 @@ export default function MyPaymentsPage() {
                 <strong>{paymentMethodLabel(payment.method)}</strong>
               </div>
               <div>
+                <span>결제 Provider</span>
+                <strong>{payment.provider || "MOCK"}</strong>
+              </div>
+              <div>
                 <span>결제 상태</span>
                 <strong>
                   <StatusBadge status={payment.status} />
