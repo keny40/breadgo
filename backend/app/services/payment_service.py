@@ -10,6 +10,7 @@ from app.models.product import Product, ProductStatus
 from app.models.reservation import FulfillmentMethod, Reservation, ReservationStatus
 from app.models.user import User
 from app.schemas.payment import PaymentCancelRequest, PaymentConfirmRequest, PaymentFailRequest, PaymentReadyRequest
+from app.core.logging import get_logger
 from app.services.notification_service import create_admin_notifications, create_notification
 from app.services.payments.mock import MockPaymentProvider
 from app.services.reservation_history_service import record_reservation_history
@@ -18,6 +19,7 @@ from app.services.settlement_service import sync_settlement_for_payment
 
 ACTIVE_PAYMENT_STATUSES = {PaymentStatus.READY, PaymentStatus.PAID}
 mock_payment_provider = MockPaymentProvider()
+logger = get_logger("payments")
 
 
 def _get_user_reservation(db: Session, user: User, reservation_id: UUID) -> Reservation:
@@ -53,6 +55,7 @@ def create_mock_payment_ready(db: Session, user: User, payload: PaymentReadyRequ
         )
     )
     if duplicate is not None:
+        logger.warning("Duplicate active payment rejected. reservation_id=%s user_id=%s", reservation.id, user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Active payment already exists for this reservation.",
@@ -80,6 +83,7 @@ def create_mock_payment_ready(db: Session, user: User, payload: PaymentReadyRequ
 def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest) -> Payment:
     payment = _get_user_payment(db, user, payload.payment_id)
     if payment.status != PaymentStatus.READY:
+        logger.warning("Mock payment confirm rejected. payment_id=%s status=%s", payment.id, payment.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only READY payments can be confirmed.",
@@ -147,6 +151,7 @@ def confirm_mock_payment(db: Session, user: User, payload: PaymentConfirmRequest
 def fail_mock_payment(db: Session, user: User, payload: PaymentFailRequest) -> Payment:
     payment = _get_user_payment(db, user, payload.payment_id)
     if payment.status not in {PaymentStatus.READY, PaymentStatus.FAILED}:
+        logger.warning("Mock payment fail rejected. payment_id=%s status=%s", payment.id, payment.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payment cannot be failed in its current status.",
@@ -175,12 +180,14 @@ def cancel_mock_payment(db: Session, user: User, payload: PaymentCancelRequest) 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found.")
 
     if reservation.status == ReservationStatus.PICKED_UP:
+        logger.warning("Payment cancel rejected after pickup. payment_id=%s reservation_id=%s", payment.id, reservation.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payment cannot be cancelled after pickup.",
         )
 
     if payment.status in {PaymentStatus.CANCELLED, PaymentStatus.REFUNDED}:
+        logger.warning("Payment cancel rejected because already cancelled. payment_id=%s status=%s", payment.id, payment.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payment is already cancelled.",

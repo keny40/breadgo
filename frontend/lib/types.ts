@@ -159,6 +159,24 @@ export type Notification = {
   read_at: string | null;
 };
 
+export type OpsComponentStatus = {
+  name: string;
+  status: string;
+  message: string | null;
+};
+
+export type OpsStatus = {
+  app_name: string;
+  api_version: string;
+  environment: string;
+  app_status: string;
+  checked_at: string;
+  database: OpsComponentStatus;
+  payment_providers: OpsComponentStatus[];
+  notification_channels: OpsComponentStatus[];
+  incident_notifiers: OpsComponentStatus[];
+};
+
 export type Payment = {
   id: string;
   reservation_id: string;

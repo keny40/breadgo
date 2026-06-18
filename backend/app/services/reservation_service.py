@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.models.merchant import Merchant
 from app.models.payment import Payment, PaymentStatus
 from app.models.product import Product, ProductStatus
@@ -25,6 +26,9 @@ from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
     mark_settlement_ready_for_reservation,
 )
+
+
+logger = get_logger("reservations")
 
 
 def _generate_pickup_code(db: Session) -> str:
@@ -238,12 +242,18 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
     reservation = _get_reservation_for_user(db, user, reservation_id)
 
     if reservation.status != ReservationStatus.CONFIRMED:
+        logger.warning("Reservation cancel rejected. reservation_id=%s status=%s", reservation.id, reservation.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reservation cannot be cancelled.",
         )
 
     if reservation.delivery_status in {DeliveryStatus.SENT, DeliveryStatus.DELIVERED}:
+        logger.warning(
+            "Reservation cancel rejected by delivery status. reservation_id=%s delivery_status=%s",
+            reservation.id,
+            reservation.delivery_status.value,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Delivery is already in progress or completed.",
@@ -261,6 +271,7 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found.")
 
     if payment.status != PaymentStatus.PAID:
+        logger.warning("Reservation cancel rejected by payment status. reservation_id=%s payment_status=%s", reservation.id, payment.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only paid reservations can be cancelled.",
@@ -487,6 +498,7 @@ def confirm_pickup_by_code(
     )
 
     if reservation.status not in {ReservationStatus.PENDING, ReservationStatus.CONFIRMED}:
+        logger.warning("Pickup confirm rejected. reservation_id=%s status=%s", reservation.id, reservation.status.value)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reservation cannot be picked up in its current status.",

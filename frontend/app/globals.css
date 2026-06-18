@@ -320,6 +320,28 @@ label {
   box-shadow: 0 0 0 3px var(--warning-soft);
 }
 
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ops-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  padding: 14px;
+}
+
+.ops-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 code {
   border-radius: 6px;
   background: var(--surface-muted);
@@ -1214,7 +1236,8 @@ tr:last-child td {
   .product-grid,
   .feature-grid,
   .account-grid,
-  .demo-steps {
+  .demo-steps,
+  .ops-grid {
     grid-template-columns: 1fr;
   }
 
