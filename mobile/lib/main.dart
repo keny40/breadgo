@@ -90,6 +90,8 @@ class _BreadGoAppState extends State<BreadGoApp> {
             ProductListScreen(
               authController: widget.authController,
               productController: widget.productController,
+              reservationController: widget.reservationController,
+              onOpenReservations: () => setState(() => _selectedIndex = 1),
             ),
             ReservationsScreen(
               authController: widget.authController,

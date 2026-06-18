@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../state/auth_controller.dart';
 import '../state/product_controller.dart';
+import '../state/reservation_controller.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/product_card.dart';
 import 'product_detail_screen.dart';
@@ -12,10 +13,14 @@ class ProductListScreen extends StatefulWidget {
     super.key,
     required this.authController,
     required this.productController,
+    required this.reservationController,
+    required this.onOpenReservations,
   });
 
   final AuthController authController;
   final ProductController productController;
+  final ReservationController reservationController;
+  final VoidCallback onOpenReservations;
 
   @override
   State<ProductListScreen> createState() => _ProductListScreenState();
@@ -116,6 +121,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         builder: (_) => ProductDetailScreen(
           product: product,
           isLoggedIn: widget.authController.isLoggedIn,
+          reservationController: widget.reservationController,
+          onOpenReservations: widget.onOpenReservations,
         ),
       ),
     );

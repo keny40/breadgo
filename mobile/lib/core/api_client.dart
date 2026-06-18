@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/auth_user.dart';
+import '../models/payment.dart';
 import '../models/product.dart';
 import '../models/reservation.dart';
 import 'session_store.dart';
@@ -124,5 +125,56 @@ class ApiClient {
     return body
         .map((item) => Reservation.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<Reservation> createReservation({
+    required String productId,
+    required int quantity,
+    required String fulfillmentMethod,
+    String? recipientName,
+    String? recipientPhone,
+    String? deliveryAddress,
+    String? deliveryRequestMemo,
+    double deliveryFee = 0,
+  }) async {
+    final response = await http.post(
+      _uri('/api/v1/reservations'),
+      headers: _headers(auth: true),
+      body: jsonEncode({
+        'product_id': productId,
+        'quantity': quantity,
+        'fulfillment_method': fulfillmentMethod,
+        'recipient_name': recipientName,
+        'recipient_phone': recipientPhone,
+        'delivery_address': deliveryAddress,
+        'delivery_request_memo': deliveryRequestMemo,
+        'delivery_fee': deliveryFee,
+      }),
+    );
+    final body = await _decodeResponse(response) as Map<String, dynamic>;
+    return Reservation.fromJson(body);
+  }
+
+  Future<Payment> createMockPaymentReady({
+    required String reservationId,
+    String method = 'MOCK_CARD',
+  }) async {
+    final response = await http.post(
+      _uri('/api/v1/payments/mock/ready'),
+      headers: _headers(auth: true),
+      body: jsonEncode({'reservation_id': reservationId, 'method': method}),
+    );
+    final body = await _decodeResponse(response) as Map<String, dynamic>;
+    return Payment.fromJson(body);
+  }
+
+  Future<Payment> confirmMockPayment({required String paymentId}) async {
+    final response = await http.post(
+      _uri('/api/v1/payments/mock/confirm'),
+      headers: _headers(auth: true),
+      body: jsonEncode({'payment_id': paymentId}),
+    );
+    final body = await _decodeResponse(response) as Map<String, dynamic>;
+    return Payment.fromJson(body);
   }
 }

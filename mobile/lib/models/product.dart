@@ -11,6 +11,11 @@ class Product {
     required this.pickupStartTime,
     required this.pickupEndTime,
     required this.status,
+    required this.allowPickup,
+    required this.allowQuickDelivery,
+    required this.allowParcelDelivery,
+    required this.quickDeliveryFee,
+    required this.parcelDeliveryFee,
     this.description,
     this.imageUrl,
     this.sido,
@@ -36,6 +41,11 @@ class Product {
   final DateTime pickupStartTime;
   final DateTime pickupEndTime;
   final String status;
+  final bool allowPickup;
+  final bool allowQuickDelivery;
+  final bool allowParcelDelivery;
+  final double quickDeliveryFee;
+  final double parcelDeliveryFee;
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
@@ -56,6 +66,11 @@ class Product {
       pickupStartTime: _toDateTime(json['pickup_start_time']),
       pickupEndTime: _toDateTime(json['pickup_end_time']),
       status: json['status'] as String? ?? 'ACTIVE',
+      allowPickup: json['allow_pickup'] as bool? ?? true,
+      allowQuickDelivery: json['allow_quick_delivery'] as bool? ?? false,
+      allowParcelDelivery: json['allow_parcel_delivery'] as bool? ?? false,
+      quickDeliveryFee: _toDouble(json['quick_delivery_fee']),
+      parcelDeliveryFee: _toDouble(json['parcel_delivery_fee']),
     );
   }
 
@@ -73,6 +88,25 @@ class Product {
       dong,
     ].where((part) => part != null && part.isNotEmpty).join(' ');
     return parts.isEmpty ? storeAddress : parts;
+  }
+
+  List<String> get availableFulfillmentMethods {
+    return [
+      if (allowPickup) 'PICKUP',
+      if (allowQuickDelivery) 'QUICK_DELIVERY',
+      if (allowParcelDelivery) 'PARCEL_DELIVERY',
+    ];
+  }
+
+  double deliveryFeeFor(String fulfillmentMethod) {
+    switch (fulfillmentMethod) {
+      case 'QUICK_DELIVERY':
+        return quickDeliveryFee;
+      case 'PARCEL_DELIVERY':
+        return parcelDeliveryFee;
+      default:
+        return 0;
+    }
   }
 }
 
