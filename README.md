@@ -345,6 +345,9 @@ Neon PostgreSQL:
 
 - [통합 데모 시나리오 v0.3.0](docs/demo-scenario-v0.3.0.md)
 - [통합 릴리즈 요약 v0.3.0](docs/release-summary-v0.3.0.md)
+- [배포 환경 점검 체크리스트 v0.3.0](docs/deployment-checklist-v0.3.0.md)
+- [운영 URL Smoke Test v0.3.0](docs/production-smoke-test-v0.3.0.md)
+- [Phase 46 릴리즈 체크](docs/release-check-phase46.md)
 - [Phase 45 릴리즈 체크](docs/release-check-phase45.md)
 - [Flutter 모바일 앱 README](mobile/README.md)
 - [배포 체크리스트 v0.1.0](docs/deployment-checklist-v0.1.0.md)
