@@ -106,6 +106,13 @@ select {
   outline: none;
 }
 
+input[type="checkbox"] {
+  width: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
 input:focus,
 textarea:focus,
 select:focus {

@@ -15,6 +15,11 @@ class ProductCreate(BaseModel):
     original_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     discount_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
     quantity: int = Field(ge=0)
+    allow_pickup: bool = True
+    allow_quick_delivery: bool = False
+    allow_parcel_delivery: bool = False
+    quick_delivery_fee: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=10, decimal_places=2)
+    parcel_delivery_fee: Decimal = Field(default=Decimal("0.00"), ge=0, max_digits=10, decimal_places=2)
     pickup_start_time: datetime
     pickup_end_time: datetime
     status: ProductStatus = ProductStatus.ACTIVE
@@ -25,6 +30,8 @@ class ProductCreate(BaseModel):
             raise ValueError("discount_price cannot be greater than original_price")
         if self.pickup_start_time >= self.pickup_end_time:
             raise ValueError("pickup_start_time must be earlier than pickup_end_time")
+        if not (self.allow_pickup or self.allow_quick_delivery or self.allow_parcel_delivery):
+            raise ValueError("at least one fulfillment method must be allowed")
         return self
 
 
@@ -35,6 +42,11 @@ class ProductUpdate(BaseModel):
     original_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     discount_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     quantity: int | None = Field(default=None, ge=0)
+    allow_pickup: bool | None = None
+    allow_quick_delivery: bool | None = None
+    allow_parcel_delivery: bool | None = None
+    quick_delivery_fee: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
+    parcel_delivery_fee: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     pickup_start_time: datetime | None = None
     pickup_end_time: datetime | None = None
     status: ProductStatus | None = None
@@ -65,6 +77,11 @@ class ProductRead(BaseModel):
     original_price: Decimal
     discount_price: Decimal
     quantity: int
+    allow_pickup: bool
+    allow_quick_delivery: bool
+    allow_parcel_delivery: bool
+    quick_delivery_fee: Decimal
+    parcel_delivery_fee: Decimal
     pickup_start_time: datetime
     pickup_end_time: datetime
     status: ProductStatus

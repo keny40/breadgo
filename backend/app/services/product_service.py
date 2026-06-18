@@ -52,6 +52,11 @@ def create_product_for_store(db: Session, merchant: Merchant, payload: ProductCr
         original_price=payload.original_price,
         discount_price=payload.discount_price,
         quantity=payload.quantity,
+        allow_pickup=payload.allow_pickup,
+        allow_quick_delivery=payload.allow_quick_delivery,
+        allow_parcel_delivery=payload.allow_parcel_delivery,
+        quick_delivery_fee=payload.quick_delivery_fee,
+        parcel_delivery_fee=payload.parcel_delivery_fee,
         pickup_start_time=payload.pickup_start_time,
         pickup_end_time=payload.pickup_end_time,
         status=payload.status,
@@ -106,6 +111,15 @@ def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: P
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="pickup_start_time must be earlier than pickup_end_time.",
+        )
+
+    allow_pickup = update_data.get("allow_pickup", product.allow_pickup)
+    allow_quick_delivery = update_data.get("allow_quick_delivery", product.allow_quick_delivery)
+    allow_parcel_delivery = update_data.get("allow_parcel_delivery", product.allow_parcel_delivery)
+    if not (allow_pickup or allow_quick_delivery or allow_parcel_delivery):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one fulfillment method must be allowed.",
         )
 
     for field, value in update_data.items():

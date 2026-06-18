@@ -277,6 +277,7 @@ export default function AdminPage() {
                 <th>Name</th>
                 <th>Store</th>
                 <th>Price</th>
+                <th>Fulfillment</th>
                 <th>Qty</th>
                 <th>Status</th>
               </tr>
@@ -294,6 +295,13 @@ export default function AdminPage() {
                   <td>{product.name}</td>
                   <td>{product.store_id}</td>
                   <td>{product.discount_price}</td>
+                  <td>
+                    픽업 {product.allow_pickup ? "가능" : "불가"}
+                    <br />
+                    퀵 {product.allow_quick_delivery ? `${Number(product.quick_delivery_fee).toLocaleString()}원` : "불가"}
+                    <br />
+                    택배 {product.allow_parcel_delivery ? `${Number(product.parcel_delivery_fee).toLocaleString()}원` : "불가"}
+                  </td>
                   <td>{product.quantity}</td>
                   <td><StatusBadge status={product.status} /></td>
                 </tr>

@@ -22,6 +22,11 @@ class RegionProductRead(BaseModel):
     original_price: Decimal
     discount_price: Decimal
     quantity: int
+    allow_pickup: bool
+    allow_quick_delivery: bool
+    allow_parcel_delivery: bool
+    quick_delivery_fee: Decimal
+    parcel_delivery_fee: Decimal
     pickup_start_time: datetime
     pickup_end_time: datetime
     status: ProductStatus

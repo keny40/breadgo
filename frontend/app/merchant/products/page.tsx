@@ -18,6 +18,11 @@ type ProductFormState = {
   pickupStartTime: string;
   pickupEndTime: string;
   status: string;
+  allowPickup: boolean;
+  allowQuickDelivery: boolean;
+  allowParcelDelivery: boolean;
+  quickDeliveryFee: string;
+  parcelDeliveryFee: string;
 };
 
 const emptyForm: ProductFormState = {
@@ -30,6 +35,11 @@ const emptyForm: ProductFormState = {
   pickupStartTime: "",
   pickupEndTime: "",
   status: "ACTIVE",
+  allowPickup: true,
+  allowQuickDelivery: false,
+  allowParcelDelivery: false,
+  quickDeliveryFee: "0",
+  parcelDeliveryFee: "0",
 };
 
 function formatMoney(value: string) {
@@ -229,6 +239,11 @@ export default function MerchantProductsPage() {
       pickup_start_time: new Date(form.pickupStartTime).toISOString(),
       pickup_end_time: new Date(form.pickupEndTime).toISOString(),
       status: form.status,
+      allow_pickup: form.allowPickup,
+      allow_quick_delivery: form.allowQuickDelivery,
+      allow_parcel_delivery: form.allowParcelDelivery,
+      quick_delivery_fee: form.quickDeliveryFee || "0",
+      parcel_delivery_fee: form.parcelDeliveryFee || "0",
     };
   }
 
@@ -271,6 +286,11 @@ export default function MerchantProductsPage() {
       pickupStartTime: toDateTimeLocal(product.pickup_start_time),
       pickupEndTime: toDateTimeLocal(product.pickup_end_time),
       status: product.status,
+      allowPickup: product.allow_pickup,
+      allowQuickDelivery: product.allow_quick_delivery,
+      allowParcelDelivery: product.allow_parcel_delivery,
+      quickDeliveryFee: product.quick_delivery_fee,
+      parcelDeliveryFee: product.parcel_delivery_fee,
     });
     setMessage(`${product.name} 상품을 편집합니다.`);
     setIsError(false);
@@ -424,6 +444,9 @@ export default function MerchantProductsPage() {
                 <span>
                   재고 <strong>{product.quantity}</strong>
                 </span>
+                <span>픽업 {product.allow_pickup ? "가능" : "불가"}</span>
+                <span>퀵 {product.allow_quick_delivery ? `${formatMoney(product.quick_delivery_fee)}` : "불가"}</span>
+                <span>택배 {product.allow_parcel_delivery ? `${formatMoney(product.parcel_delivery_fee)}` : "불가"}</span>
                 <span>픽업 {formatDateTime(product.pickup_start_time)}</span>
                 <span>- {formatDateTime(product.pickup_end_time)}</span>
               </div>
@@ -580,6 +603,58 @@ function ProductFields({
             required
           />
         </label>
+      </div>
+      <div className="payment-box">
+        <h3>수령 가능 방식</h3>
+        <p className="field-help">신선식품은 매장 직접 픽업이 기본입니다. 택배 배송은 배송 가능한 상품에 한해 선택할 수 있습니다.</p>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.allowPickup}
+            onChange={(event) => onChange({ allowPickup: event.target.checked })}
+          />
+          매장 직접 픽업 가능
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={form.allowQuickDelivery}
+            onChange={(event) => onChange({ allowQuickDelivery: event.target.checked })}
+          />
+          퀵배달 가능
+        </label>
+        {form.allowQuickDelivery && (
+          <label>
+            퀵배달비
+            <input
+              type="number"
+              min={0}
+              step="100"
+              value={form.quickDeliveryFee}
+              onChange={(event) => onChange({ quickDeliveryFee: event.target.value })}
+            />
+          </label>
+        )}
+        <label>
+          <input
+            type="checkbox"
+            checked={form.allowParcelDelivery}
+            onChange={(event) => onChange({ allowParcelDelivery: event.target.checked })}
+          />
+          택배 배송 가능
+        </label>
+        {form.allowParcelDelivery && (
+          <label>
+            택배 배송비
+            <input
+              type="number"
+              min={0}
+              step="100"
+              value={form.parcelDeliveryFee}
+              onChange={(event) => onChange({ parcelDeliveryFee: event.target.value })}
+            />
+          </label>
+        )}
       </div>
       {showStatus && (
         <label>

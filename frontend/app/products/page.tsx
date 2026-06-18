@@ -60,11 +60,11 @@ export default function ProductsPage() {
   const [discoveryMode, setDiscoveryMode] = useState<"region" | "nearby">("region");
   const [products, setProducts] = useState<RegionProduct[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [fulfillmentByProduct, setFulfillmentByProduct] = useState<Record<string, string>>({});
   const [latestReservation, setLatestReservation] = useState<Reservation | null>(null);
   const [latestReservedProduct, setLatestReservedProduct] = useState<RegionProduct | null>(null);
   const [latestPayment, setLatestPayment] = useState<Payment | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("MOCK_CARD");
-  const [fulfillmentMethod, setFulfillmentMethod] = useState("PICKUP");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -210,6 +210,12 @@ export default function ProductsPage() {
     setIsPaymentError(false);
     const quantity = quantities[productId] || 1;
     const reservedProduct = products.find((product) => product.id === productId) || null;
+    if (!reservedProduct) {
+      setIsError(true);
+      setMessage("예약할 상품을 찾을 수 없습니다.");
+      return;
+    }
+    const fulfillmentMethod = selectedFulfillmentForProduct(reservedProduct);
     const requiresDeliveryInfo = fulfillmentMethod !== "PICKUP";
 
     if (requiresDeliveryInfo && (!recipientName.trim() || !recipientPhone.trim() || !deliveryAddress.trim())) {
@@ -231,7 +237,7 @@ export default function ProductsPage() {
             recipient_phone: requiresDeliveryInfo ? recipientPhone : null,
             delivery_address: requiresDeliveryInfo ? deliveryAddress : null,
             delivery_request_memo: requiresDeliveryInfo ? deliveryRequestMemo : null,
-            delivery_fee: "0.00",
+            delivery_fee: deliveryFeeForMethod(reservedProduct, fulfillmentMethod),
           }),
         },
         true,
@@ -310,6 +316,37 @@ export default function ProductsPage() {
     setDiscoveryMode("region");
   }
 
+  function availableFulfillmentMethods(product: RegionProduct) {
+    return fulfillmentMethods.filter((method) => {
+      if (method.value === "PICKUP") return product.allow_pickup;
+      if (method.value === "QUICK_DELIVERY") return product.allow_quick_delivery;
+      return product.allow_parcel_delivery;
+    });
+  }
+
+  function selectedFulfillmentForProduct(product: RegionProduct) {
+    const available = availableFulfillmentMethods(product);
+    const selected = fulfillmentByProduct[product.id];
+    if (selected && available.some((method) => method.value === selected)) {
+      return selected;
+    }
+    return available[0]?.value || "PICKUP";
+  }
+
+  function deliveryFeeForMethod(product: RegionProduct, method: string) {
+    if (method === "QUICK_DELIVERY") return product.quick_delivery_fee;
+    if (method === "PARCEL_DELIVERY") return product.parcel_delivery_fee;
+    return "0.00";
+  }
+
+  function productAmountFor(product: RegionProduct) {
+    return Number(product.discount_price) * (quantities[product.id] || 1);
+  }
+
+  function selectedDeliveryFeeFor(product: RegionProduct) {
+    return Number(deliveryFeeForMethod(product, selectedFulfillmentForProduct(product)));
+  }
+
   const productsByStore = products.reduce<Record<string, RegionProduct[]>>((groups, product) => {
     groups[product.store_id] = groups[product.store_id] || [];
     groups[product.store_id].push(product);
@@ -361,26 +398,14 @@ export default function ProductsPage() {
       </form>
 
       <section className="panel form-grid">
-        <h2>수령 방법을 선택해 주세요.</h2>
+        <h2>수령 방법 안내</h2>
         <p className="field-help">
-          신선식품 특성상 매장 직접 픽업이 기본입니다. 퀵배달과 택배 배송은 현재 실제 배송 연동이 아닌 요청 정보 저장 단계입니다.
+          상품마다 가능한 수령 방식이 다릅니다. 각 상품 카드에서 수령 방법을 선택해 주세요. 택배 배송은 배송 가능한 상품에 한해 선택할 수 있습니다.
         </p>
-        <div className="chip-row">
-          {fulfillmentMethods.map((method) => (
-            <button
-              type="button"
-              className={`chip ${fulfillmentMethod === method.value ? "active" : ""}`}
-              key={method.value}
-              onClick={() => setFulfillmentMethod(method.value)}
-            >
-              {method.label}
-            </button>
-          ))}
-        </div>
-        {fulfillmentMethod !== "PICKUP" && (
+        {products.some((product) => product.allow_quick_delivery || product.allow_parcel_delivery) && (
           <>
             <div className="message">
-              현재는 실제 배송 연동이 아닌 요청 정보 저장 단계입니다. 배송비는 MVP에서 0원으로 표시됩니다.
+              현재는 실제 배송 연동이 아닌 요청 정보 저장 단계입니다. 배송 상태는 점주가 수동으로 변경합니다.
             </div>
             <div className="two-column">
               <label>
@@ -406,16 +431,6 @@ export default function ProductsPage() {
             </label>
           </>
         )}
-        <div className="detail-grid">
-          <div>
-            <span>선택한 수령 방법</span>
-            <strong>{fulfillmentMethodLabel(fulfillmentMethod)}</strong>
-          </div>
-          <div>
-            <span>배송비</span>
-            <strong>0원</strong>
-          </div>
-        </div>
       </section>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
@@ -475,6 +490,40 @@ export default function ProductsPage() {
                   <div className="meta">
                     <span>픽업 {new Date(product.pickup_start_time).toLocaleString()}</span>
                     <span>- {new Date(product.pickup_end_time).toLocaleString()}</span>
+                  </div>
+                  <div className="payment-box">
+                    <h3>수령 방법을 선택해 주세요.</h3>
+                    <div className="chip-row">
+                      {availableFulfillmentMethods(product).map((method) => (
+                        <button
+                          type="button"
+                          className={`chip ${selectedFulfillmentForProduct(product) === method.value ? "active" : ""}`}
+                          key={method.value}
+                          onClick={() =>
+                            setFulfillmentByProduct((current) => ({
+                              ...current,
+                              [product.id]: method.value,
+                            }))
+                          }
+                        >
+                          {method.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="detail-grid">
+                      <div>
+                        <span>상품 금액</span>
+                        <strong>{formatMoney(String(productAmountFor(product)))}</strong>
+                      </div>
+                      <div>
+                        <span>배송비</span>
+                        <strong>{formatMoney(String(selectedDeliveryFeeFor(product)))}</strong>
+                      </div>
+                      <div>
+                        <span>총 고객 결제금액</span>
+                        <strong>{formatMoney(String(productAmountFor(product) + selectedDeliveryFeeFor(product)))}</strong>
+                      </div>
+                    </div>
                   </div>
                   <div className="actions">
                     <input

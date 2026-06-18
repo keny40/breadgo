@@ -67,6 +67,11 @@ export type Product = {
   original_price: string;
   discount_price: string;
   quantity: number;
+  allow_pickup: boolean;
+  allow_quick_delivery: boolean;
+  allow_parcel_delivery: boolean;
+  quick_delivery_fee: string;
+  parcel_delivery_fee: string;
   pickup_start_time: string;
   pickup_end_time: string;
   status: string;

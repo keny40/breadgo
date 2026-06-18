@@ -93,6 +93,10 @@ def upsert_product(
     quantity: int,
     pickup_start_time: datetime,
     pickup_end_time: datetime,
+    allow_quick_delivery: bool = False,
+    allow_parcel_delivery: bool = False,
+    quick_delivery_fee: Decimal = Decimal("0"),
+    parcel_delivery_fee: Decimal = Decimal("0"),
 ) -> Product:
     product = db.scalar(
         select(Product).where(
@@ -108,6 +112,11 @@ def upsert_product(
     product.original_price = original_price
     product.discount_price = discount_price
     product.quantity = quantity
+    product.allow_pickup = True
+    product.allow_quick_delivery = allow_quick_delivery
+    product.allow_parcel_delivery = allow_parcel_delivery
+    product.quick_delivery_fee = quick_delivery_fee
+    product.parcel_delivery_fee = parcel_delivery_fee
     product.pickup_start_time = pickup_start_time
     product.pickup_end_time = pickup_end_time
     product.status = ProductStatus.ACTIVE
@@ -166,7 +175,7 @@ def seed_demo_data(db: Session) -> dict[str, int]:
     product_count = 0
     for index, store in enumerate(stores):
         templates = product_templates[: 3 if index == 0 else 2]
-        for name, original_price, discount_price, quantity in templates:
+        for product_index, (name, original_price, discount_price, quantity) in enumerate(templates):
             upsert_product(
                 db=db,
                 store=store,
@@ -176,6 +185,10 @@ def seed_demo_data(db: Session) -> dict[str, int]:
                 quantity=quantity,
                 pickup_start_time=pickup_start,
                 pickup_end_time=pickup_end,
+                allow_quick_delivery=index == 0 and product_index == 1,
+                allow_parcel_delivery=index == 0 and product_index == 2,
+                quick_delivery_fee=Decimal("3000") if index == 0 and product_index == 1 else Decimal("0"),
+                parcel_delivery_fee=Decimal("4000") if index == 0 and product_index == 2 else Decimal("0"),
             )
             product_count += 1
 

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +37,11 @@ class Product(Base):
     original_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     discount_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    allow_pickup: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_quick_delivery: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    allow_parcel_delivery: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quick_delivery_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
+    parcel_delivery_fee: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     pickup_start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     pickup_end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[ProductStatus] = mapped_column(

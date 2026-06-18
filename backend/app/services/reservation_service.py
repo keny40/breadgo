@@ -1,5 +1,6 @@
 import secrets
 from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -106,8 +107,29 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
             detail="Insufficient product quantity.",
         )
 
+    if payload.fulfillment_method == FulfillmentMethod.PICKUP:
+        if not product.allow_pickup:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Pickup is not available for this product.",
+            )
+        delivery_fee = Decimal("0.00")
+    elif payload.fulfillment_method == FulfillmentMethod.QUICK_DELIVERY:
+        if not product.allow_quick_delivery:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Quick delivery is not available for this product.",
+            )
+        delivery_fee = product.quick_delivery_fee
+    else:
+        if not product.allow_parcel_delivery:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Parcel delivery is not available for this product.",
+            )
+        delivery_fee = product.parcel_delivery_fee
+
     product_amount = product.discount_price * payload.quantity
-    delivery_fee = payload.delivery_fee
     delivery_status = (
         DeliveryStatus.NOT_REQUIRED
         if payload.fulfillment_method == FulfillmentMethod.PICKUP
