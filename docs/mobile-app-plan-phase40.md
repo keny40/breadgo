@@ -109,6 +109,18 @@ Render 배포 백엔드에 붙을 때:
 flutter run --dart-define=BREADGO_API_BASE_URL=https://breadgo-api.onrender.com
 ```
 
+실제 Android 기기에서 테스트할 때는 `10.0.2.2` 대신 PC의 LAN IP를 사용합니다.
+
+```powershell
+flutter run --dart-define=BREADGO_API_BASE_URL=http://192.168.0.10:8000
+```
+
+이 경우 FastAPI는 다음처럼 외부 접근이 가능한 host로 실행합니다.
+
+```powershell
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
 ## Android emulator 주의사항
 
 - `http://localhost:8000`은 emulator 내부 주소입니다.

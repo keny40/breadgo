@@ -46,7 +46,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!widget.authController.isLoggedIn) {
       return const EmptyState(
         title: '로그인이 필요합니다.',
-        description: '알림을 보려면 고객 계정으로 로그인해 주세요.',
+        description: '알림을 보려면 로그인 탭에서 고객 계정으로 로그인해 주세요.',
         icon: Icons.notifications_none,
       );
     }
@@ -88,13 +88,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 '읽지 않은 알림 ${controller.unreadCount}개',
                 style: const TextStyle(color: Colors.black54),
               ),
-              if (controller.errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  controller.errorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
               if (controller.successMessage != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -107,6 +100,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 80),
                   child: Center(child: CircularProgressIndicator()),
+                )
+              else if (controller.errorMessage != null)
+                EmptyState(
+                  title: '알림을 불러오지 못했습니다.',
+                  description: controller.errorMessage,
+                  icon: Icons.wifi_off_outlined,
+                  actionLabel: '다시 불러오기',
+                  onAction: controller.loadNotifications,
                 )
               else if (controller.notifications.isEmpty)
                 const EmptyState(

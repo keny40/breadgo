@@ -6,11 +6,15 @@ class EmptyState extends StatelessWidget {
     required this.title,
     this.description,
     this.icon = Icons.info_outline,
+    this.actionLabel,
+    this.onAction,
   });
 
   final String title;
   final String? description;
   final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +40,10 @@ class EmptyState extends StatelessWidget {
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
               ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

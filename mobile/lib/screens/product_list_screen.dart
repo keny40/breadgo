@@ -94,12 +94,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   title: '상품을 불러오지 못했습니다.',
                   description: widget.productController.errorMessage,
                   icon: Icons.wifi_off_outlined,
+                  actionLabel: '다시 불러오기',
+                  onAction: widget.productController.loadProducts,
                 )
               else if (widget.productController.products.isEmpty)
-                const EmptyState(
+                EmptyState(
                   title: '선택한 지역에 판매 중인 상품이 없습니다.',
                   description: '다른 지역을 선택하거나 잠시 후 다시 확인해 주세요.',
                   icon: Icons.bakery_dining_outlined,
+                  actionLabel: '새로고침',
+                  onAction: widget.productController.loadProducts,
                 )
               else
                 ...widget.productController.products.map(

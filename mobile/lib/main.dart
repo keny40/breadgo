@@ -86,6 +86,19 @@ class _BreadGoAppState extends State<BreadGoApp> {
             ),
           ),
         ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFE3E8DE)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF087A3A), width: 1.5),
+          ),
+        ),
       ),
       home: AnimatedBuilder(
         animation: Listenable.merge([
@@ -116,14 +129,27 @@ class _BreadGoAppState extends State<BreadGoApp> {
               title: const Text('BreadGo'),
               actions: [
                 Padding(
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.only(right: 8),
                   child: Center(
-                    child: Text(
-                      widget.authController.user?.email ?? '고객 앱 MVP',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: Text(
+                        widget.authController.user?.email ?? '고객 앱 MVP',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ),
+                if (widget.authController.isLoggedIn)
+                  IconButton(
+                    tooltip: '로그아웃',
+                    onPressed: () async {
+                      await widget.authController.logout();
+                      setState(() => _selectedIndex = 3);
+                    },
+                    icon: const Icon(Icons.logout),
+                  ),
               ],
             ),
             body: SafeArea(child: pages[_selectedIndex]),

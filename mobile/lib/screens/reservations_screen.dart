@@ -46,7 +46,7 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
     if (!widget.authController.isLoggedIn) {
       return const EmptyState(
         title: '로그인이 필요합니다.',
-        description: '내 예약을 보려면 고객 계정으로 로그인해 주세요.',
+        description: '내 예약을 보려면 로그인 탭에서 고객 계정으로 로그인해 주세요.',
         icon: Icons.lock_outline,
       );
     }
@@ -94,6 +94,8 @@ class _ReservationsScreenState extends State<ReservationsScreen> {
                   title: '예약 내역을 불러오지 못했습니다.',
                   description: widget.reservationController.errorMessage,
                   icon: Icons.receipt_long_outlined,
+                  actionLabel: '다시 불러오기',
+                  onAction: widget.reservationController.loadMyReservations,
                 )
               else if (widget.reservationController.reservations.isEmpty)
                 const EmptyState(
