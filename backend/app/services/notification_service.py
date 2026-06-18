@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.models.notification import Notification
 from app.models.user import User, UserRole
+from app.services.notifications.in_app import InAppNotificationChannel
+from app.services.notifications.base import NotificationPayload
 
 
 def _role_value(user: User) -> str:
@@ -27,7 +29,7 @@ def create_notification(
     if user is None:
         return None
 
-    notification = Notification(
+    payload = NotificationPayload(
         user_id=user.id,
         role=role or _role_value(user),
         title=title,
@@ -37,8 +39,9 @@ def create_notification(
         related_payment_id=related_payment_id,
         related_settlement_id=related_settlement_id,
     )
-    db.add(notification)
-    return notification
+    channel = InAppNotificationChannel(db)
+    channel.send(payload)
+    return channel.created_notification
 
 
 def create_admin_notifications(

@@ -127,7 +127,9 @@ export default function NotificationsPage() {
           </div>
         }
       />
-      <p className="message">현재는 SMS, 카카오톡, 이메일, 푸시가 아닌 MVP용 인앱 알림입니다.</p>
+      <p className="message">
+        현재는 BreadGo 안에서 확인하는 인앱 알림만 지원합니다. 이메일, SMS, 카카오 알림톡, Push 발송은 이후 운영 단계에서 연결할 예정입니다.
+      </p>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {notifications.length === 0 && !isError ? (
