@@ -4,7 +4,7 @@ import { useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { Payment, Reservation } from "@/lib/types";
+import { deliveryStatusLabel, type Payment, type Reservation } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -145,7 +145,7 @@ export default function MyReservationsPage() {
                 <div className="detail-grid">
                   <div>
                     <span>배송 상태</span>
-                    <strong>{reservation.delivery_status}</strong>
+                    <strong>{deliveryStatusLabel(reservation.delivery_status)}</strong>
                   </div>
                   <div>
                     <span>받는 사람</span>

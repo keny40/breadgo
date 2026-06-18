@@ -11,7 +11,7 @@ from app.schemas.auth import UserResponse
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.product import ProductRead
-from app.schemas.reservation import ReservationRead
+from app.schemas.reservation import DeliveryStatusUpdate, ReservationRead
 from app.schemas.store import StoreRead
 from app.services.admin_service import (
     get_admin_summary,
@@ -24,6 +24,8 @@ from app.services.admin_service import (
     require_admin_user,
     update_merchant_status,
 )
+from app.services.reservation_service import update_delivery_status_for_admin
+from app.api.v1.reservations import reservation_to_read
 from scripts.seed_demo import seed_demo_data
 
 
@@ -80,6 +82,17 @@ def list_reservations(
     db: Session = Depends(get_db),
 ) -> list[ReservationRead]:
     return [ReservationRead.model_validate(reservation) for reservation in get_reservations(db)]
+
+
+@router.patch("/reservations/{reservation_id}/delivery-status", response_model=ReservationRead)
+def change_reservation_delivery_status(
+    reservation_id: UUID,
+    payload: DeliveryStatusUpdate,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    reservation = update_delivery_status_for_admin(db, reservation_id, payload)
+    return reservation_to_read(reservation)
 
 
 @router.get("/payments", response_model=list[PaymentRead])

@@ -52,6 +52,10 @@ class ReservationStatusUpdate(BaseModel):
     status: ReservationStatus
 
 
+class DeliveryStatusUpdate(BaseModel):
+    delivery_status: DeliveryStatus
+
+
 class PickupConfirmRequest(BaseModel):
     pickup_code: str = Field(min_length=6, max_length=6)
 

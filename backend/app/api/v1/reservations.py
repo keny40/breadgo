@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.reservation import (
     PickupConfirmRequest,
     PickupConfirmResponse,
+    DeliveryStatusUpdate,
     ReservationCreate,
     ReservationRead,
     ReservationStatusUpdate,
@@ -23,6 +24,7 @@ from app.services.reservation_service import (
     get_reservation_by_pickup_code_for_merchant,
     get_store_reservations_for_merchant,
     update_reservation_status,
+    update_delivery_status_for_merchant,
 )
 
 
@@ -100,6 +102,18 @@ def update_current_merchant_reservation_status(
 ) -> ReservationRead:
     merchant = require_merchant_for_user(db, current_user)
     reservation = update_reservation_status(db, merchant, reservation_id, payload)
+    return reservation_to_read(reservation)
+
+
+@router.patch("/{reservation_id}/delivery-status", response_model=ReservationRead)
+def update_current_merchant_delivery_status(
+    reservation_id: UUID,
+    payload: DeliveryStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    reservation = update_delivery_status_for_merchant(db, merchant, reservation_id, payload)
     return reservation_to_read(reservation)
 
 

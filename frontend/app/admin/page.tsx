@@ -7,7 +7,17 @@ import type { ReactNode } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { AdminSummary, AuthUser, Merchant, Payment, Product, Reservation, Store } from "@/lib/types";
+import {
+  deliveryStatusLabel,
+  deliveryStatuses,
+  type AdminSummary,
+  type AuthUser,
+  type Merchant,
+  type Payment,
+  type Product,
+  type Reservation,
+  type Store,
+} from "@/lib/types";
 
 const merchantStatuses = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"];
 
@@ -102,6 +112,33 @@ export default function AdminPage() {
         current.map((merchant) => (merchant.id === merchantId ? updated : merchant)),
       );
       setMessage(`${updated.business_name} 상태가 ${updated.status}(으)로 변경되었습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function updateReservationDeliveryStatus(
+    reservationId: string,
+    event: ChangeEvent<HTMLSelectElement>,
+  ) {
+    const nextStatus = event.target.value;
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const updated = await apiFetch<Reservation>(
+        `/api/v1/admin/reservations/${reservationId}/delivery-status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ delivery_status: nextStatus }),
+        },
+        true,
+      );
+      setReservations((current) =>
+        current.map((reservation) => (reservation.id === reservationId ? updated : reservation)),
+      );
+      setMessage(`배송 상태가 ${deliveryStatusLabel(nextStatus)}(으)로 변경되었습니다.`);
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -287,6 +324,22 @@ export default function AdminPage() {
                     {reservation.fulfillment_method === "PICKUP"
                       ? `Pickup ${reservation.pickup_code}`
                       : reservation.delivery_address || "-"}
+                    <br />
+                    {reservation.fulfillment_method === "PICKUP" ? (
+                      <span>배송 상태 {deliveryStatusLabel(reservation.delivery_status)}</span>
+                    ) : (
+                      <select
+                        value={reservation.delivery_status}
+                        onChange={(event) => updateReservationDeliveryStatus(reservation.id, event)}
+                        aria-label={`${reservation.id} delivery status`}
+                      >
+                        {deliveryStatuses.map((status) => (
+                          <option key={status} value={status}>
+                            {deliveryStatusLabel(status)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td>{reservation.total_price}</td>
                   <td><StatusBadge status={reservation.status} /></td>

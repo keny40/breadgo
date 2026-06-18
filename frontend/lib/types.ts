@@ -102,6 +102,26 @@ export type Reservation = {
   payment_status: string | null;
 };
 
+export const deliveryStatuses = [
+  "REQUESTED",
+  "PREPARING",
+  "SENT",
+  "DELIVERED",
+  "CANCELLED",
+] as const;
+
+export function deliveryStatusLabel(status: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    NOT_REQUIRED: "해당 없음",
+    REQUESTED: "요청 접수",
+    PREPARING: "준비중",
+    SENT: "발송/배차 완료",
+    DELIVERED: "전달 완료",
+    CANCELLED: "취소됨",
+  };
+  return status ? labels[status] || status : "-";
+}
+
 export type PickupConfirmResponse = {
   reservation: Reservation;
 };

@@ -11,7 +11,12 @@ from app.models.product import Product, ProductStatus
 from app.models.reservation import DeliveryStatus, FulfillmentMethod, Reservation, ReservationStatus
 from app.models.store import Store
 from app.models.user import User
-from app.schemas.reservation import PickupConfirmRequest, ReservationCreate, ReservationStatusUpdate
+from app.schemas.reservation import (
+    DeliveryStatusUpdate,
+    PickupConfirmRequest,
+    ReservationCreate,
+    ReservationStatusUpdate,
+)
 from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
     mark_settlement_ready_for_reservation,
@@ -226,6 +231,44 @@ def update_reservation_status(
         mark_settlement_ready_for_reservation(db, reservation)
     elif reservation.status == ReservationStatus.CANCELLED:
         mark_settlement_cancelled_for_reservation(db, reservation)
+    db.commit()
+    db.refresh(reservation)
+    return reservation
+
+
+def update_delivery_status_for_merchant(
+    db: Session,
+    merchant: Merchant,
+    reservation_id: UUID,
+    payload: DeliveryStatusUpdate,
+) -> Reservation:
+    reservation = _get_reservation_for_merchant(db, merchant, reservation_id)
+    return _update_delivery_status(db, reservation, payload)
+
+
+def update_delivery_status_for_admin(
+    db: Session,
+    reservation_id: UUID,
+    payload: DeliveryStatusUpdate,
+) -> Reservation:
+    reservation = db.scalar(select(Reservation).where(Reservation.id == reservation_id))
+    if reservation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reservation not found.")
+    return _update_delivery_status(db, reservation, payload)
+
+
+def _update_delivery_status(
+    db: Session,
+    reservation: Reservation,
+    payload: DeliveryStatusUpdate,
+) -> Reservation:
+    if reservation.fulfillment_method == FulfillmentMethod.PICKUP:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pickup reservations do not require delivery status.",
+        )
+
+    reservation.delivery_status = payload.delivery_status
     db.commit()
     db.refresh(reservation)
     return reservation

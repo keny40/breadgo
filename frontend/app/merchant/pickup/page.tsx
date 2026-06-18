@@ -4,7 +4,12 @@ import { FormEvent, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { PickupConfirmResponse, Reservation } from "@/lib/types";
+import {
+  deliveryStatusLabel,
+  deliveryStatuses,
+  type PickupConfirmResponse,
+  type Reservation,
+} from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -52,6 +57,7 @@ export default function MerchantPickupPage() {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [updatingDeliveryStatus, setUpdatingDeliveryStatus] = useState(false);
 
   async function findReservation(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -115,6 +121,34 @@ export default function MerchantPickupPage() {
       setMessage(pickupErrorMessage(error));
     } finally {
       setConfirming(false);
+    }
+  }
+
+  async function updateDeliveryStatus(nextStatus: string) {
+    if (!reservation) {
+      return;
+    }
+
+    setMessage("");
+    setIsError(false);
+    setUpdatingDeliveryStatus(true);
+
+    try {
+      const updated = await apiFetch<Reservation>(
+        `/api/v1/reservations/${reservation.id}/delivery-status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ delivery_status: nextStatus }),
+        },
+        true,
+      );
+      setReservation(updated);
+      setMessage(`배송 상태가 ${deliveryStatusLabel(nextStatus)}(으)로 변경되었습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setUpdatingDeliveryStatus(false);
     }
   }
 
@@ -202,7 +236,7 @@ export default function MerchantPickupPage() {
             <div className="detail-grid">
               <div>
                 <span>배송 상태</span>
-                <strong>{reservation.delivery_status}</strong>
+                <strong>{deliveryStatusLabel(reservation.delivery_status)}</strong>
               </div>
               <div>
                 <span>받는 사람</span>
@@ -237,9 +271,25 @@ export default function MerchantPickupPage() {
               )}
             </div>
           ) : (
-            <p className="message">
-              배송 요청 정보 확인용 화면입니다. 현재는 실제 배송 연동이나 송장 처리는 없습니다.
-            </p>
+            <div className="payment-box">
+              <p className="message">
+                현재는 실제 배송 연동이 아닌 MVP용 배송 상태 관리입니다. 배송 상태는 점주가 수동으로 변경합니다.
+              </p>
+              <label>
+                배송 상태
+                <select
+                  value={reservation.delivery_status}
+                  onChange={(event) => updateDeliveryStatus(event.target.value)}
+                  disabled={updatingDeliveryStatus}
+                >
+                  {deliveryStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {deliveryStatusLabel(status)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           )}
         </article>
       )}
