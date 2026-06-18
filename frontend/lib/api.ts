@@ -86,6 +86,15 @@ export function friendlyErrorMessage(error: unknown): string {
   if (lowerMessage.includes("insufficient product quantity")) {
     return "예약 가능한 수량이 부족합니다.";
   }
+  if (lowerMessage.includes("only paid reservations")) {
+    return "결제 완료된 예약만 취소할 수 있습니다.";
+  }
+  if (lowerMessage.includes("delivery is already in progress or completed")) {
+    return "이미 배송이 시작되었거나 완료되어 취소할 수 없습니다.";
+  }
+  if (lowerMessage.includes("reservation cannot be cancelled")) {
+    return "취소할 수 없는 예약입니다.";
+  }
   if (lowerMessage.includes("pickup code")) {
     return "픽업코드를 찾을 수 없습니다.";
   }

@@ -103,6 +103,16 @@ def cancel_current_user_reservation(
     return reservation_to_read(reservation)
 
 
+@router.post("/{reservation_id}/cancel", response_model=ReservationRead)
+def cancel_current_user_reservation_post(
+    reservation_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ReservationRead:
+    reservation = cancel_reservation(db, current_user, reservation_id)
+    return reservation_to_read(reservation)
+
+
 @router.patch("/{reservation_id}/status", response_model=ReservationRead)
 def update_current_merchant_reservation_status(
     reservation_id: UUID,

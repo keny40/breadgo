@@ -250,7 +250,7 @@ export default function MerchantOrdersPage() {
                     <select
                       value={reservation.delivery_status}
                       onChange={(event) => updateDeliveryStatus(reservation, event.target.value)}
-                      disabled={updatingId === reservation.id}
+                      disabled={updatingId === reservation.id || reservation.status === "CANCELLED"}
                     >
                       {deliveryStatuses.map((status) => (
                         <option key={status} value={status}>

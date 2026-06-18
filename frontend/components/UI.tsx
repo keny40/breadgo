@@ -1,8 +1,30 @@
 import type { ReactNode } from "react";
 
-const successStatuses = new Set(["ACTIVE", "APPROVED", "CONFIRMED", "PAID", "PICKED_UP"]);
-const warningStatuses = new Set(["PENDING", "READY", "SOLD_OUT", "HOLD"]);
+const successStatuses = new Set(["ACTIVE", "APPROVED", "CONFIRMED", "PAID", "PICKED_UP", "DELIVERED"]);
+const warningStatuses = new Set(["PENDING", "READY", "SOLD_OUT", "HOLD", "REFUNDED", "REQUESTED", "PREPARING", "SENT"]);
 const dangerStatuses = new Set(["CANCELLED", "FAILED", "REJECTED", "SUSPENDED", "EXPIRED"]);
+
+const statusLabels: Record<string, string> = {
+  ACTIVE: "판매중",
+  APPROVED: "승인됨",
+  CONFIRMED: "예약확정",
+  PAID: "결제완료",
+  PICKED_UP: "픽업완료",
+  DELIVERED: "전달 완료",
+  PENDING: "대기중",
+  READY: "준비됨",
+  SOLD_OUT: "품절",
+  HOLD: "보류",
+  REFUNDED: "환불 처리됨",
+  REQUESTED: "요청 접수",
+  PREPARING: "준비중",
+  SENT: "발송/배차 완료",
+  CANCELLED: "취소됨",
+  FAILED: "실패",
+  REJECTED: "거절됨",
+  SUSPENDED: "중지됨",
+  EXPIRED: "만료됨",
+};
 
 export function PageHeader({
   title,
@@ -41,7 +63,7 @@ export function StatusBadge({ status }: { status: string }) {
     tone = "danger";
   }
 
-  return <Badge tone={tone}>{status}</Badge>;
+  return <Badge tone={tone}>{statusLabels[normalized] || status}</Badge>;
 }
 
 export function EmptyState({ title, description }: { title: string; description?: string }) {

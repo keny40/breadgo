@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.merchant import Merchant
+from app.models.payment import Payment, PaymentStatus
 from app.models.product import Product, ProductStatus
 from app.models.reservation import DeliveryStatus, FulfillmentMethod, Reservation, ReservationStatus
 from app.models.store import Store
@@ -223,10 +224,34 @@ def get_reservations_for_merchant(db: Session, merchant: Merchant) -> list[Reser
 
 def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reservation:
     reservation = _get_reservation_for_user(db, user, reservation_id)
-    if reservation.status in {ReservationStatus.PICKED_UP, ReservationStatus.CANCELLED}:
+
+    if reservation.status != ReservationStatus.CONFIRMED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reservation cannot be cancelled.",
+        )
+
+    if reservation.delivery_status in {DeliveryStatus.SENT, DeliveryStatus.DELIVERED}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Delivery is already in progress or completed.",
+        )
+
+    payment = db.scalar(
+        select(Payment)
+        .where(
+            Payment.reservation_id == reservation.id,
+            Payment.user_id == user.id,
+        )
+        .with_for_update()
+    )
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found.")
+
+    if payment.status != PaymentStatus.PAID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only paid reservations can be cancelled.",
         )
 
     product = db.scalar(
@@ -239,6 +264,10 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
 
     _restore_product_quantity(product, reservation.quantity)
     reservation.status = ReservationStatus.CANCELLED
+    if reservation.fulfillment_method != FulfillmentMethod.PICKUP:
+        reservation.delivery_status = DeliveryStatus.CANCELLED
+    payment.status = PaymentStatus.REFUNDED
+    payment.cancelled_at = datetime.now(timezone.utc)
     mark_settlement_cancelled_for_reservation(db, reservation)
     db.commit()
     db.refresh(reservation)

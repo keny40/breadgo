@@ -49,6 +49,7 @@ export default function MyReservationsPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   async function loadReservations() {
     setMessage("");
@@ -68,6 +69,45 @@ export default function MyReservationsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  }
+
+  function canCancelReservation(reservation: Reservation, paymentStatus: string) {
+    return (
+      reservation.status === "CONFIRMED" &&
+      paymentStatus === "PAID" &&
+      reservation.delivery_status !== "SENT" &&
+      reservation.delivery_status !== "DELIVERED"
+    );
+  }
+
+  async function cancelReservation(reservation: Reservation) {
+    const confirmed = window.confirm(
+      "예약을 취소하시겠습니까? MVP에서는 실제 카드 환불이 아닌 Mock 환불 처리입니다.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage("");
+    setIsError(false);
+    setCancellingId(reservation.id);
+
+    try {
+      const updated = await apiFetch<Reservation>(
+        `/api/v1/reservations/${reservation.id}/cancel`,
+        { method: "POST" },
+        true,
+      );
+      const paymentData = await apiFetch<Payment[]>("/api/v1/payments/me", {}, true);
+      setReservations((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setPayments(paymentData);
+      setMessage("예약이 취소되었습니다. 현재는 실제 PG 환불이 아닌 MVP용 Mock 환불 상태입니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setCancellingId(null);
     }
   }
 
@@ -169,6 +209,18 @@ export default function MyReservationsPage() {
                 <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>
                 <span>예약일 {new Date(reservation.created_at).toLocaleString()}</span>
               </div>
+              {canCancelReservation(reservation, paymentStatus) && (
+                <div className="actions">
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => cancelReservation(reservation)}
+                    disabled={cancellingId === reservation.id}
+                  >
+                    {cancellingId === reservation.id ? "취소 처리 중" : "예약 취소"}
+                  </button>
+                </div>
+              )}
             </article>
           );
         })}
