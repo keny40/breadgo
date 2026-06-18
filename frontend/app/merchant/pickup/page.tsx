@@ -40,6 +40,10 @@ function isPickupBlocked(status: string) {
   return ["PICKED_UP", "CANCELLED", "EXPIRED"].includes(status);
 }
 
+function isPickupFulfillment(reservation: Reservation) {
+  return reservation.fulfillment_method === "PICKUP";
+}
+
 export default function MerchantPickupPage() {
   const guard = useRoleGuard("MERCHANT");
   const [pickupCode, setPickupCode] = useState("");
@@ -160,8 +164,14 @@ export default function MerchantPickupPage() {
         <article className="item pickup-detail-card">
           <div className="card-title-row">
             <div>
-              <p className="eyebrow">픽업 코드</p>
-              <p className="pickup-code">{reservation.pickup_code}</p>
+              <p className="eyebrow">
+                {isPickupFulfillment(reservation) ? "픽업 코드" : "배송 요청 예약 코드"}
+              </p>
+              {isPickupFulfillment(reservation) ? (
+                <p className="pickup-code">{reservation.pickup_code}</p>
+              ) : (
+                <h2>{reservation.pickup_code}</h2>
+              )}
             </div>
             <StatusBadge status={reservation.status} />
           </div>
@@ -199,31 +209,38 @@ export default function MerchantPickupPage() {
                 <strong>{reservation.recipient_name || "-"}</strong>
               </div>
               <div>
-                <span>연락처</span>
+                <span>받는 사람 연락처</span>
                 <strong>{reservation.recipient_phone || "-"}</strong>
               </div>
               <div>
                 <span>주소</span>
                 <strong>{reservation.delivery_address || "-"}</strong>
               </div>
+              <div>
+                <span>배송 요청사항</span>
+                <strong>{reservation.delivery_request_memo || "-"}</strong>
+              </div>
             </div>
           )}
-          {reservation.delivery_request_memo && (
-            <p className="message">배송 요청사항: {reservation.delivery_request_memo}</p>
-          )}
 
-          <div className="actions">
-            <button
-              type="button"
-              onClick={confirmPickup}
-              disabled={confirming || isPickupBlocked(reservation.status)}
-            >
-              {confirming ? "확정 중" : "픽업 확정"}
-            </button>
-            {isPickupBlocked(reservation.status) && (
-              <span className="field-help">현재 상태에서는 픽업 확정을 진행할 수 없습니다.</span>
-            )}
-          </div>
+          {isPickupFulfillment(reservation) ? (
+            <div className="actions">
+              <button
+                type="button"
+                onClick={confirmPickup}
+                disabled={confirming || isPickupBlocked(reservation.status)}
+              >
+                {confirming ? "확정 중" : "픽업 확정"}
+              </button>
+              {isPickupBlocked(reservation.status) && (
+                <span className="field-help">현재 상태에서는 픽업 확정을 진행할 수 없습니다.</span>
+              )}
+            </div>
+          ) : (
+            <p className="message">
+              배송 요청 정보 확인용 화면입니다. 현재는 실제 배송 연동이나 송장 처리는 없습니다.
+            </p>
+          )}
         </article>
       )}
     </section>

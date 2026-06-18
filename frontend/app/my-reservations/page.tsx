@@ -19,7 +19,14 @@ function fulfillmentMethodLabel(value: string) {
   return labels[value] || value;
 }
 
-function reservationGuidance(status: string) {
+function reservationGuidance(status: string, fulfillmentMethod: string) {
+  if (fulfillmentMethod === "QUICK_DELIVERY") {
+    return "퀵배달 요청 정보가 매장에 전달되었습니다.";
+  }
+  if (fulfillmentMethod === "PARCEL_DELIVERY") {
+    return "택배 배송 요청 정보가 매장에 전달되었습니다.";
+  }
+
   switch (status) {
     case "CONFIRMED":
     case "PENDING":
@@ -110,7 +117,9 @@ export default function MyReservationsPage() {
                   <p className="pickup-code">{reservation.pickup_code}</p>
                 </div>
               )}
-              <p className="guidance-text">{reservationGuidance(reservation.status)}</p>
+              <p className="guidance-text">
+                {reservationGuidance(reservation.status, reservation.fulfillment_method)}
+              </p>
               <div className="meta">
                 <span>
                   수령 방법 <strong>{fulfillmentMethodLabel(reservation.fulfillment_method)}</strong>
@@ -143,17 +152,18 @@ export default function MyReservationsPage() {
                     <strong>{reservation.recipient_name || "-"}</strong>
                   </div>
                   <div>
-                    <span>연락처</span>
+                    <span>받는 사람 연락처</span>
                     <strong>{reservation.recipient_phone || "-"}</strong>
                   </div>
                   <div>
                     <span>주소</span>
                     <strong>{reservation.delivery_address || "-"}</strong>
                   </div>
+                  <div>
+                    <span>배송 요청사항</span>
+                    <strong>{reservation.delivery_request_memo || "-"}</strong>
+                  </div>
                 </div>
-              )}
-              {reservation.delivery_request_memo && (
-                <p className="message">배송 요청사항: {reservation.delivery_request_memo}</p>
               )}
               <div className="meta">
                 <span>픽업 마감 {new Date(reservation.pickup_deadline).toLocaleString()}</span>

@@ -15,6 +15,7 @@ class ReservationCreate(BaseModel):
     recipient_phone: str | None = None
     delivery_address: str | None = None
     delivery_request_memo: str | None = None
+    delivery_fee: Decimal = Field(default=Decimal("0.00"), ge=0)
 
 
 class ReservationRead(BaseModel):

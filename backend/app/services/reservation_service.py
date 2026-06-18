@@ -102,7 +102,7 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
         )
 
     product_amount = product.discount_price * payload.quantity
-    delivery_fee = 0
+    delivery_fee = payload.delivery_fee
     delivery_status = (
         DeliveryStatus.NOT_REQUIRED
         if payload.fulfillment_method == FulfillmentMethod.PICKUP

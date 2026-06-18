@@ -60,7 +60,6 @@ export default function ProductsPage() {
   const [discoveryMode, setDiscoveryMode] = useState<"region" | "nearby">("region");
   const [products, setProducts] = useState<RegionProduct[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [pickupCode, setPickupCode] = useState("");
   const [latestReservation, setLatestReservation] = useState<Reservation | null>(null);
   const [latestReservedProduct, setLatestReservedProduct] = useState<RegionProduct | null>(null);
   const [latestPayment, setLatestPayment] = useState<Payment | null>(null);
@@ -123,7 +122,6 @@ export default function ProductsPage() {
     event?.preventDefault();
     setMessage("");
     setIsError(false);
-    setPickupCode("");
     setLatestReservation(null);
     setLatestReservedProduct(null);
     setLatestPayment(null);
@@ -181,7 +179,6 @@ export default function ProductsPage() {
   async function findProductsNearMe() {
     setMessage("");
     setIsError(false);
-    setPickupCode("");
     setLatestReservation(null);
     setLatestReservedProduct(null);
     setLatestPayment(null);
@@ -208,7 +205,6 @@ export default function ProductsPage() {
   async function reserveProduct(productId: string) {
     setMessage("");
     setIsError(false);
-    setPickupCode("");
     setLatestPayment(null);
     setPaymentMessage("");
     setIsPaymentError(false);
@@ -235,11 +231,11 @@ export default function ProductsPage() {
             recipient_phone: requiresDeliveryInfo ? recipientPhone : null,
             delivery_address: requiresDeliveryInfo ? deliveryAddress : null,
             delivery_request_memo: requiresDeliveryInfo ? deliveryRequestMemo : null,
+            delivery_fee: "0.00",
           }),
         },
         true,
       );
-      setPickupCode(reservation.pickup_code);
       setLatestReservation(reservation);
       setLatestReservedProduct(reservedProduct);
       setMessage("예약이 완료되었습니다. 수령 방법을 확인하고 Mock 결제를 진행해 보세요.");
@@ -296,7 +292,6 @@ export default function ProductsPage() {
   }
 
   function continueBrowsing() {
-    setPickupCode("");
     setLatestReservation(null);
     setLatestReservedProduct(null);
     setLatestPayment(null);
@@ -393,7 +388,7 @@ export default function ProductsPage() {
                 <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} />
               </label>
               <label>
-                연락처
+                받는 사람 연락처
                 <input value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} />
               </label>
             </div>
@@ -506,7 +501,7 @@ export default function ProductsPage() {
         ))}
       </div>
 
-      {pickupCode && (
+      {latestReservation && (
         <div className="panel success-panel">
           <div className="card-title-row">
             <div>
@@ -515,16 +510,25 @@ export default function ProductsPage() {
             </div>
             {latestReservation && <StatusBadge status={latestReservation.status} />}
           </div>
-          {latestReservation?.fulfillment_method === "PICKUP" ? (
+          {!latestPayment && (
+            <p className="message">
+              예약 생성 완료. 결제를 완료하면 수령 정보가 확정됩니다.
+            </p>
+          )}
+          {latestPayment?.status === "PAID" && latestReservation.fulfillment_method === "PICKUP" && (
             <>
-              <p>매장에서 아래 픽업코드를 보여주면 픽업 확인을 받을 수 있습니다.</p>
+              <p>매장에서 픽업 코드를 보여주세요.</p>
               <div className="pickup-code-block">
                 <span>픽업 코드</span>
-                <p className="pickup-code">{pickupCode}</p>
+                <p className="pickup-code">{latestReservation.pickup_code}</p>
               </div>
             </>
-          ) : (
-            <p className="message">배송 요청 정보가 저장되었습니다. 현재는 실제 배송 연동이 아닌 MVP 단계입니다.</p>
+          )}
+          {latestPayment?.status === "PAID" && latestReservation.fulfillment_method === "QUICK_DELIVERY" && (
+            <p className="message">퀵배달 요청이 접수되었습니다.</p>
+          )}
+          {latestPayment?.status === "PAID" && latestReservation.fulfillment_method === "PARCEL_DELIVERY" && (
+            <p className="message">택배 배송 요청이 접수되었습니다.</p>
           )}
           <div className="detail-grid">
             <div>
@@ -558,7 +562,7 @@ export default function ProductsPage() {
               </strong>
             </div>
           </div>
-          {latestReservation?.fulfillment_method !== "PICKUP" && (
+          {latestReservation.fulfillment_method !== "PICKUP" && (
             <div className="detail-grid">
               <div>
                 <span>받는 사람</span>
@@ -575,6 +579,10 @@ export default function ProductsPage() {
               <div>
                 <span>배송 상태</span>
                 <strong>{latestReservation?.delivery_status || "-"}</strong>
+              </div>
+              <div>
+                <span>배송 요청사항</span>
+                <strong>{latestReservation?.delivery_request_memo || "-"}</strong>
               </div>
             </div>
           )}
