@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.schemas.product import ProductRead
+from app.schemas.recommendation_action_event import RecommendationActionEventRead
 
 
 class ProRecommendationRead(BaseModel):
@@ -118,6 +119,11 @@ class MerchantProRecommendationPerformanceRead(BaseModel):
     modified_accept_rate: float
     average_stock_delta: float
     average_discount_price_delta: Decimal
+    action_card_click_count: int
+    draft_create_started_count: int
+    action_draft_created_count: int
+    action_to_draft_rate: float
+    recent_action_events: list[RecommendationActionEventRead]
     usage_by_recommendation_type: list[RecommendationTypeUsageSummary]
     recent_usages: list[RecommendationUsageRead]
     recent_funnel_usages: list[RecommendationUsageRead]

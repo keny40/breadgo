@@ -78,6 +78,28 @@ export default function MerchantProDashboardPage() {
     }
   }
 
+  async function recordActionCardClick(recommendation: ProRecommendation) {
+    try {
+      await apiFetch(
+        "/api/v1/merchant/pro/recommendation-action-events",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            product_id: recommendation.product_id,
+            recommendation_type: recommendation.recommendation_type,
+            action_priority: recommendation.action_priority,
+            risk_label: recommendation.risk_label,
+            event_type: "ACTION_CARD_CLICKED",
+            source: "PRO_DASHBOARD",
+          }),
+        },
+        true,
+      );
+    } catch {
+      // Recommendation action analytics should not block navigation.
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -159,7 +181,11 @@ export default function MerchantProDashboardPage() {
         ) : (
           <div className="pro-product-grid">
             {topActions.map((recommendation) => (
-              <RecommendationActionCard recommendation={recommendation} key={recommendation.product_id} />
+              <RecommendationActionCard
+                recommendation={recommendation}
+                key={recommendation.product_id}
+                onActionClick={recordActionCardClick}
+              />
             ))}
           </div>
         )}
@@ -309,7 +335,13 @@ function ProductYieldCard({ product }: { product: ProProductSummary }) {
   );
 }
 
-function RecommendationActionCard({ recommendation }: { recommendation: ProRecommendation }) {
+function RecommendationActionCard({
+  recommendation,
+  onActionClick,
+}: {
+  recommendation: ProRecommendation;
+  onActionClick: (recommendation: ProRecommendation) => void;
+}) {
   return (
     <article className="item pro-product-card">
       <div className="card-title-row">
@@ -334,7 +366,13 @@ function RecommendationActionCard({ recommendation }: { recommendation: ProRecom
         ))}
       </ul>
       <div className="actions">
-        <Link className="button-link secondary" href="/merchant/pro/recommendations">
+        <Link
+          className="button-link secondary"
+          href="/merchant/pro/recommendations"
+          onClick={() => {
+            void onActionClick(recommendation);
+          }}
+        >
           추천에서 실행
         </Link>
       </div>

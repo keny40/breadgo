@@ -15,6 +15,7 @@ from app.schemas.pro_recommendation import (
     ProRecommendationDraftCreateRequest,
     ProRecommendationDraftCreateResponse,
 )
+from app.schemas.recommendation_action_event import RecommendationActionEventCreate, RecommendationActionEventRead
 from app.services.merchant_service import require_merchant_for_user
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
@@ -24,6 +25,7 @@ from app.services.pro_recommendation_service import (
     build_merchant_pro_recommendations,
     create_recommendation_draft,
 )
+from app.services.recommendation_action_event_service import record_recommendation_action_event
 
 router = APIRouter()
 
@@ -64,6 +66,17 @@ def create_merchant_pro_recommendation_draft(
 ) -> ProRecommendationDraftCreateResponse:
     merchant = require_merchant_for_user(db, current_user)
     return create_recommendation_draft(db, merchant, product_id, payload)
+
+
+@router.post("/recommendation-action-events", response_model=RecommendationActionEventRead)
+def create_merchant_pro_recommendation_action_event(
+    payload: RecommendationActionEventCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> RecommendationActionEventRead:
+    merchant = require_merchant_for_user(db, current_user)
+    event = record_recommendation_action_event(db, merchant, payload)
+    return RecommendationActionEventRead.model_validate(event)
 
 
 @router.get("/recommendation-performance", response_model=MerchantProRecommendationPerformanceRead)

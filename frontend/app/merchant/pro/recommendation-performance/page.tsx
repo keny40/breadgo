@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProRecommendationPerformance, RecommendationUsage } from "@/lib/types";
+import type { MerchantProRecommendationPerformance, RecommendationActionEvent, RecommendationUsage } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -67,6 +67,25 @@ function formatSignedMoney(value: string | null) {
   const numberValue = Number(value);
   if (numberValue > 0) return `+${numberValue.toLocaleString()}원`;
   return `${numberValue.toLocaleString()}원`;
+}
+
+function actionEventLabel(value: string) {
+  const labels: Record<string, string> = {
+    ACTION_CARD_VIEWED: "액션 카드 노출",
+    ACTION_CARD_CLICKED: "액션 카드 클릭",
+    RECOMMENDATION_DETAIL_OPENED: "추천 상세 열람",
+    DRAFT_CREATE_STARTED: "초안 생성 시작",
+    DRAFT_CREATED: "초안 생성 완료",
+  };
+  return labels[value] || value;
+}
+
+function actionSourceLabel(value: string) {
+  const labels: Record<string, string> = {
+    PRO_DASHBOARD: "Pro 대시보드",
+    RECOMMENDATIONS_PAGE: "추천 화면",
+  };
+  return labels[value] || value;
 }
 
 export default function MerchantRecommendationPerformancePage() {
@@ -174,6 +193,10 @@ export default function MerchantRecommendationPerformancePage() {
               label="평균 가격 수정폭"
               value={formatSignedMoney(performance.average_discount_price_delta)}
             />
+            <StatCard label="액션 카드 클릭" value={`${performance.action_card_click_count}건`} />
+            <StatCard label="초안 생성 시작" value={`${performance.draft_create_started_count}건`} />
+            <StatCard label="초안 생성 완료" value={`${performance.action_draft_created_count}건`} />
+            <StatCard label="액션→초안 전환율" value={formatPercent(performance.action_to_draft_rate)} />
           </div>
 
           {performance.usage_by_recommendation_type.length > 0 && (
@@ -204,6 +227,27 @@ export default function MerchantRecommendationPerformancePage() {
           <section className="panel">
             <div className="card-title-row">
               <div>
+                <p className="eyebrow">추천 액션 실행</p>
+                <h2>점주가 어떤 추천 행동을 실행했는지 확인하세요</h2>
+              </div>
+            </div>
+            {performance.recent_action_events.length === 0 ? (
+              <EmptyState
+                title="아직 실행된 추천 액션이 없습니다."
+                description="Pro 대시보드의 추천 액션 카드나 추천 화면의 초안 생성 버튼을 누르면 이력이 표시됩니다."
+              />
+            ) : (
+              <div className="list">
+                {performance.recent_action_events.map((event) => (
+                  <ActionEventCard event={event} key={event.id} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="card-title-row">
+              <div>
                 <p className="eyebrow">최근 추천 사용 이력</p>
                 <h2>추천으로 만든 상품</h2>
               </div>
@@ -224,6 +268,29 @@ export default function MerchantRecommendationPerformancePage() {
         </>
       )}
     </section>
+  );
+}
+
+function ActionEventCard({ event }: { event: RecommendationActionEvent }) {
+  return (
+    <article className="item">
+      <div className="card-title-row">
+        <div>
+          <p className="eyebrow">{actionSourceLabel(event.source)}</p>
+          <h3>{actionEventLabel(event.event_type)}</h3>
+        </div>
+        <div className="actions">
+          {event.action_priority && <Badge tone={event.action_priority === "HIGH" ? "warning" : "muted"}>{event.action_priority}</Badge>}
+          {event.risk_label && <Badge tone="muted">{event.risk_label}</Badge>}
+        </div>
+      </div>
+      <div className="detail-grid">
+        <Metric label="추천 타입" value={event.recommendation_type || "-"} />
+        <Metric label="원본 상품" value={event.product_id || "-"} />
+        <Metric label="생성 상품" value={event.created_product_id || "-"} />
+        <Metric label="기록 시각" value={formatDate(event.created_at)} />
+      </div>
+    </article>
   );
 }
 

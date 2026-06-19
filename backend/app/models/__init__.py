@@ -4,6 +4,7 @@ from app.models.payment import Payment
 from app.models.product import Product
 from app.models.product_event import ProductEvent
 from app.models.product_template import ProductTemplate
+from app.models.recommendation_action_event import RecommendationActionEvent
 from app.models.recommendation_usage import RecommendationUsage
 from app.models.reservation import Reservation
 from app.models.reservation_history import ReservationHistory
@@ -18,6 +19,7 @@ __all__ = [
     "Product",
     "ProductEvent",
     "ProductTemplate",
+    "RecommendationActionEvent",
     "RecommendationUsage",
     "Reservation",
     "ReservationHistory",

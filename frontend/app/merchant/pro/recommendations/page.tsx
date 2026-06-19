@@ -115,6 +115,7 @@ export default function MerchantProRecommendationsPage() {
     setDuplicatingId(recommendation.product_id);
 
     try {
+      await recordRecommendationActionEvent(recommendation, "DRAFT_CREATE_STARTED");
       const result = await apiFetch<ProRecommendationDraftCreateResponse>(
         `/api/v1/merchant/pro/recommendations/${recommendation.product_id}/create-draft`,
         {
@@ -142,6 +143,31 @@ export default function MerchantProRecommendationsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setDuplicatingId(null);
+    }
+  }
+
+  async function recordRecommendationActionEvent(
+    recommendation: ProRecommendation,
+    eventType: "DRAFT_CREATE_STARTED" | "RECOMMENDATION_DETAIL_OPENED",
+  ) {
+    try {
+      await apiFetch(
+        "/api/v1/merchant/pro/recommendation-action-events",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            product_id: recommendation.product_id,
+            recommendation_type: recommendation.recommendation_type,
+            action_priority: recommendation.action_priority,
+            risk_label: recommendation.risk_label,
+            event_type: eventType,
+            source: "RECOMMENDATIONS_PAGE",
+          }),
+        },
+        true,
+      );
+    } catch {
+      // Recommendation action analytics should not block merchant workflows.
     }
   }
 

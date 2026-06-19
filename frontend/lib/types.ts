@@ -447,9 +447,27 @@ export type MerchantProRecommendationPerformance = {
   modified_accept_rate: number;
   average_stock_delta: number;
   average_discount_price_delta: string;
+  action_card_click_count: number;
+  draft_create_started_count: number;
+  action_draft_created_count: number;
+  action_to_draft_rate: number;
+  recent_action_events: RecommendationActionEvent[];
   usage_by_recommendation_type: RecommendationTypeUsageSummary[];
   recent_usages: RecommendationUsage[];
   recent_funnel_usages: RecommendationUsage[];
+};
+
+export type RecommendationActionEvent = {
+  id: string;
+  merchant_id: string;
+  product_id: string | null;
+  recommendation_type: string | null;
+  action_priority: string | null;
+  risk_label: string | null;
+  event_type: string;
+  source: string;
+  created_product_id: string | null;
+  created_at: string;
 };
 
 export type ProProductFunnelSummary = {

@@ -25,7 +25,12 @@ from app.schemas.pro_recommendation import (
     RecommendationTypeUsageSummary,
     RecommendationUsageRead,
 )
+from app.schemas.recommendation_action_event import RecommendationActionEventCreate
 from app.services.product_service import duplicate_product_for_merchant
+from app.services.recommendation_action_event_service import (
+    get_recent_recommendation_action_events,
+    record_recommendation_action_event,
+)
 
 ZERO = Decimal("0.00")
 
@@ -511,6 +516,20 @@ def create_recommendation_draft(
         action_type="DRAFT_CREATED",
     )
     db.add(usage)
+    record_recommendation_action_event(
+        db,
+        merchant,
+        RecommendationActionEventCreate(
+            product_id=product_id,
+            recommendation_type=recommendation.recommendation_type,
+            action_priority=recommendation.action_priority,
+            risk_label=recommendation.risk_label,
+            event_type="DRAFT_CREATED",
+            source="RECOMMENDATIONS_PAGE",
+            created_product_id=created_product.id,
+        ),
+        commit=False,
+    )
     db.commit()
     db.refresh(usage)
     db.refresh(created_product)
@@ -528,6 +547,16 @@ def build_merchant_pro_recommendation_performance(
     db: Session,
     merchant: Merchant,
 ) -> MerchantProRecommendationPerformanceRead:
+    recent_action_events = get_recent_recommendation_action_events(db, merchant, days=7)
+    action_card_click_count = sum(
+        1 for event in recent_action_events if event.event_type == "ACTION_CARD_CLICKED"
+    )
+    draft_create_started_count = sum(
+        1 for event in recent_action_events if event.event_type == "DRAFT_CREATE_STARTED"
+    )
+    action_draft_created_count = sum(
+        1 for event in recent_action_events if event.event_type == "DRAFT_CREATED"
+    )
     usages = list(
         db.scalars(
             select(RecommendationUsage)
@@ -753,6 +782,11 @@ def build_merchant_pro_recommendation_performance(
         modified_accept_rate=_rate(modified_accept_count, accepted_count),
         average_stock_delta=average_stock_delta,
         average_discount_price_delta=average_discount_price_delta,
+        action_card_click_count=action_card_click_count,
+        draft_create_started_count=draft_create_started_count,
+        action_draft_created_count=action_draft_created_count,
+        action_to_draft_rate=_rate(action_draft_created_count, action_card_click_count),
+        recent_action_events=recent_action_events[:20],
         usage_by_recommendation_type=list(usage_type_summary.values()),
         recent_usages=recent_usages,
         recent_funnel_usages=recent_usages,
