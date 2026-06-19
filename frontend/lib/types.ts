@@ -346,6 +346,31 @@ export type MerchantProEsgReport = {
   daily_esg_trend: ProEsgDailyTrend[];
 };
 
+export type ProRecommendation = {
+  product_id: string;
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  recent_reserved_quantity: number;
+  recent_picked_up_quantity: number;
+  recent_cancelled_quantity: number;
+  current_stock_quantity: number;
+  sell_through_rate: number;
+  pickup_completion_rate: number;
+  recommended_stock_quantity: number;
+  current_discount_price: string;
+  recommended_discount_price: string;
+  recommendation_type: string;
+  recommendation_message: string;
+  confidence_label: string;
+};
+
+export type MerchantProRecommendations = {
+  period_days: number;
+  note: string;
+  recommendations: ProRecommendation[];
+};
+
 export type ProductTemplate = {
   id: string;
   merchant_id: string;

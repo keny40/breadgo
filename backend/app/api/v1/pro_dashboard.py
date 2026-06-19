@@ -6,9 +6,11 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pro_dashboard import MerchantProDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
+from app.schemas.pro_recommendation import MerchantProRecommendationsRead
 from app.services.merchant_service import require_merchant_for_user
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
+from app.services.pro_recommendation_service import build_merchant_pro_recommendations
 
 router = APIRouter()
 
@@ -29,3 +31,12 @@ def get_merchant_pro_esg_report(
 ) -> MerchantProEsgReportRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_esg_report(db, merchant)
+
+
+@router.get("/recommendations", response_model=MerchantProRecommendationsRead)
+def get_merchant_pro_recommendations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProRecommendationsRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_recommendations(db, merchant)

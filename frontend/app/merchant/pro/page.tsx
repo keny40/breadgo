@@ -116,6 +116,17 @@ export default function MerchantProDashboardPage() {
 
       <div className="panel pro-relist-card">
         <div>
+          <p className="eyebrow">AI 추천 준비 단계</p>
+          <h2>오늘 추천 확인하기</h2>
+          <p>최근 7일 판매 데이터를 기준으로 추천 재고와 추천 할인가를 참고하세요.</p>
+        </div>
+        <Link className="button-link" href="/merchant/pro/recommendations">
+          Pro 추천 보기
+        </Link>
+      </div>
+
+      <div className="panel pro-relist-card">
+        <div>
           <p className="eyebrow">폐기 감소 리포트</p>
           <h2>이번 달 폐기 방지 성과 보기</h2>
           <p>BreadGo로 판매 전환된 마감 상품과 폐기 방지 금액을 확인하세요.</p>

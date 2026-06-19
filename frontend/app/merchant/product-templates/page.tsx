@@ -215,6 +215,7 @@ export default function MerchantProductTemplatesPage() {
         <strong>요일별 반복 등록</strong>
         <br />
         재고와 마감 시간만 바꾸면 바로 판매 시작할 수 있도록 자주 올리는 마감 상품을 템플릿으로 저장하세요.
+        추천 재고가 필요하면 Pro 추천 화면에서 최근 7일 데이터 기반 제안을 참고할 수 있습니다.
       </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
