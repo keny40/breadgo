@@ -13,32 +13,34 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const normalizedRole = userRole?.toLowerCase();
+  const roleLinks = !loggedIn
+    ? [{ href: "/products", label: "상품 보기" }]
+    : normalizedRole === "merchant"
+      ? [
+          { href: "/merchant", label: "가맹점" },
+          { href: "/merchant/pro", label: "Pro 대시보드" },
+          { href: "/merchant/stores", label: "매장" },
+          { href: "/merchant/products", label: "상품 관리" },
+          { href: "/merchant/orders", label: "주문 관리" },
+          { href: "/merchant/pickup", label: "픽업 확인" },
+          { href: "/merchant/settlement-account", label: "정산 계좌" },
+          { href: "/merchant/settlements", label: "정산 내역" },
+        ]
+      : normalizedRole === "admin"
+        ? [
+            { href: "/admin", label: "Admin" },
+            { href: "/admin/settlements", label: "정산 관리" },
+            { href: "/admin/ops", label: "운영 점검" },
+          ]
+        : [
+            { href: "/products", label: "상품 보기" },
+            { href: "/my-reservations", label: "내 예약" },
+            { href: "/my-payments", label: "내 결제" },
+          ];
   const links = [
     { href: "/demo", label: "데모 가이드" },
     ...(loggedIn ? [{ href: "/notifications", label: unreadCount > 0 ? `알림 ${unreadCount}` : "알림" }] : []),
-    ...(!loggedIn
-      ? [{ href: "/products", label: "상품 보기" }]
-      : normalizedRole === "merchant"
-        ? [
-            { href: "/merchant", label: "가맹점" },
-            { href: "/merchant/stores", label: "매장" },
-            { href: "/merchant/products", label: "상품 관리" },
-            { href: "/merchant/orders", label: "주문 관리" },
-            { href: "/merchant/pickup", label: "픽업 확인" },
-            { href: "/merchant/settlement-account", label: "정산 계좌" },
-            { href: "/merchant/settlements", label: "정산 내역" },
-          ]
-        : normalizedRole === "admin"
-          ? [
-              { href: "/admin", label: "Admin" },
-              { href: "/admin/settlements", label: "정산 관리" },
-              { href: "/admin/ops", label: "운영 점검" },
-            ]
-          : [
-              { href: "/products", label: "상품 보기" },
-              { href: "/my-reservations", label: "내 예약" },
-              { href: "/my-payments", label: "내 결제" },
-            ]),
+    ...roleLinks,
   ];
 
   useEffect(() => {

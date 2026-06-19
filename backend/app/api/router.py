@@ -7,6 +7,7 @@ from app.api.v1 import (
     notifications,
     ops,
     payments,
+    pro_dashboard,
     products,
     regions,
     reservations,
@@ -35,6 +36,7 @@ api_router.include_router(merchants.router, prefix="/merchants", tags=["merchant
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(ops.router, prefix="/ops", tags=["ops"])
 api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
+api_router.include_router(pro_dashboard.router, prefix="/merchant/pro", tags=["merchant-pro"])
 api_router.include_router(stores.router, prefix="/stores", tags=["stores"])
 api_router.include_router(products.router, prefix="/products", tags=["products"])
 api_router.include_router(products.store_router, prefix="/stores", tags=["products"])

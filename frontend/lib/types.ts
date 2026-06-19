@@ -258,6 +258,55 @@ export type SettlementAccount = {
   updated_at: string;
 };
 
+export type ProProductSummary = {
+  product_id: string;
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  status: string;
+  registered_quantity: number;
+  reserved_quantity: number;
+  paid_quantity: number;
+  picked_up_quantity: number;
+  cancelled_quantity: number;
+  remaining_quantity: number;
+  gross_sales: string;
+  estimated_settlement: string;
+  sell_through_rate: number;
+};
+
+export type ProDailySummary = {
+  date: string;
+  registered_quantity: number;
+  reserved_quantity: number;
+  picked_up_quantity: number;
+  cancelled_count: number;
+  remaining_quantity: number;
+  gross_sales: string;
+  estimated_settlement: string;
+  sell_through_rate: number;
+};
+
+export type MerchantProDashboard = {
+  merchant_id: string;
+  business_name: string;
+  today_registered_quantity: number;
+  today_reserved_quantity: number;
+  today_paid_count: number;
+  today_picked_up_count: number;
+  today_cancelled_count: number;
+  today_remaining_quantity: number;
+  today_gross_sales: string;
+  today_estimated_settlement: string;
+  today_estimated_saved_items: number;
+  today_estimated_waste_prevented_amount: string;
+  sell_through_rate: number;
+  pickup_completion_rate: number;
+  cancellation_rate: number;
+  product_summaries: ProProductSummary[];
+  recent_7_days: ProDailySummary[];
+};
+
 export type AdminSummary = {
   total_users: number;
   total_merchants: number;
