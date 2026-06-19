@@ -19,6 +19,7 @@ export default function NavBar() {
       ? [
           { href: "/merchant", label: "가맹점" },
           { href: "/merchant/pro", label: "Pro 대시보드" },
+          { href: "/merchant/pro/plan", label: "Pro 플랜" },
           { href: "/merchant/pro/stores", label: "매장 통합" },
           { href: "/merchant/pro/recommendations", label: "Pro 추천" },
           { href: "/merchant/pro/recommendation-performance", label: "추천 성과" },

@@ -5,7 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProDashboard, MerchantProRecommendations, ProDailySummary, ProProductSummary, ProRecommendation } from "@/lib/types";
+import type {
+  MerchantProDashboard,
+  MerchantProPlan,
+  MerchantProRecommendations,
+  ProDailySummary,
+  ProProductSummary,
+  ProRecommendation,
+} from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -34,6 +41,7 @@ function priorityRank(value: string) {
 export default function MerchantProDashboardPage() {
   const guard = useRoleGuard("MERCHANT");
   const [dashboard, setDashboard] = useState<MerchantProDashboard | null>(null);
+  const [plan, setPlan] = useState<MerchantProPlan | null>(null);
   const [recommendations, setRecommendations] = useState<ProRecommendation[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -63,12 +71,14 @@ export default function MerchantProDashboardPage() {
     setIsError(false);
 
     try {
-      const [data, recommendationData] = await Promise.all([
+      const [data, recommendationData, planData] = await Promise.all([
         apiFetch<MerchantProDashboard>("/api/v1/merchant/pro/dashboard", {}, true),
         apiFetch<MerchantProRecommendations>("/api/v1/merchant/pro/recommendations", {}, true),
+        apiFetch<MerchantProPlan>("/api/v1/merchant/pro/plan", {}, true),
       ]);
       setDashboard(data);
       setRecommendations(recommendationData.recommendations);
+      setPlan(planData);
       setMessage("BreadGo Pro 수율 데이터를 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -133,6 +143,25 @@ export default function MerchantProDashboardPage() {
           <span>판매율</span>
           <strong>{dashboard ? formatPercent(dashboard.sell_through_rate) : "0.0%"}</strong>
           <small>예약 수량 / 오늘 등록 추정 수량</small>
+        </div>
+      </div>
+
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">BreadGo Pro 플랜</p>
+          <h2>현재 플랜: {plan?.plan_label || "확인 중"}</h2>
+          <p>
+            추천, ESG, 고객 전환 분석은 Pro 기능입니다. 다중 매장 통합은 Enterprise 확장 기능으로
+            발전시킬 수 있습니다.
+          </p>
+        </div>
+        <div className="actions">
+          <Badge tone={plan?.is_pro_active ? "success" : "muted"}>
+            {plan?.current_plan || "PLAN"}
+          </Badge>
+          <Link className="button-link secondary" href="/merchant/pro/plan">
+            Pro 플랜 보기
+          </Link>
         </div>
       </div>
 

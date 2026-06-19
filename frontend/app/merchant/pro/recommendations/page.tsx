@@ -205,6 +205,8 @@ export default function MerchantProRecommendationsPage() {
       />
 
       <div className="message">
+        <Badge tone="success">BreadGo Pro 기능</Badge>
+        <br />
         <strong>AI 추천 준비 단계</strong>
         <br />
         현재는 실제 AI 모델이 아닌 rule-based 추천입니다. 최근 7일 판매 데이터와 고객 전환 퍼널을 함께

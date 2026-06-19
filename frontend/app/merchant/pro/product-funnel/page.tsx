@@ -73,6 +73,8 @@ export default function MerchantProProductFunnelPage() {
       />
 
       <div className="message">
+        <Badge tone="success">BreadGo Pro 기능</Badge>
+        <br />
         <strong>최근 7일 기준</strong>
         <br />
         상품 상세 조회와 예약 데이터를 연결해 예약 전환율을 계산합니다. 데이터가 쌓이면 추천 품질 개선에

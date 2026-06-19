@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStoresDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
+from app.schemas.pro_plan import MerchantProPlanRead
 from app.schemas.pro_product_funnel import MerchantProProductFunnelRead
 from app.schemas.pro_recommendation import (
     MerchantProRecommendationPerformanceRead,
@@ -19,6 +20,7 @@ from app.schemas.recommendation_action_event import RecommendationActionEventCre
 from app.services.merchant_service import require_merchant_for_user
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
+from app.services.pro_plan_service import build_merchant_pro_plan
 from app.services.pro_product_funnel_service import build_merchant_pro_product_funnel
 from app.services.pro_recommendation_service import (
     build_merchant_pro_recommendation_performance,
@@ -37,6 +39,15 @@ def get_merchant_pro_dashboard(
 ) -> MerchantProDashboardRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_dashboard(db, merchant)
+
+
+@router.get("/plan", response_model=MerchantProPlanRead)
+def get_merchant_pro_plan(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProPlanRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_plan(merchant)
 
 
 @router.get("/stores-dashboard", response_model=MerchantProStoresDashboardRead)

@@ -341,6 +341,28 @@ export type MerchantProStoresDashboard = {
   stores: ProStoreDashboardSummary[];
 };
 
+export type ProPlanFeatures = {
+  yield_dashboard: boolean;
+  relist_products: boolean;
+  product_templates: boolean;
+  esg_report: boolean;
+  recommendations: boolean;
+  recommendation_performance: boolean;
+  product_funnel: boolean;
+  multi_store_dashboard: boolean;
+};
+
+export type MerchantProPlan = {
+  merchant_id: string;
+  business_name: string;
+  current_plan: string;
+  plan_label: string;
+  is_pro_active: boolean;
+  trial_ends_at: string | null;
+  features: ProPlanFeatures;
+  upgrade_message: string;
+};
+
 export type ProEsgProductSummary = {
   product_id: string;
   product_name: string;

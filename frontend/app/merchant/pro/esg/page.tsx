@@ -79,6 +79,7 @@ export default function MerchantProEsgPage() {
       <div className="pro-hero panel">
         <div>
           <p className="eyebrow">BreadGo Pro ESG</p>
+          <Badge tone="success">Pro 기능</Badge>
           <h2>{report?.business_name || "폐기 감소 성과"}</h2>
           <p>
             절감 수량은 픽업 완료된 예약 상품 수량 기준입니다. 취소된 예약은 제외하고, 폐기 방지 금액은
@@ -202,4 +203,3 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

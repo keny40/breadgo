@@ -94,6 +94,8 @@ export default function MerchantProStoresDashboardPage() {
       />
 
       <div className="message">
+        <Badge tone="warning">Enterprise 확장 기능</Badge>
+        <br />
         <strong>다중 매장 운영을 위한 BreadGo Pro 기능입니다.</strong>
         <br />
         현재 등록된 매장이 하나뿐이어도 같은 기준으로 집계되며, 매장이 늘어나면 성과 비교 화면으로 확장됩니다.
