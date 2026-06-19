@@ -127,6 +127,17 @@ export default function MerchantProDashboardPage() {
 
       <div className="panel pro-relist-card">
         <div>
+          <p className="eyebrow">추천 사용 성과</p>
+          <h2>추천으로 만든 상품 성과 추적</h2>
+          <p>추천 초안 생성 이후 판매율과 픽업 성과를 확인해 추천 품질을 개선합니다.</p>
+        </div>
+        <Link className="button-link secondary" href="/merchant/pro/recommendation-performance">
+          추천 성과 보기
+        </Link>
+      </div>
+
+      <div className="panel pro-relist-card">
+        <div>
           <p className="eyebrow">폐기 감소 리포트</p>
           <h2>이번 달 폐기 방지 성과 보기</h2>
           <p>BreadGo로 판매 전환된 마감 상품과 폐기 방지 금액을 확인하세요.</p>

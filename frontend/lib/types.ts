@@ -371,6 +371,50 @@ export type MerchantProRecommendations = {
   recommendations: ProRecommendation[];
 };
 
+export type ProRecommendationDraftCreateResponse = {
+  created_product: Product;
+  usage_id: string;
+  recommendation: ProRecommendation;
+};
+
+export type RecommendationTypeUsageSummary = {
+  recommendation_type: string;
+  count: number;
+  picked_up_quantity: number;
+  paid_amount: string;
+};
+
+export type RecommendationUsage = {
+  id: string;
+  source_product_id: string;
+  source_product_name: string | null;
+  created_product_id: string | null;
+  created_product_name: string | null;
+  recommendation_type: string;
+  confidence_label: string;
+  recommended_stock_quantity: number;
+  recommended_discount_price: string;
+  original_stock_quantity: number | null;
+  original_discount_price: string | null;
+  action_type: string;
+  created_product_reserved_quantity: number;
+  created_product_picked_up_quantity: number;
+  created_product_paid_amount: string;
+  created_product_sell_through_rate: number;
+  created_at: string;
+};
+
+export type MerchantProRecommendationPerformance = {
+  total_recommendation_drafts: number;
+  used_recommendation_count: number;
+  recommendation_created_products_count: number;
+  picked_up_quantity_from_recommendations: number;
+  paid_amount_from_recommendations: string;
+  average_sell_through_rate_from_recommendations: number;
+  usage_by_recommendation_type: RecommendationTypeUsageSummary[];
+  recent_usages: RecommendationUsage[];
+};
+
 export type ProductTemplate = {
   id: string;
   merchant_id: string;

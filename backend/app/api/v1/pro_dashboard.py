@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -6,11 +8,20 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pro_dashboard import MerchantProDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
-from app.schemas.pro_recommendation import MerchantProRecommendationsRead
+from app.schemas.pro_recommendation import (
+    MerchantProRecommendationPerformanceRead,
+    MerchantProRecommendationsRead,
+    ProRecommendationDraftCreateRequest,
+    ProRecommendationDraftCreateResponse,
+)
 from app.services.merchant_service import require_merchant_for_user
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
-from app.services.pro_recommendation_service import build_merchant_pro_recommendations
+from app.services.pro_recommendation_service import (
+    build_merchant_pro_recommendation_performance,
+    build_merchant_pro_recommendations,
+    create_recommendation_draft,
+)
 
 router = APIRouter()
 
@@ -40,3 +51,23 @@ def get_merchant_pro_recommendations(
 ) -> MerchantProRecommendationsRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_recommendations(db, merchant)
+
+
+@router.post("/recommendations/{product_id}/create-draft", response_model=ProRecommendationDraftCreateResponse)
+def create_merchant_pro_recommendation_draft(
+    product_id: UUID,
+    payload: ProRecommendationDraftCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProRecommendationDraftCreateResponse:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_recommendation_draft(db, merchant, product_id, payload)
+
+
+@router.get("/recommendation-performance", response_model=MerchantProRecommendationPerformanceRead)
+def get_merchant_pro_recommendation_performance(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProRecommendationPerformanceRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_recommendation_performance(db, merchant)

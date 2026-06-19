@@ -11,6 +11,7 @@ from app.db.session import Base
 
 if TYPE_CHECKING:
     from app.models.product_template import ProductTemplate
+    from app.models.recommendation_usage import RecommendationUsage
     from app.models.settlement import Settlement
     from app.models.store import Store
     from app.models.user import User
@@ -77,6 +78,11 @@ class Merchant(Base):
     )
     product_templates: Mapped[list["ProductTemplate"]] = relationship(
         "ProductTemplate",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
+    )
+    recommendation_usages: Mapped[list["RecommendationUsage"]] = relationship(
+        "RecommendationUsage",
         back_populates="merchant",
         cascade="all, delete-orphan",
     )

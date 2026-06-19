@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProRecommendations, Product, ProRecommendation } from "@/lib/types";
+import type { MerchantProRecommendations, ProRecommendation, ProRecommendationDraftCreateResponse } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -68,19 +68,11 @@ export default function MerchantProRecommendationsPage() {
     setDuplicatingId(recommendation.product_id);
 
     try {
-      const now = new Date();
-      const start = new Date(now);
-      start.setHours(Math.max(now.getHours() + 1, 18), 0, 0, 0);
-      const end = new Date(start);
-      end.setHours(start.getHours() + 3);
-      const product = await apiFetch<Product>(
-        `/api/v1/merchant/products/${recommendation.product_id}/duplicate`,
+      const result = await apiFetch<ProRecommendationDraftCreateResponse>(
+        `/api/v1/merchant/pro/recommendations/${recommendation.product_id}/create-draft`,
         {
           method: "POST",
           body: JSON.stringify({
-            stock_quantity: recommendation.recommended_stock_quantity,
-            sale_starts_at: start.toISOString(),
-            sale_ends_at: end.toISOString(),
             is_visible: false,
             name_suffix: "추천",
           }),
@@ -88,7 +80,7 @@ export default function MerchantProRecommendationsPage() {
         true,
       );
       setMessage(
-        `${product.name} 초안을 생성했습니다. 추천 할인가는 ${formatMoney(recommendation.recommended_discount_price)}이며, 상품관리에서 가격을 확인한 뒤 노출하세요.`,
+        `${result.created_product.name} 초안을 생성하고 추천 사용 이력을 기록했습니다. 추천 할인가는 ${formatMoney(recommendation.recommended_discount_price)}이며, 상품관리에서 가격을 확인한 뒤 노출하세요.`,
       );
       await loadRecommendations();
     } catch (error) {
@@ -118,9 +110,14 @@ export default function MerchantProRecommendationsPage() {
         title="BreadGo Pro 추천"
         description="최근 7일 판매 데이터를 기준으로 추천 재고와 추천 할인가를 참고합니다."
         actions={
-          <button type="button" onClick={loadRecommendations} disabled={loading}>
-            {loading ? "계산 중" : "추천 다시 계산"}
-          </button>
+          <div className="actions">
+            <button type="button" onClick={loadRecommendations} disabled={loading}>
+              {loading ? "계산 중" : "추천 다시 계산"}
+            </button>
+            <Link className="button-link secondary" href="/merchant/pro/recommendation-performance">
+              추천 성과 확인
+            </Link>
+          </div>
         }
       />
 
@@ -202,4 +199,3 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

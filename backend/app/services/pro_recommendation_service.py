@@ -4,15 +4,27 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.merchant import Merchant
 from app.models.payment import PaymentStatus
 from app.models.product import Product
+from app.models.recommendation_usage import RecommendationUsage
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.store import Store
-from app.schemas.pro_recommendation import MerchantProRecommendationsRead, ProRecommendationRead
+from app.schemas.product import ProductDuplicateCreate
+from app.schemas.pro_recommendation import (
+    MerchantProRecommendationPerformanceRead,
+    MerchantProRecommendationsRead,
+    ProRecommendationDraftCreateRequest,
+    ProRecommendationDraftCreateResponse,
+    ProRecommendationRead,
+    RecommendationTypeUsageSummary,
+    RecommendationUsageRead,
+)
+from app.services.product_service import duplicate_product_for_merchant
 
 ZERO = Decimal("0.00")
 
@@ -187,3 +199,184 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
         recommendations=recommendations,
     )
 
+
+def _find_recommendation(
+    db: Session,
+    merchant: Merchant,
+    product_id,
+) -> ProRecommendationRead:
+    recommendations = build_merchant_pro_recommendations(db, merchant).recommendations
+    for recommendation in recommendations:
+        if recommendation.product_id == product_id:
+            return recommendation
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recommendation not found for product.")
+
+
+def create_recommendation_draft(
+    db: Session,
+    merchant: Merchant,
+    product_id,
+    payload: ProRecommendationDraftCreateRequest,
+) -> ProRecommendationDraftCreateResponse:
+    recommendation = _find_recommendation(db, merchant, product_id)
+    original_product = db.scalar(
+        select(Product)
+        .join(Store, Product.store_id == Store.id)
+        .where(Product.id == product_id, Store.merchant_id == merchant.id)
+    )
+    if original_product is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
+
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    created_product = duplicate_product_for_merchant(
+        db,
+        merchant,
+        product_id,
+        ProductDuplicateCreate(
+            stock_quantity=recommendation.recommended_stock_quantity,
+            sale_starts_at=now + timedelta(hours=1),
+            sale_ends_at=now + timedelta(hours=4),
+            is_visible=payload.is_visible,
+            name_suffix=payload.name_suffix or "추천",
+        ),
+    )
+
+    usage = RecommendationUsage(
+        merchant_id=merchant.id,
+        source_product_id=product_id,
+        created_product_id=created_product.id,
+        recommendation_type=recommendation.recommendation_type,
+        confidence_label=recommendation.confidence_label,
+        recommended_stock_quantity=recommendation.recommended_stock_quantity,
+        recommended_discount_price=recommendation.recommended_discount_price,
+        original_stock_quantity=original_product.quantity,
+        original_discount_price=original_product.discount_price,
+        action_type="DRAFT_CREATED",
+    )
+    db.add(usage)
+    db.commit()
+    db.refresh(usage)
+    db.refresh(created_product)
+
+    from app.schemas.product import ProductRead
+
+    return ProRecommendationDraftCreateResponse(
+        created_product=ProductRead.model_validate(created_product),
+        usage_id=usage.id,
+        recommendation=recommendation,
+    )
+
+
+def build_merchant_pro_recommendation_performance(
+    db: Session,
+    merchant: Merchant,
+) -> MerchantProRecommendationPerformanceRead:
+    usages = list(
+        db.scalars(
+            select(RecommendationUsage)
+            .where(RecommendationUsage.merchant_id == merchant.id)
+            .options(
+                selectinload(RecommendationUsage.source_product),
+                selectinload(RecommendationUsage.created_product),
+            )
+            .order_by(RecommendationUsage.created_at.desc())
+        )
+    )
+    created_product_ids = [usage.created_product_id for usage in usages if usage.created_product_id is not None]
+    reservations = []
+    if created_product_ids:
+        reservations = list(
+            db.scalars(
+                select(Reservation)
+                .where(Reservation.product_id.in_(created_product_ids))
+                .options(selectinload(Reservation.payment))
+            )
+        )
+
+    reservations_by_product: dict[object, list[Reservation]] = defaultdict(list)
+    for reservation in reservations:
+        reservations_by_product[reservation.product_id].append(reservation)
+
+    total_picked_up_quantity = 0
+    total_paid_amount = ZERO
+    sell_through_rates: list[float] = []
+    usage_type_summary: dict[str, RecommendationTypeUsageSummary] = {}
+    recent_usages: list[RecommendationUsageRead] = []
+
+    for usage in usages:
+        product_reservations = reservations_by_product.get(usage.created_product_id, [])
+        reserved_quantity = sum(
+            reservation.quantity
+            for reservation in product_reservations
+            if reservation.status != ReservationStatus.CANCELLED
+        )
+        picked_up_quantity = sum(
+            reservation.quantity
+            for reservation in product_reservations
+            if reservation.status == ReservationStatus.PICKED_UP
+        )
+        paid_amount = sum(
+            (
+                reservation.product_amount
+                for reservation in product_reservations
+                if reservation.payment and reservation.payment.status == PaymentStatus.PAID
+            ),
+            ZERO,
+        )
+        current_stock = usage.created_product.quantity if usage.created_product else 0
+        registered_quantity = current_stock + reserved_quantity
+        sell_through_rate = _rate(reserved_quantity, registered_quantity)
+        if usage.created_product_id is not None:
+            sell_through_rates.append(sell_through_rate)
+
+        total_picked_up_quantity += picked_up_quantity
+        total_paid_amount += paid_amount
+
+        summary = usage_type_summary.setdefault(
+            usage.recommendation_type,
+            RecommendationTypeUsageSummary(
+                recommendation_type=usage.recommendation_type,
+                count=0,
+                picked_up_quantity=0,
+                paid_amount=ZERO,
+            ),
+        )
+        summary.count += 1
+        summary.picked_up_quantity += picked_up_quantity
+        summary.paid_amount += paid_amount
+
+        if len(recent_usages) < 20:
+            recent_usages.append(
+                RecommendationUsageRead(
+                    id=usage.id,
+                    source_product_id=usage.source_product_id,
+                    source_product_name=usage.source_product.name if usage.source_product else None,
+                    created_product_id=usage.created_product_id,
+                    created_product_name=usage.created_product.name if usage.created_product else None,
+                    recommendation_type=usage.recommendation_type,
+                    confidence_label=usage.confidence_label,
+                    recommended_stock_quantity=usage.recommended_stock_quantity,
+                    recommended_discount_price=usage.recommended_discount_price,
+                    original_stock_quantity=usage.original_stock_quantity,
+                    original_discount_price=usage.original_discount_price,
+                    action_type=usage.action_type,
+                    created_product_reserved_quantity=reserved_quantity,
+                    created_product_picked_up_quantity=picked_up_quantity,
+                    created_product_paid_amount=paid_amount,
+                    created_product_sell_through_rate=sell_through_rate,
+                    created_at=usage.created_at.isoformat(),
+                )
+            )
+
+    average_sell_through_rate = round(sum(sell_through_rates) / len(sell_through_rates), 1) if sell_through_rates else 0.0
+
+    return MerchantProRecommendationPerformanceRead(
+        total_recommendation_drafts=sum(1 for usage in usages if usage.action_type == "DRAFT_CREATED"),
+        used_recommendation_count=len(usages),
+        recommendation_created_products_count=len(created_product_ids),
+        picked_up_quantity_from_recommendations=total_picked_up_quantity,
+        paid_amount_from_recommendations=total_paid_amount,
+        average_sell_through_rate_from_recommendations=average_sell_through_rate,
+        usage_by_recommendation_type=list(usage_type_summary.values()),
+        recent_usages=recent_usages,
+    )
