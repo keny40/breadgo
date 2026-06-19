@@ -354,6 +354,13 @@ export type ProRecommendation = {
   recent_reserved_quantity: number;
   recent_picked_up_quantity: number;
   recent_cancelled_quantity: number;
+  detail_views: number;
+  reservation_started_count: number;
+  reservation_count: number;
+  view_to_reservation_rate: number;
+  started_to_created_rate: number;
+  funnel_signal_label: string;
+  funnel_message: string;
   current_stock_quantity: number;
   sell_through_rate: number;
   pickup_completion_rate: number;

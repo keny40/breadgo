@@ -32,6 +32,22 @@ function confidenceTone(value: string): "success" | "warning" | "muted" {
   return "muted";
 }
 
+function funnelSignalLabel(value: string) {
+  const labels: Record<string, string> = {
+    LOW_INTEREST: "낮은 관심",
+    HIGH_INTEREST_LOW_CONVERSION: "조회 높음·예약 낮음",
+    HIGH_CONVERSION: "높은 전환",
+    INSUFFICIENT_DATA: "데이터 부족",
+  };
+  return labels[value] || value;
+}
+
+function funnelSignalTone(value: string): "success" | "warning" | "muted" {
+  if (value === "HIGH_CONVERSION") return "success";
+  if (value === "HIGH_INTEREST_LOW_CONVERSION") return "warning";
+  return "muted";
+}
+
 export default function MerchantProRecommendationsPage() {
   const guard = useRoleGuard("MERCHANT");
   const [data, setData] = useState<MerchantProRecommendations | null>(null);
@@ -128,6 +144,9 @@ export default function MerchantProRecommendationsPage() {
             <Link className="button-link secondary" href="/merchant/pro/recommendation-performance">
               추천 성과 확인
             </Link>
+            <Link className="button-link secondary" href="/merchant/pro/product-funnel">
+              고객 전환 보기
+            </Link>
           </div>
         }
       />
@@ -135,7 +154,8 @@ export default function MerchantProRecommendationsPage() {
       <div className="message">
         <strong>AI 추천 준비 단계</strong>
         <br />
-        현재는 실제 AI 모델이 아닌 rule-based 추천입니다. 데이터가 적은 상품은 신뢰도가 낮게 표시됩니다.
+        현재는 실제 AI 모델이 아닌 rule-based 추천입니다. 최근 7일 판매 데이터와 고객 전환 퍼널을 함께
+        참고합니다.
       </div>
       {data?.note && <div className="message">{data.note}</div>}
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
@@ -166,10 +186,18 @@ export default function MerchantProRecommendationsPage() {
                     {recommendation.confidence_label}
                   </Badge>
                   <Badge tone="muted">{recommendationTypeLabel(recommendation.recommendation_type)}</Badge>
+                  <Badge tone={funnelSignalTone(recommendation.funnel_signal_label)}>
+                    {funnelSignalLabel(recommendation.funnel_signal_label)}
+                  </Badge>
                 </div>
               </div>
 
               <div className="detail-grid">
+                <Metric label="상품 조회" value={`${recommendation.detail_views}회`} />
+                <Metric label="예약 시작" value={`${recommendation.reservation_started_count}회`} />
+                <Metric label="예약 생성" value={`${recommendation.reservation_count}건`} />
+                <Metric label="조회→예약 전환율" value={formatPercent(recommendation.view_to_reservation_rate)} />
+                <Metric label="시작→생성 전환율" value={formatPercent(recommendation.started_to_created_rate)} />
                 <Metric label="최근 예약 수량" value={`${recommendation.recent_reserved_quantity}개`} />
                 <Metric label="최근 픽업 수량" value={`${recommendation.recent_picked_up_quantity}개`} />
                 <Metric label="최근 취소 수량" value={`${recommendation.recent_cancelled_quantity}개`} />
@@ -182,6 +210,9 @@ export default function MerchantProRecommendationsPage() {
               </div>
 
               <p className="guidance-text">{recommendation.recommendation_message}</p>
+              <p className="guidance-text">
+                <strong>고객 반응 신호:</strong> {recommendation.funnel_message}
+              </p>
               <DraftControls
                 recommendation={recommendation}
                 isSubmitting={duplicatingId === recommendation.product_id}

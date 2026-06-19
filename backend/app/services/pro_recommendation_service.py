@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.merchant import Merchant
 from app.models.payment import PaymentStatus
 from app.models.product import Product
+from app.models.product_event import ProductEvent
 from app.models.recommendation_usage import RecommendationUsage
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.store import Store
@@ -32,6 +33,7 @@ ZERO = Decimal("0.00")
 @dataclass
 class RecommendationAggregate:
     reserved_quantity: int = 0
+    reservation_count: int = 0
     picked_up_quantity: int = 0
     cancelled_quantity: int = 0
     paid_count: int = 0
@@ -74,6 +76,50 @@ def _recommended_base_stock(aggregate: RecommendationAggregate) -> int:
     return max(1, ceil(base))
 
 
+def _funnel_rate(numerator: int, denominator: int) -> float:
+    return min(100.0, _rate(numerator, denominator))
+
+
+def _funnel_signal(
+    detail_views: int,
+    reservation_started_count: int,
+    reservation_count: int,
+    sell_through_rate: float,
+) -> tuple[str, str]:
+    view_to_reservation_rate = _funnel_rate(reservation_count, detail_views)
+    started_to_created_rate = _funnel_rate(reservation_count, reservation_started_count)
+
+    if detail_views < 3:
+        return (
+            "INSUFFICIENT_DATA",
+            "고객 반응 데이터가 아직 적습니다. 조회 데이터가 더 쌓이면 추천 정확도가 올라갑니다.",
+        )
+    if view_to_reservation_rate >= 50 and sell_through_rate >= 60:
+        return (
+            "HIGH_CONVERSION",
+            "조회 대비 예약 전환이 높고 판매 흐름도 좋아 재고 확대 후보입니다.",
+        )
+    if reservation_started_count >= 3 and started_to_created_rate < 50:
+        return (
+            "HIGH_INTEREST_LOW_CONVERSION",
+            "예약 의도는 있지만 최종 예약 전환이 낮습니다. 가격, 배송비, 수령 조건을 점검해 보세요.",
+        )
+    if detail_views >= 3 and view_to_reservation_rate < 20:
+        return (
+            "HIGH_INTEREST_LOW_CONVERSION",
+            "조회는 많지만 예약 전환이 낮습니다. 할인가 또는 재고 운영을 조정해 볼 수 있습니다.",
+        )
+    if detail_views < 5 and reservation_count == 0:
+        return (
+            "LOW_INTEREST",
+            "조회 자체가 낮아 고객 관심 데이터가 부족합니다. 노출 상품명, 이미지, 수령 시간을 점검해 보세요.",
+        )
+    return (
+        "INSUFFICIENT_DATA",
+        "고객 반응 데이터가 더 쌓이면 추천 신호를 더 명확하게 판단할 수 있습니다.",
+    )
+
+
 def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> MerchantProRecommendationsRead:
     period_days = 7
     now = datetime.now(timezone.utc)
@@ -101,10 +147,23 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
             .options(selectinload(Reservation.payment))
         )
     )
+    product_ids = [product.id for product in products]
+    product_events = []
+    if product_ids:
+        product_events = list(
+            db.scalars(
+                select(ProductEvent).where(
+                    ProductEvent.product_id.in_(product_ids),
+                    ProductEvent.created_at >= period_start,
+                    ProductEvent.created_at <= now,
+                )
+            )
+        )
 
     aggregates: dict[object, RecommendationAggregate] = defaultdict(RecommendationAggregate)
     for reservation in reservations:
         aggregate = aggregates[reservation.product_id]
+        aggregate.reservation_count += 1
         if reservation.status == ReservationStatus.CANCELLED:
             aggregate.cancelled_quantity += reservation.quantity
             aggregate.cancelled_count += 1
@@ -117,6 +176,11 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
             aggregate.picked_up_quantity += reservation.quantity
             aggregate.picked_up_count += 1
 
+    detail_views = Counter(event.product_id for event in product_events if event.event_type == "DETAIL_VIEW")
+    reservation_starts = Counter(
+        event.product_id for event in product_events if event.event_type == "RESERVATION_STARTED"
+    )
+
     recommendations: list[ProRecommendationRead] = []
     for product in products:
         aggregate = aggregates[product.id]
@@ -126,6 +190,16 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
         cancellation_rate = _rate(aggregate.cancelled_count, aggregate.paid_count + aggregate.cancelled_count)
         total_events = aggregate.paid_count + aggregate.cancelled_count
         confidence_label = _confidence(total_events, sell_through_rate, pickup_completion_rate, cancellation_rate)
+        product_detail_views = detail_views[product.id]
+        product_reservation_starts = reservation_starts[product.id]
+        view_to_reservation_rate = _funnel_rate(aggregate.reservation_count, product_detail_views)
+        started_to_created_rate = _funnel_rate(aggregate.reservation_count, product_reservation_starts)
+        funnel_signal_label, funnel_message = _funnel_signal(
+            product_detail_views,
+            product_reservation_starts,
+            aggregate.reservation_count,
+            sell_through_rate,
+        )
 
         base_stock = _recommended_base_stock(aggregate)
         recommended_stock = max(1, base_stock)
@@ -163,6 +237,31 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
             recommended_stock = max(product.quantity, ceil(base_stock * 1.1))
             message = "판매 흐름이 안정적입니다. 재고를 소폭 늘려도 되는 후보 상품입니다."
 
+        if funnel_signal_label == "HIGH_INTEREST_LOW_CONVERSION":
+            if recommendation_type not in {"DECREASE_STOCK", "LOWER_PRICE"}:
+                if product.discount_price > product.original_price * Decimal("0.50"):
+                    recommendation_type = "LOWER_PRICE"
+                    recommended_price = _lower_price(product.discount_price)
+                else:
+                    recommendation_type = "DECREASE_STOCK"
+                    recommended_stock = max(1, min(recommended_stock, product.quantity or recommended_stock))
+            message = f"{message} {funnel_message}"
+            if confidence_label == "HIGH":
+                confidence_label = "MEDIUM"
+        elif funnel_signal_label == "HIGH_CONVERSION":
+            if recommendation_type == "KEEP":
+                recommendation_type = "INCREASE_STOCK"
+                recommended_stock = max(product.quantity + 1, ceil(max(base_stock, product.quantity or 1) * 1.1))
+            message = f"{message} {funnel_message}"
+        elif funnel_signal_label == "LOW_INTEREST":
+            if aggregate.reservation_count == 0 and product.quantity > 1:
+                recommendation_type = "DECREASE_STOCK"
+                recommended_stock = max(1, min(recommended_stock, product.quantity))
+            confidence_label = "LOW"
+            message = f"{message} {funnel_message}"
+        elif funnel_signal_label == "INSUFFICIENT_DATA":
+            message = f"{message} {funnel_message}"
+
         recommendations.append(
             ProRecommendationRead(
                 product_id=product.id,
@@ -172,6 +271,13 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
                 recent_reserved_quantity=aggregate.reserved_quantity,
                 recent_picked_up_quantity=aggregate.picked_up_quantity,
                 recent_cancelled_quantity=aggregate.cancelled_quantity,
+                detail_views=product_detail_views,
+                reservation_started_count=product_reservation_starts,
+                reservation_count=aggregate.reservation_count,
+                view_to_reservation_rate=view_to_reservation_rate,
+                started_to_created_rate=started_to_created_rate,
+                funnel_signal_label=funnel_signal_label,
+                funnel_message=funnel_message,
                 current_stock_quantity=product.quantity,
                 sell_through_rate=sell_through_rate,
                 pickup_completion_rate=pickup_completion_rate,

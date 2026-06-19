@@ -15,6 +15,13 @@ class ProRecommendationRead(BaseModel):
     recent_reserved_quantity: int
     recent_picked_up_quantity: int
     recent_cancelled_quantity: int
+    detail_views: int
+    reservation_started_count: int
+    reservation_count: int
+    view_to_reservation_rate: float
+    started_to_created_rate: float
+    funnel_signal_label: str
+    funnel_message: str
     current_stock_quantity: int
     sell_through_rate: float
     pickup_completion_rate: float
