@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 
 if TYPE_CHECKING:
+    from app.models.product_template import ProductTemplate
     from app.models.reservation import Reservation
     from app.models.store import Store
 
@@ -65,4 +66,8 @@ class Product(Base):
     reservations: Mapped[list["Reservation"]] = relationship(
         "Reservation",
         back_populates="product",
+    )
+    relist_templates: Mapped[list["ProductTemplate"]] = relationship(
+        "ProductTemplate",
+        back_populates="source_product",
     )

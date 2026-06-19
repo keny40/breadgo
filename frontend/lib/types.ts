@@ -307,6 +307,27 @@ export type MerchantProDashboard = {
   recent_7_days: ProDailySummary[];
 };
 
+export type ProductTemplate = {
+  id: string;
+  merchant_id: string;
+  source_product_id: string;
+  template_name: string;
+  day_of_week: number;
+  default_stock_quantity: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  source_product_name: string | null;
+  source_store_name: string | null;
+};
+
+export type ProductTemplateCreateProductsResponse = {
+  created_products: Product[];
+  skipped_template_ids: string[];
+};
+
 export type AdminSummary = {
   total_users: number;
   total_merchants: number;

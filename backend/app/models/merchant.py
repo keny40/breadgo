@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.session import Base
 
 if TYPE_CHECKING:
+    from app.models.product_template import ProductTemplate
     from app.models.settlement import Settlement
     from app.models.store import Store
     from app.models.user import User
@@ -73,4 +74,9 @@ class Merchant(Base):
     settlements: Mapped[list["Settlement"]] = relationship(
         "Settlement",
         back_populates="merchant",
+    )
+    product_templates: Mapped[list["ProductTemplate"]] = relationship(
+        "ProductTemplate",
+        back_populates="merchant",
+        cascade="all, delete-orphan",
     )

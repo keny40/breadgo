@@ -98,15 +98,20 @@ export default function MerchantProDashboardPage() {
 
       <div className="panel pro-relist-card">
         <div>
-          <p className="eyebrow">반복 상품 등록</p>
+          <p className="eyebrow">점주 운영 자동화</p>
           <h2>어제 남은 빵 그대로 올리기</h2>
           <p>
             기존 상품 정보는 유지하고 오늘 재고만 입력하세요. 마감 시간만 바꿔 빠르게 재등록할 수 있습니다.
           </p>
         </div>
-        <Link className="button-link" href="/merchant/products">
-          상품관리에서 다시 올리기
-        </Link>
+        <div className="actions">
+          <Link className="button-link" href="/merchant/products">
+            상품관리에서 다시 올리기
+          </Link>
+          <Link className="button-link secondary" href="/merchant/product-templates">
+            오늘 템플릿으로 한 번에 등록
+          </Link>
+        </div>
       </div>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
