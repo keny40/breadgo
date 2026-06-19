@@ -370,6 +370,12 @@ export type ProRecommendation = {
   recommendation_type: string;
   recommendation_message: string;
   confidence_label: string;
+  explanation_title: string;
+  explanation_reasons: string[];
+  suggested_actions: string[];
+  primary_action_label: string;
+  action_priority: string;
+  risk_label: string;
 };
 
 export type MerchantProRecommendations = {

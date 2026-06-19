@@ -48,6 +48,33 @@ function funnelSignalTone(value: string): "success" | "warning" | "muted" {
   return "muted";
 }
 
+function priorityTone(value: string): "success" | "warning" | "muted" {
+  if (value === "HIGH") return "warning";
+  if (value === "MEDIUM") return "success";
+  return "muted";
+}
+
+function priorityLabel(value: string) {
+  const labels: Record<string, string> = {
+    HIGH: "우선순위 높음",
+    MEDIUM: "우선순위 보통",
+    LOW: "우선순위 낮음",
+  };
+  return labels[value] || value;
+}
+
+function riskLabel(value: string) {
+  const labels: Record<string, string> = {
+    LOW_STOCK_RISK: "재고 부족 위험",
+    LOW_CONVERSION_RISK: "전환 낮음",
+    LOW_INTEREST_RISK: "관심 낮음",
+    HIGH_CANCEL_RISK: "취소 위험",
+    DATA_TOO_SMALL: "데이터 부족",
+    NONE: "주의 신호 없음",
+  };
+  return labels[value] || value;
+}
+
 export default function MerchantProRecommendationsPage() {
   const guard = useRoleGuard("MERCHANT");
   const [data, setData] = useState<MerchantProRecommendations | null>(null);
@@ -189,6 +216,9 @@ export default function MerchantProRecommendationsPage() {
                   <Badge tone={funnelSignalTone(recommendation.funnel_signal_label)}>
                     {funnelSignalLabel(recommendation.funnel_signal_label)}
                   </Badge>
+                  <Badge tone={priorityTone(recommendation.action_priority)}>
+                    {priorityLabel(recommendation.action_priority)}
+                  </Badge>
                 </div>
               </div>
 
@@ -213,6 +243,21 @@ export default function MerchantProRecommendationsPage() {
               <p className="guidance-text">
                 <strong>고객 반응 신호:</strong> {recommendation.funnel_message}
               </p>
+              <div className="panel compact-panel">
+                <div className="card-title-row">
+                  <div>
+                    <p className="eyebrow">추천 설명</p>
+                    <h3>{recommendation.explanation_title}</h3>
+                  </div>
+                  <Badge tone={recommendation.risk_label === "NONE" ? "success" : "warning"}>
+                    {riskLabel(recommendation.risk_label)}
+                  </Badge>
+                </div>
+                <div className="detail-grid">
+                  <ActionList title="추천 이유" items={recommendation.explanation_reasons} />
+                  <ActionList title="지금 할 일" items={recommendation.suggested_actions} />
+                </div>
+              </div>
               <DraftControls
                 recommendation={recommendation}
                 isSubmitting={duplicatingId === recommendation.product_id}
@@ -280,12 +325,33 @@ function DraftControls({
           onClick={() => onSubmit(recommendation, Number(acceptedStockQuantity), acceptedDiscountPrice || "0")}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "초안 생성 중" : isExact ? "이 추천으로 초안 만들기" : "수정해서 초안 만들기"}
+          {isSubmitting
+            ? "초안 생성 중"
+            : isExact
+              ? recommendation.primary_action_label
+              : "수정해서 초안 만들기"}
         </button>
         <Link className="button-link secondary" href="/merchant/products">
           상품관리에서 확인
         </Link>
       </div>
+    </div>
+  );
+}
+
+function ActionList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <span>{title}</span>
+      {items.length === 0 ? (
+        <strong>표시할 항목이 없습니다.</strong>
+      ) : (
+        <ul className="compact-list">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

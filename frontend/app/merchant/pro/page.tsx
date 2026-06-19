@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProDashboard, ProDailySummary, ProProductSummary } from "@/lib/types";
+import type { MerchantProDashboard, MerchantProRecommendations, ProDailySummary, ProProductSummary, ProRecommendation } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -26,9 +26,15 @@ function maxRecentValue(days: ProDailySummary[]) {
   return Math.max(1, ...days.map((day) => day.registered_quantity));
 }
 
+function priorityRank(value: string) {
+  const ranks: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  return ranks[value] ?? 3;
+}
+
 export default function MerchantProDashboardPage() {
   const guard = useRoleGuard("MERCHANT");
   const [dashboard, setDashboard] = useState<MerchantProDashboard | null>(null);
+  const [recommendations, setRecommendations] = useState<ProRecommendation[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -42,6 +48,14 @@ export default function MerchantProDashboardPage() {
     () => maxRecentValue(dashboard?.recent_7_days || []),
     [dashboard?.recent_7_days],
   );
+  const topActions = useMemo(
+    () =>
+      recommendations
+        .slice()
+        .sort((a, b) => priorityRank(a.action_priority) - priorityRank(b.action_priority) || b.sell_through_rate - a.sell_through_rate)
+        .slice(0, 3),
+    [recommendations],
+  );
 
   async function loadDashboard() {
     setLoading(true);
@@ -49,8 +63,12 @@ export default function MerchantProDashboardPage() {
     setIsError(false);
 
     try {
-      const data = await apiFetch<MerchantProDashboard>("/api/v1/merchant/pro/dashboard", {}, true);
+      const [data, recommendationData] = await Promise.all([
+        apiFetch<MerchantProDashboard>("/api/v1/merchant/pro/dashboard", {}, true),
+        apiFetch<MerchantProRecommendations>("/api/v1/merchant/pro/recommendations", {}, true),
+      ]);
       setDashboard(data);
+      setRecommendations(recommendationData.recommendations);
       setMessage("BreadGo Pro 수율 데이터를 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -124,6 +142,28 @@ export default function MerchantProDashboardPage() {
           Pro 추천 보기
         </Link>
       </div>
+
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">오늘의 추천 액션</p>
+            <h2>지금 점주가 먼저 볼 운영 카드</h2>
+            <p>우선순위가 높은 추천 3개를 골라 바로 실행할 수 있게 정리했습니다.</p>
+          </div>
+          <Link className="button-link secondary" href="/merchant/pro/recommendations">
+            추천 화면으로 이동
+          </Link>
+        </div>
+        {topActions.length === 0 ? (
+          <EmptyState title="아직 추천 액션이 없습니다." description="상품과 고객 반응 데이터가 쌓이면 오늘의 액션이 표시됩니다." />
+        ) : (
+          <div className="pro-product-grid">
+            {topActions.map((recommendation) => (
+              <RecommendationActionCard recommendation={recommendation} key={recommendation.product_id} />
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="panel pro-relist-card">
         <div>
@@ -264,6 +304,39 @@ function ProductYieldCard({ product }: { product: ProProductSummary }) {
         <Metric label="픽업 완료" value={`${product.picked_up_quantity}개`} />
         <Metric label="남은 재고" value={`${product.remaining_quantity}개`} />
         <Metric label="예상 정산금" value={formatMoney(product.estimated_settlement)} />
+      </div>
+    </article>
+  );
+}
+
+function RecommendationActionCard({ recommendation }: { recommendation: ProRecommendation }) {
+  return (
+    <article className="item pro-product-card">
+      <div className="card-title-row">
+        <div>
+          <p className="eyebrow">{recommendation.store_name}</p>
+          <h3>{recommendation.product_name}</h3>
+        </div>
+        <Badge tone={recommendation.action_priority === "HIGH" ? "warning" : "muted"}>
+          {recommendation.action_priority}
+        </Badge>
+      </div>
+      <p className="guidance-text">
+        <strong>{recommendation.primary_action_label}</strong>
+      </p>
+      <div className="detail-grid">
+        <Metric label="추천 재고" value={`${recommendation.recommended_stock_quantity}개`} />
+        <Metric label="추천 할인가" value={formatMoney(recommendation.recommended_discount_price)} />
+      </div>
+      <ul className="compact-list">
+        {recommendation.explanation_reasons.slice(0, 2).map((reason) => (
+          <li key={reason}>{reason}</li>
+        ))}
+      </ul>
+      <div className="actions">
+        <Link className="button-link secondary" href="/merchant/pro/recommendations">
+          추천에서 실행
+        </Link>
       </div>
     </article>
   );

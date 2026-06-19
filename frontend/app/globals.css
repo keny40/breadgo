@@ -803,6 +803,17 @@ code {
   overflow-wrap: anywhere;
 }
 
+.compact-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .payment-box {
   display: grid;
   min-width: 0;

@@ -120,6 +120,99 @@ def _funnel_signal(
     )
 
 
+def _recommendation_explanation(
+    recommendation_type: str,
+    confidence_label: str,
+    funnel_signal_label: str,
+    sell_through_rate: float,
+    pickup_completion_rate: float,
+    cancellation_rate: float,
+    current_stock_quantity: int,
+    recommended_stock_quantity: int,
+    current_discount_price: Decimal,
+    recommended_discount_price: Decimal,
+) -> tuple[str, list[str], list[str], str, str, str]:
+    reasons: list[str] = []
+    actions: list[str] = []
+    risk_label = "NONE"
+    action_priority = "LOW"
+    title = "현재 설정을 유지하며 데이터를 더 확인하세요"
+    primary_action_label = "추천값으로 초안 만들기"
+
+    if funnel_signal_label == "HIGH_INTEREST_LOW_CONVERSION":
+        title = "관심은 있지만 예약 전환이 낮습니다"
+        risk_label = "LOW_CONVERSION_RISK"
+        action_priority = "HIGH"
+        reasons.append("상품 조회나 예약 시작은 있지만 최종 예약 생성으로 이어지는 비율이 낮습니다.")
+        actions.append("할인가, 배송비, 수령 시간, 상품명/이미지를 점검하세요.")
+    elif funnel_signal_label == "HIGH_CONVERSION":
+        title = "고객 전환이 좋은 상품입니다"
+        action_priority = "HIGH"
+        reasons.append("조회 대비 예약 전환이 높아 고객 반응이 확인됩니다.")
+        actions.append("재고를 소폭 늘려 추가 수요를 테스트하세요.")
+    elif funnel_signal_label == "LOW_INTEREST":
+        title = "고객 관심 데이터가 낮습니다"
+        risk_label = "LOW_INTEREST_RISK"
+        action_priority = "MEDIUM"
+        reasons.append("최근 고객 조회와 예약 반응이 충분하지 않습니다.")
+        actions.append("노출 상품명, 대표 이미지, 픽업 시간을 먼저 개선하세요.")
+    elif funnel_signal_label == "INSUFFICIENT_DATA":
+        title = "아직 판단 데이터가 부족합니다"
+        risk_label = "DATA_TOO_SMALL"
+        reasons.append("최근 7일 고객 반응 데이터가 충분하지 않습니다.")
+        actions.append("소량으로 다시 등록해 반응 데이터를 더 쌓으세요.")
+
+    if cancellation_rate >= 30:
+        title = "예약 후 이탈이 높습니다"
+        risk_label = "HIGH_CANCEL_RISK"
+        action_priority = "HIGH"
+        reasons.append("취소율이 높아 재고를 늘리기 전에 픽업/배송 조건 확인이 필요합니다.")
+        actions.append("픽업 가능 시간과 수령 안내를 더 명확히 하세요.")
+
+    if sell_through_rate >= 80 and pickup_completion_rate >= 80:
+        reasons.append("판매율과 픽업 완료율이 높아 수요가 안정적으로 확인됩니다.")
+        actions.append("추천 재고만큼 소폭 늘려 판매 기회를 확인하세요.")
+        if risk_label in {"NONE", "DATA_TOO_SMALL"}:
+            action_priority = "HIGH"
+    elif sell_through_rate <= 30:
+        reasons.append("판매율이 낮아 현재 재고가 남을 가능성이 있습니다.")
+        actions.append("재고를 줄이거나 할인가를 강화해 반응을 테스트하세요.")
+        if risk_label == "NONE":
+            risk_label = "LOW_CONVERSION_RISK"
+        if action_priority == "LOW":
+            action_priority = "MEDIUM"
+
+    if current_stock_quantity <= 1 and recommendation_type in {"INCREASE_STOCK", "RAISE_PRICE"}:
+        risk_label = "LOW_STOCK_RISK"
+        reasons.append("현재 남은 재고가 적어 추가 판매 기회를 놓칠 수 있습니다.")
+
+    if recommendation_type == "INCREASE_STOCK":
+        primary_action_label = "재고 늘려 초안 만들기"
+        actions.insert(0, f"추천 재고 {recommended_stock_quantity}개로 초안을 만들어 보세요.")
+    elif recommendation_type == "DECREASE_STOCK":
+        primary_action_label = "재고 줄여 초안 만들기"
+        actions.insert(0, f"추천 재고 {recommended_stock_quantity}개로 보수적으로 등록하세요.")
+    elif recommendation_type == "LOWER_PRICE":
+        primary_action_label = "할인가 낮춰 초안 만들기"
+        actions.insert(0, f"추천 할인가 {recommended_discount_price:,.0f}원으로 가격 반응을 테스트하세요.")
+    elif recommendation_type == "RAISE_PRICE":
+        primary_action_label = "가격 조정 초안 만들기"
+        actions.insert(0, f"추천 할인가 {recommended_discount_price:,.0f}원으로 수익성을 테스트하세요.")
+    else:
+        actions.insert(0, "추천값으로 소량 테스트 초안을 만들어 보세요.")
+
+    if recommended_discount_price != current_discount_price:
+        reasons.append(
+            f"현재 할인가 {current_discount_price:,.0f}원에서 추천 할인가 {recommended_discount_price:,.0f}원으로 조정 후보입니다."
+        )
+    if confidence_label == "LOW" and action_priority == "HIGH":
+        action_priority = "MEDIUM"
+
+    unique_reasons = list(dict.fromkeys(reasons))[:4]
+    unique_actions = list(dict.fromkeys(actions))[:4]
+    return title, unique_reasons, unique_actions, primary_action_label, action_priority, risk_label
+
+
 def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> MerchantProRecommendationsRead:
     period_days = 7
     now = datetime.now(timezone.utc)
@@ -262,6 +355,27 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
         elif funnel_signal_label == "INSUFFICIENT_DATA":
             message = f"{message} {funnel_message}"
 
+        recommended_price = _money(recommended_price)
+        (
+            explanation_title,
+            explanation_reasons,
+            suggested_actions,
+            primary_action_label,
+            action_priority,
+            risk_label,
+        ) = _recommendation_explanation(
+            recommendation_type=recommendation_type,
+            confidence_label=confidence_label,
+            funnel_signal_label=funnel_signal_label,
+            sell_through_rate=sell_through_rate,
+            pickup_completion_rate=pickup_completion_rate,
+            cancellation_rate=cancellation_rate,
+            current_stock_quantity=product.quantity,
+            recommended_stock_quantity=recommended_stock,
+            current_discount_price=product.discount_price,
+            recommended_discount_price=recommended_price,
+        )
+
         recommendations.append(
             ProRecommendationRead(
                 product_id=product.id,
@@ -283,10 +397,16 @@ def build_merchant_pro_recommendations(db: Session, merchant: Merchant) -> Merch
                 pickup_completion_rate=pickup_completion_rate,
                 recommended_stock_quantity=recommended_stock,
                 current_discount_price=product.discount_price,
-                recommended_discount_price=_money(recommended_price),
+                recommended_discount_price=recommended_price,
                 recommendation_type=recommendation_type,
                 recommendation_message=message,
                 confidence_label=confidence_label,
+                explanation_title=explanation_title,
+                explanation_reasons=explanation_reasons,
+                suggested_actions=suggested_actions,
+                primary_action_label=primary_action_label,
+                action_priority=action_priority,
+                risk_label=risk_label,
             )
         )
 

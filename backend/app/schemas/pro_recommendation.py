@@ -31,6 +31,12 @@ class ProRecommendationRead(BaseModel):
     recommendation_type: str
     recommendation_message: str
     confidence_label: str
+    explanation_title: str
+    explanation_reasons: list[str]
+    suggested_actions: list[str]
+    primary_action_label: str
+    action_priority: str
+    risk_label: str
 
 
 class MerchantProRecommendationsRead(BaseModel):
