@@ -114,6 +114,17 @@ export default function MerchantProDashboardPage() {
         </div>
       </div>
 
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">폐기 감소 리포트</p>
+          <h2>이번 달 폐기 방지 성과 보기</h2>
+          <p>BreadGo로 판매 전환된 마감 상품과 폐기 방지 금액을 확인하세요.</p>
+        </div>
+        <Link className="button-link" href="/merchant/pro/esg">
+          ESG 리포트 보기
+        </Link>
+      </div>
+
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {!dashboard ? (

@@ -307,6 +307,45 @@ export type MerchantProDashboard = {
   recent_7_days: ProDailySummary[];
 };
 
+export type ProEsgProductSummary = {
+  product_id: string;
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  saved_items: number;
+  saved_amount: string;
+  pickup_completed_count: number;
+  cancelled_count: number;
+  contribution_rate: number;
+};
+
+export type ProEsgDailyTrend = {
+  date: string;
+  saved_items: number;
+  saved_amount: string;
+  pickup_completed_count: number;
+  cancelled_count: number;
+};
+
+export type MerchantProEsgReport = {
+  merchant_id: string;
+  business_name: string;
+  today_saved_items: number;
+  week_saved_items: number;
+  month_saved_items: number;
+  today_saved_amount: string;
+  week_saved_amount: string;
+  month_saved_amount: string;
+  estimated_waste_reduction_items: number;
+  estimated_waste_prevention_amount: string;
+  pickup_completed_count: number;
+  cancelled_count: number;
+  sell_through_rate: number;
+  carbon_reduction_note: string;
+  product_esg_summaries: ProEsgProductSummary[];
+  daily_esg_trend: ProEsgDailyTrend[];
+};
+
 export type ProductTemplate = {
   id: string;
   merchant_id: string;
