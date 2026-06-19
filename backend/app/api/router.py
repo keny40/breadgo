@@ -39,6 +39,7 @@ api_router.include_router(payments.router, prefix="/payments", tags=["payments"]
 api_router.include_router(pro_dashboard.router, prefix="/merchant/pro", tags=["merchant-pro"])
 api_router.include_router(stores.router, prefix="/stores", tags=["stores"])
 api_router.include_router(products.router, prefix="/products", tags=["products"])
+api_router.include_router(products.merchant_router, prefix="/merchant/products", tags=["products"])
 api_router.include_router(products.store_router, prefix="/stores", tags=["products"])
 api_router.include_router(regions.router, prefix="/regions", tags=["regions"])
 api_router.include_router(reservations.router, prefix="/reservations", tags=["reservations"])

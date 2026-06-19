@@ -56,6 +56,24 @@ function toDateTimeLocal(value: string) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
+function dateTimeLocalFromDate(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function defaultRelistStart() {
+  const date = new Date();
+  date.setMinutes(0, 0, 0);
+  date.setHours(Math.max(date.getHours() + 1, 18));
+  return dateTimeLocalFromDate(date);
+}
+
+function defaultRelistEnd(startValue: string) {
+  const date = new Date(startValue);
+  date.setHours(date.getHours() + 3);
+  return dateTimeLocalFromDate(date);
+}
+
 function ProductImage({ imageUrl, name }: { imageUrl: string | null | undefined; name: string }) {
   if (!imageUrl) {
     return <div className="product-image-placeholder">이미지 없음</div>;
@@ -74,6 +92,12 @@ export default function MerchantProductsPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<ProductFormState>(emptyForm);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [relistingProductId, setRelistingProductId] = useState<string | null>(null);
+  const [relistStockQuantity, setRelistStockQuantity] = useState(1);
+  const [relistSaleStart, setRelistSaleStart] = useState("");
+  const [relistSaleEnd, setRelistSaleEnd] = useState("");
+  const [relistVisible, setRelistVisible] = useState(true);
+  const [relistNameSuffix, setRelistNameSuffix] = useState("오늘");
   const [uploadingImageTarget, setUploadingImageTarget] = useState<"create" | "edit" | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -302,6 +326,27 @@ export default function MerchantProductsPage() {
     setEditImageFile(null);
   }
 
+  function startRelist(product: Product) {
+    const saleStart = defaultRelistStart();
+    setRelistingProductId(product.id);
+    setRelistStockQuantity(Math.max(product.quantity, 1));
+    setRelistSaleStart(saleStart);
+    setRelistSaleEnd(defaultRelistEnd(saleStart));
+    setRelistVisible(true);
+    setRelistNameSuffix("오늘");
+    setMessage(`${product.name} 상품을 그대로 다시 올릴 준비를 합니다.`);
+    setIsError(false);
+  }
+
+  function cancelRelist() {
+    setRelistingProductId(null);
+    setRelistStockQuantity(1);
+    setRelistSaleStart("");
+    setRelistSaleEnd("");
+    setRelistVisible(true);
+    setRelistNameSuffix("오늘");
+  }
+
   async function updateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingProductId) {
@@ -321,6 +366,37 @@ export default function MerchantProductsPage() {
       );
       cancelEdit();
       await loadProducts("상품 정보가 수정되었습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function duplicateProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!relistingProductId) {
+      return;
+    }
+    setMessage("");
+    setIsError(false);
+
+    try {
+      await apiFetch<Product>(
+        `/api/v1/merchant/products/${relistingProductId}/duplicate`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            stock_quantity: relistStockQuantity,
+            sale_starts_at: relistSaleStart ? new Date(relistSaleStart).toISOString() : null,
+            sale_ends_at: relistSaleEnd ? new Date(relistSaleEnd).toISOString() : null,
+            is_visible: relistVisible,
+            name_suffix: relistNameSuffix || null,
+          }),
+        },
+        true,
+      );
+      cancelRelist();
+      await loadProducts("기존 상품 정보로 오늘 판매 상품을 다시 올렸습니다.");
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -382,6 +458,11 @@ export default function MerchantProductsPage() {
           </button>
         }
       />
+      <div className="message">
+        <strong>어제 남은 빵 그대로 올리기</strong>
+        <br />
+        반복 상품 등록은 기존 상품 정보는 유지하고 오늘 재고와 마감 시간만 바꿔 빠르게 재등록합니다.
+      </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       <form className="panel form-grid" onSubmit={createProduct}>
@@ -451,6 +532,9 @@ export default function MerchantProductsPage() {
                 <span>- {formatDateTime(product.pickup_end_time)}</span>
               </div>
               <div className="actions">
+                <button type="button" onClick={() => startRelist(product)}>
+                  그대로 다시 올리기
+                </button>
                 <button type="button" className="secondary" onClick={() => startEdit(product)}>
                   편집
                 </button>
@@ -464,6 +548,72 @@ export default function MerchantProductsPage() {
                   </button>
                 )}
               </div>
+
+              {relistingProductId === product.id && (
+                <form className="edit-product-form form-grid" onSubmit={duplicateProduct}>
+                  <h3>어제 남은 빵 그대로 올리기</h3>
+                  <p className="field-help">
+                    기존 상품 정보는 유지하고 오늘 재고만 입력하세요. 마감 시간만 바꿔 빠르게 재등록할 수 있습니다.
+                  </p>
+                  <div className="two-column">
+                    <label>
+                      오늘 재고 수량
+                      <input
+                        type="number"
+                        min={0}
+                        value={relistStockQuantity}
+                        onChange={(event) => setRelistStockQuantity(Number(event.target.value))}
+                        required
+                      />
+                    </label>
+                    <label>
+                      이름 뒤에 붙일 문구
+                      <input
+                        value={relistNameSuffix}
+                        onChange={(event) => setRelistNameSuffix(event.target.value)}
+                        placeholder="예) 오늘, 금요일, 저녁"
+                      />
+                    </label>
+                  </div>
+                  <div className="two-column">
+                    <label>
+                      판매 시작 시간
+                      <input
+                        type="datetime-local"
+                        value={relistSaleStart}
+                        onChange={(event) => {
+                          setRelistSaleStart(event.target.value);
+                          if (!relistSaleEnd) {
+                            setRelistSaleEnd(defaultRelistEnd(event.target.value));
+                          }
+                        }}
+                      />
+                    </label>
+                    <label>
+                      판매 종료 시간
+                      <input
+                        type="datetime-local"
+                        value={relistSaleEnd}
+                        onChange={(event) => setRelistSaleEnd(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={relistVisible}
+                      onChange={(event) => setRelistVisible(event.target.checked)}
+                    />
+                    바로 고객에게 노출하기
+                  </label>
+                  <div className="actions">
+                    <button type="submit">반복 상품 등록</button>
+                    <button type="button" className="secondary" onClick={cancelRelist}>
+                      취소
+                    </button>
+                  </div>
+                </form>
+              )}
 
               {isEditing && (
                 <form className="edit-product-form form-grid" onSubmit={updateProduct}>

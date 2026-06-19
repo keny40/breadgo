@@ -68,6 +68,21 @@ class ProductUpdate(BaseModel):
         return self
 
 
+class ProductDuplicateCreate(BaseModel):
+    stock_quantity: int | None = Field(default=None, ge=0)
+    sale_starts_at: datetime | None = None
+    sale_ends_at: datetime | None = None
+    is_visible: bool = True
+    name_suffix: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_duplicate_product(self) -> "ProductDuplicateCreate":
+        if self.sale_starts_at is not None and self.sale_ends_at is not None:
+            if self.sale_starts_at >= self.sale_ends_at:
+                raise ValueError("sale_starts_at must be earlier than sale_ends_at")
+        return self
+
+
 class ProductRead(BaseModel):
     id: UUID
     store_id: UUID

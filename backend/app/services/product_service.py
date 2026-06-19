@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.merchant import Merchant
 from app.models.product import Product, ProductStatus
 from app.models.store import Store
-from app.schemas.product import ProductCreate, ProductUpdate
+from app.schemas.product import ProductCreate, ProductDuplicateCreate, ProductUpdate
 
 
 def _get_owned_store(db: Session, merchant: Merchant, store_id: UUID) -> Store:
@@ -60,6 +61,53 @@ def create_product_for_store(db: Session, merchant: Merchant, payload: ProductCr
         pickup_start_time=payload.pickup_start_time,
         pickup_end_time=payload.pickup_end_time,
         status=payload.status,
+    )
+    _apply_sold_out_status(product)
+
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def duplicate_product_for_merchant(
+    db: Session,
+    merchant: Merchant,
+    product_id: UUID,
+    payload: ProductDuplicateCreate,
+) -> Product:
+    original = _get_owned_product(db, merchant, product_id)
+    now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    default_end = now + timedelta(hours=3)
+    pickup_start_time = payload.sale_starts_at or now
+    pickup_end_time = payload.sale_ends_at or default_end
+
+    if pickup_start_time >= pickup_end_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="sale_starts_at must be earlier than sale_ends_at.",
+        )
+
+    suffix = payload.name_suffix.strip() if payload.name_suffix else ""
+    copied_name = f"{original.name} {suffix}".strip() if suffix else original.name
+    quantity = payload.stock_quantity if payload.stock_quantity is not None else max(original.quantity, 1)
+
+    product = Product(
+        store_id=original.store_id,
+        name=copied_name,
+        description=original.description,
+        image_url=original.image_url,
+        original_price=original.original_price,
+        discount_price=original.discount_price,
+        quantity=quantity,
+        allow_pickup=original.allow_pickup,
+        allow_quick_delivery=original.allow_quick_delivery,
+        allow_parcel_delivery=original.allow_parcel_delivery,
+        quick_delivery_fee=original.quick_delivery_fee,
+        parcel_delivery_fee=original.parcel_delivery_fee,
+        pickup_start_time=pickup_start_time,
+        pickup_end_time=pickup_end_time,
+        status=ProductStatus.ACTIVE if payload.is_visible else ProductStatus.HIDDEN,
     )
     _apply_sold_out_status(product)
 

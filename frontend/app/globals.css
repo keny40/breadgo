@@ -382,6 +382,23 @@ label {
   line-height: 1;
 }
 
+.pro-relist-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.pro-relist-card h2,
+.pro-relist-card p {
+  margin: 0;
+}
+
+.pro-relist-card p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .pro-chart {
   display: grid;
   grid-template-columns: repeat(7, minmax(72px, 1fr));
@@ -1362,6 +1379,10 @@ tr:last-child td {
 
   .pro-chart {
     grid-template-columns: repeat(7, minmax(68px, 1fr));
+  }
+
+  .pro-relist-card {
+    grid-template-columns: 1fr;
   }
 
   .mock-map {

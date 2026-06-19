@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -93,6 +94,19 @@ export default function MerchantProDashboardPage() {
           <strong>{dashboard ? formatPercent(dashboard.sell_through_rate) : "0.0%"}</strong>
           <small>예약 수량 / 오늘 등록 추정 수량</small>
         </div>
+      </div>
+
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">반복 상품 등록</p>
+          <h2>어제 남은 빵 그대로 올리기</h2>
+          <p>
+            기존 상품 정보는 유지하고 오늘 재고만 입력하세요. 마감 시간만 바꿔 빠르게 재등록할 수 있습니다.
+          </p>
+        </div>
+        <Link className="button-link" href="/merchant/products">
+          상품관리에서 다시 올리기
+        </Link>
       </div>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
@@ -214,4 +228,3 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
