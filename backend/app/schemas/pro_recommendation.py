@@ -72,6 +72,11 @@ class RecommendationUsageRead(BaseModel):
     stock_delta: int | None = None
     discount_price_delta: Decimal | None = None
     adoption_type: str | None = None
+    draft_product_status: str | None = None
+    published_at: str | None = None
+    first_reserved_at: str | None = None
+    first_paid_at: str | None = None
+    first_picked_up_at: str | None = None
     action_type: str
     created_product_reserved_quantity: int
     created_product_picked_up_quantity: int
@@ -82,6 +87,13 @@ class RecommendationUsageRead(BaseModel):
 
 class MerchantProRecommendationPerformanceRead(BaseModel):
     total_recommendation_drafts: int
+    draft_created_count: int
+    published_from_recommendation_count: int
+    publish_conversion_rate: float
+    reserved_after_publish_count: int
+    paid_after_publish_count: int
+    picked_up_after_publish_count: int
+    average_time_to_publish_minutes: float
     used_recommendation_count: int
     recommendation_created_products_count: int
     picked_up_quantity_from_recommendations: int
@@ -95,3 +107,4 @@ class MerchantProRecommendationPerformanceRead(BaseModel):
     average_discount_price_delta: Decimal
     usage_by_recommendation_type: list[RecommendationTypeUsageSummary]
     recent_usages: list[RecommendationUsageRead]
+    recent_funnel_usages: list[RecommendationUsageRead]

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.merchant import Merchant
 from app.models.product import Product, ProductStatus
+from app.models.recommendation_usage import RecommendationUsage
 from app.models.store import Store
 from app.schemas.product import ProductCreate, ProductDuplicateCreate, ProductUpdate
 
@@ -40,6 +41,26 @@ def _get_owned_product(db: Session, merchant: Merchant, product_id: UUID) -> Pro
 def _apply_sold_out_status(product: Product) -> None:
     if product.status != ProductStatus.HIDDEN and product.quantity == 0:
         product.status = ProductStatus.SOLD_OUT
+
+
+def _sync_recommendation_usage_product_status(
+    db: Session,
+    product: Product,
+    previous_status: ProductStatus | None = None,
+) -> None:
+    usage = db.scalar(select(RecommendationUsage).where(RecommendationUsage.created_product_id == product.id))
+    if usage is None:
+        return
+
+    now = datetime.now(timezone.utc)
+    if product.status == ProductStatus.ACTIVE:
+        usage.draft_product_status = "PUBLISHED"
+        if usage.published_at is None:
+            usage.published_at = now
+        return
+
+    if product.status == ProductStatus.HIDDEN:
+        usage.draft_product_status = "ARCHIVED" if previous_status == ProductStatus.ACTIVE else "HIDDEN_DRAFT"
 
 
 def create_product_for_store(db: Session, merchant: Merchant, payload: ProductCreate) -> Product:
@@ -143,6 +164,7 @@ def get_my_products(db: Session, merchant: Merchant) -> list[Product]:
 
 def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: ProductUpdate) -> Product:
     product = _get_owned_product(db, merchant, product_id)
+    previous_status = product.status
     update_data = payload.model_dump(exclude_unset=True)
 
     original_price = update_data.get("original_price", product.original_price)
@@ -178,6 +200,7 @@ def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: P
         setattr(product, field, value)
 
     _apply_sold_out_status(product)
+    _sync_recommendation_usage_product_status(db, product, previous_status)
     db.commit()
     db.refresh(product)
     return product
@@ -185,7 +208,9 @@ def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: P
 
 def hide_product(db: Session, merchant: Merchant, product_id: UUID) -> Product:
     product = _get_owned_product(db, merchant, product_id)
+    previous_status = product.status
     product.status = ProductStatus.HIDDEN
+    _sync_recommendation_usage_product_status(db, product, previous_status)
     db.commit()
     db.refresh(product)
     return product

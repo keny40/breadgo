@@ -41,6 +41,21 @@ function adoptionTypeLabel(value: string | null) {
   return "채택 방식 미기록";
 }
 
+function funnelStatusLabel(usage: RecommendationUsage) {
+  if (usage.first_picked_up_at) return "픽업 완료";
+  if (usage.first_paid_at) return "결제 발생";
+  if (usage.first_reserved_at) return "예약 발생";
+  if (usage.draft_product_status === "PUBLISHED") return "판매 노출됨";
+  if (usage.draft_product_status === "ARCHIVED") return "초안 보관됨";
+  return "초안 상태";
+}
+
+function funnelStatusTone(usage: RecommendationUsage): "success" | "warning" | "muted" {
+  if (usage.first_picked_up_at || usage.first_paid_at || usage.first_reserved_at) return "success";
+  if (usage.draft_product_status === "PUBLISHED") return "warning";
+  return "muted";
+}
+
 function formatSignedNumber(value: number | null) {
   if (value === null) return "-";
   if (value > 0) return `+${value}`;
@@ -109,7 +124,8 @@ export default function MerchantRecommendationPerformancePage() {
       <div className="message">
         <strong>추천 후 판매율 추적</strong>
         <br />
-        추천 초안 생성 같은 명확한 행동만 기록합니다. 데이터가 쌓일수록 추천 품질을 개선할 수 있습니다.
+        추천 초안 생성, 실제 노출 전환, 노출 이후 예약/결제/픽업 흐름을 추적합니다.
+        데이터가 쌓일수록 추천 품질을 개선할 수 있습니다.
       </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
@@ -126,6 +142,19 @@ export default function MerchantRecommendationPerformancePage() {
             <StatCard
               label="추천 후 평균 판매율"
               value={formatPercent(performance.average_sell_through_rate_from_recommendations)}
+            />
+            <StatCard label="초안 생성 수" value={`${performance.draft_created_count}건`} />
+            <StatCard
+              label="실제 노출 전환 수"
+              value={`${performance.published_from_recommendation_count}건`}
+              helper={formatPercent(performance.publish_conversion_rate)}
+            />
+            <StatCard label="노출 후 예약" value={`${performance.reserved_after_publish_count}건`} />
+            <StatCard label="노출 후 결제" value={`${performance.paid_after_publish_count}건`} />
+            <StatCard label="노출 후 픽업" value={`${performance.picked_up_after_publish_count}건`} />
+            <StatCard
+              label="평균 노출 소요 시간"
+              value={`${performance.average_time_to_publish_minutes.toFixed(1)}분`}
             />
             <StatCard
               label="추천 그대로 채택"
@@ -212,6 +241,7 @@ function UsageCard({ usage }: { usage: RecommendationUsage }) {
           <Badge tone={usage.adoption_type === "MODIFIED_ACCEPTED" ? "warning" : "success"}>
             {adoptionTypeLabel(usage.adoption_type)}
           </Badge>
+          <Badge tone={funnelStatusTone(usage)}>{funnelStatusLabel(usage)}</Badge>
           <Badge tone="muted">{usage.action_type}</Badge>
         </div>
       </div>
@@ -228,6 +258,11 @@ function UsageCard({ usage }: { usage: RecommendationUsage }) {
         />
         <Metric label="추천 대비 재고 수정폭" value={`${formatSignedNumber(usage.stock_delta)}개`} />
         <Metric label="추천 대비 가격 수정폭" value={formatSignedMoney(usage.discount_price_delta)} />
+        <Metric label="초안 전환 상태" value={usage.draft_product_status || "HIDDEN_DRAFT"} />
+        <Metric label="노출 시각" value={usage.published_at ? formatDate(usage.published_at) : "-"} />
+        <Metric label="첫 예약" value={usage.first_reserved_at ? formatDate(usage.first_reserved_at) : "-"} />
+        <Metric label="첫 결제" value={usage.first_paid_at ? formatDate(usage.first_paid_at) : "-"} />
+        <Metric label="첫 픽업" value={usage.first_picked_up_at ? formatDate(usage.first_picked_up_at) : "-"} />
         <Metric label="예약 수량" value={`${usage.created_product_reserved_quantity}개`} />
         <Metric label="픽업 수량" value={`${usage.created_product_picked_up_quantity}개`} />
         <Metric label="결제 금액" value={formatMoney(usage.created_product_paid_amount)} />

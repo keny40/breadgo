@@ -91,7 +91,7 @@ export default function MerchantProRecommendationsPage() {
       setMessage(
         `${result.created_product.name} 초안을 생성했습니다. ${
           isExact ? "추천 그대로 채택" : "수정 후 채택"
-        } 이력도 함께 기록했습니다.`,
+        } 이력도 함께 기록했습니다. 상품관리에서 노출하면 고객에게 표시되고, 추천 성과 화면에서 실제 판매 전환을 확인할 수 있습니다.`,
       );
       await loadRecommendations();
     } catch (error) {

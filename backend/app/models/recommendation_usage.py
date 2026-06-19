@@ -47,6 +47,11 @@ class RecommendationUsage(Base):
     stock_delta: Mapped[int | None] = mapped_column(Integer, nullable=True)
     discount_price_delta: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     adoption_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    draft_product_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    first_picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

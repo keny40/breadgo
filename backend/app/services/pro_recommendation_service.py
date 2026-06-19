@@ -280,6 +280,8 @@ def create_recommendation_draft(
         stock_delta=stock_delta,
         discount_price_delta=discount_price_delta,
         adoption_type=adoption_type,
+        draft_product_status="PUBLISHED" if payload.is_visible else "HIDDEN_DRAFT",
+        published_at=datetime.now(timezone.utc) if payload.is_visible else None,
         action_type="DRAFT_CREATED",
     )
     db.add(usage)
@@ -328,6 +330,10 @@ def build_merchant_pro_recommendation_performance(
 
     total_picked_up_quantity = 0
     total_paid_amount = ZERO
+    reserved_after_publish_count = 0
+    paid_after_publish_count = 0
+    picked_up_after_publish_count = 0
+    time_to_publish_minutes: list[float] = []
     sell_through_rates: list[float] = []
     exact_accept_count = 0
     modified_accept_count = 0
@@ -352,6 +358,14 @@ def build_merchant_pro_recommendation_performance(
         adoption_type = usage.adoption_type
         if adoption_type is None:
             adoption_type = "EXACT_ACCEPTED" if stock_delta == 0 and discount_price_delta == ZERO else "MODIFIED_ACCEPTED"
+        draft_product_status = usage.draft_product_status
+        if draft_product_status is None:
+            if usage.created_product and usage.created_product.status.value == "ACTIVE":
+                draft_product_status = "PUBLISHED"
+            elif usage.created_product and usage.created_product.status.value == "HIDDEN":
+                draft_product_status = "HIDDEN_DRAFT"
+            else:
+                draft_product_status = "ARCHIVED"
 
         if adoption_type == "EXACT_ACCEPTED":
             exact_accept_count += 1
@@ -361,6 +375,30 @@ def build_merchant_pro_recommendation_performance(
         discount_price_deltas.append(discount_price_delta)
 
         product_reservations = reservations_by_product.get(usage.created_product_id, [])
+        first_reserved_at = min((reservation.created_at for reservation in product_reservations), default=None)
+        first_paid_at = min(
+            (
+                reservation.payment.paid_at
+                for reservation in product_reservations
+                if reservation.payment and reservation.payment.status == PaymentStatus.PAID and reservation.payment.paid_at
+            ),
+            default=None,
+        )
+        first_picked_up_at = min(
+            (
+                reservation.updated_at
+                for reservation in product_reservations
+                if reservation.status == ReservationStatus.PICKED_UP
+            ),
+            default=None,
+        )
+        if first_reserved_at and usage.first_reserved_at is None:
+            usage.first_reserved_at = first_reserved_at
+        if first_paid_at and usage.first_paid_at is None:
+            usage.first_paid_at = first_paid_at
+        if first_picked_up_at and usage.first_picked_up_at is None:
+            usage.first_picked_up_at = first_picked_up_at
+
         reserved_quantity = sum(
             reservation.quantity
             for reservation in product_reservations
@@ -387,6 +425,14 @@ def build_merchant_pro_recommendation_performance(
 
         total_picked_up_quantity += picked_up_quantity
         total_paid_amount += paid_amount
+        if first_reserved_at:
+            reserved_after_publish_count += 1
+        if first_paid_at:
+            paid_after_publish_count += 1
+        if first_picked_up_at:
+            picked_up_after_publish_count += 1
+        if usage.published_at:
+            time_to_publish_minutes.append((usage.published_at - usage.created_at).total_seconds() / 60)
 
         summary = usage_type_summary.setdefault(
             usage.recommendation_type,
@@ -420,6 +466,11 @@ def build_merchant_pro_recommendation_performance(
                     stock_delta=stock_delta,
                     discount_price_delta=discount_price_delta,
                     adoption_type=adoption_type,
+                    draft_product_status=draft_product_status,
+                    published_at=usage.published_at.isoformat() if usage.published_at else None,
+                    first_reserved_at=first_reserved_at.isoformat() if first_reserved_at else None,
+                    first_paid_at=first_paid_at.isoformat() if first_paid_at else None,
+                    first_picked_up_at=first_picked_up_at.isoformat() if first_picked_up_at else None,
                     action_type=usage.action_type,
                     created_product_reserved_quantity=reserved_quantity,
                     created_product_picked_up_quantity=picked_up_quantity,
@@ -437,9 +488,34 @@ def build_merchant_pro_recommendation_performance(
         if discount_price_deltas
         else ZERO
     )
+    db.commit()
 
     return MerchantProRecommendationPerformanceRead(
         total_recommendation_drafts=sum(1 for usage in usages if usage.action_type == "DRAFT_CREATED"),
+        draft_created_count=sum(1 for usage in usages if usage.action_type == "DRAFT_CREATED"),
+        published_from_recommendation_count=sum(
+            1
+            for usage in usages
+            if usage.published_at is not None
+            or (usage.draft_product_status == "PUBLISHED")
+            or (usage.created_product and usage.created_product.status.value == "ACTIVE")
+        ),
+        publish_conversion_rate=_rate(
+            sum(
+                1
+                for usage in usages
+                if usage.published_at is not None
+                or (usage.draft_product_status == "PUBLISHED")
+                or (usage.created_product and usage.created_product.status.value == "ACTIVE")
+            ),
+            sum(1 for usage in usages if usage.action_type == "DRAFT_CREATED"),
+        ),
+        reserved_after_publish_count=reserved_after_publish_count,
+        paid_after_publish_count=paid_after_publish_count,
+        picked_up_after_publish_count=picked_up_after_publish_count,
+        average_time_to_publish_minutes=round(sum(time_to_publish_minutes) / len(time_to_publish_minutes), 1)
+        if time_to_publish_minutes
+        else 0.0,
         used_recommendation_count=len(usages),
         recommendation_created_products_count=len(created_product_ids),
         picked_up_quantity_from_recommendations=total_picked_up_quantity,
@@ -453,4 +529,5 @@ def build_merchant_pro_recommendation_performance(
         average_discount_price_delta=average_discount_price_delta,
         usage_by_recommendation_type=list(usage_type_summary.values()),
         recent_usages=recent_usages,
+        recent_funnel_usages=recent_usages,
     )

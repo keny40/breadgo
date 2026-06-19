@@ -127,12 +127,12 @@ export default function MerchantProDashboardPage() {
 
       <div className="panel pro-relist-card">
         <div>
-          <p className="eyebrow">추천 사용 성과</p>
-          <h2>추천으로 만든 상품 성과 추적</h2>
-          <p>추천 초안 생성 이후 판매율과 픽업 성과를 확인해 추천 품질을 개선합니다.</p>
+          <p className="eyebrow">추천 퍼널 추적</p>
+          <h2>추천 초안이 실제 판매로 이어졌는지 확인</h2>
+          <p>추천 초안 생성, 상품 노출, 예약, 결제, 픽업까지의 전환 흐름을 확인합니다.</p>
         </div>
         <Link className="button-link secondary" href="/merchant/pro/recommendation-performance">
-          추천 성과 보기
+          추천 퍼널 확인
         </Link>
       </div>
 

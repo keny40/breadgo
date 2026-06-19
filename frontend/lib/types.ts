@@ -401,6 +401,11 @@ export type RecommendationUsage = {
   stock_delta: number | null;
   discount_price_delta: string | null;
   adoption_type: string | null;
+  draft_product_status: string | null;
+  published_at: string | null;
+  first_reserved_at: string | null;
+  first_paid_at: string | null;
+  first_picked_up_at: string | null;
   action_type: string;
   created_product_reserved_quantity: number;
   created_product_picked_up_quantity: number;
@@ -411,6 +416,13 @@ export type RecommendationUsage = {
 
 export type MerchantProRecommendationPerformance = {
   total_recommendation_drafts: number;
+  draft_created_count: number;
+  published_from_recommendation_count: number;
+  publish_conversion_rate: number;
+  reserved_after_publish_count: number;
+  paid_after_publish_count: number;
+  picked_up_after_publish_count: number;
+  average_time_to_publish_minutes: number;
   used_recommendation_count: number;
   recommendation_created_products_count: number;
   picked_up_quantity_from_recommendations: number;
@@ -424,6 +436,7 @@ export type MerchantProRecommendationPerformance = {
   average_discount_price_delta: string;
   usage_by_recommendation_type: RecommendationTypeUsageSummary[];
   recent_usages: RecommendationUsage[];
+  recent_funnel_usages: RecommendationUsage[];
 };
 
 export type ProductTemplate = {
