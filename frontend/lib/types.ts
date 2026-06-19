@@ -439,6 +439,35 @@ export type MerchantProRecommendationPerformance = {
   recent_funnel_usages: RecommendationUsage[];
 };
 
+export type ProProductFunnelSummary = {
+  product_id: string;
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  detail_views: number;
+  reservation_started_count: number;
+  reservations: number;
+  paid_count: number;
+  picked_up_count: number;
+  conversion_rate: number;
+  paid_conversion_rate: number;
+  pickup_conversion_rate: number;
+  paid_amount: string;
+  from_recommendation: boolean;
+  attention_label: string;
+};
+
+export type MerchantProProductFunnel = {
+  period_days: number;
+  total_detail_views: number;
+  total_reservation_starts: number;
+  total_reservations: number;
+  total_paid_count: number;
+  total_picked_up_count: number;
+  detail_to_reservation_rate: number;
+  product_funnel_summaries: ProProductFunnelSummary[];
+};
+
 export type ProductTemplate = {
   id: string;
   merchant_id: string;

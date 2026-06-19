@@ -5,7 +5,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
-import { apiFetch, friendlyErrorMessage, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
+import { apiFetch, buildApiUrl, friendlyErrorMessage, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
 import type { AuthUser, Payment, RegionProduct, Reservation, Store } from "@/lib/types";
 
 const paymentMethods = [
@@ -79,6 +79,7 @@ export default function ProductsPage() {
   const [locating, setLocating] = useState(false);
   const [hasLogin, setHasLogin] = useState(false);
   const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [recordedProductEvents, setRecordedProductEvents] = useState<Set<string>>(new Set());
 
   const normalizedRole = currentRole?.toUpperCase() || null;
   const isCustomer = normalizedRole === "CUSTOMER";
@@ -168,6 +169,46 @@ export default function ProductsPage() {
     if (sigungu.trim()) params.set("sigungu", sigungu.trim());
     if (dong.trim()) params.set("dong", dong.trim());
     return params.toString();
+  }
+
+  async function recordProductEvent(productId: string, eventType: "DETAIL_VIEW" | "RESERVATION_STARTED") {
+    const eventKey = `${productId}:${eventType}`;
+    if (recordedProductEvents.has(eventKey)) {
+      return;
+    }
+
+    setRecordedProductEvents((current) => {
+      const next = new Set(current);
+      next.add(eventKey);
+      return next;
+    });
+
+    try {
+      const headers = new Headers();
+      headers.set("Content-Type", "application/json");
+      const token = getToken();
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+      await fetch(buildApiUrl(`/api/v1/products/${productId}/events`), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          event_type: eventType,
+          source: "WEB",
+        }),
+      });
+    } catch {
+      // Analytics events should never block product browsing or reservation.
+    }
+  }
+
+  function selectFulfillment(productId: string, method: string) {
+    void recordProductEvent(productId, "DETAIL_VIEW");
+    setFulfillmentByProduct((current) => ({
+      ...current,
+      [productId]: method,
+    }));
   }
 
   async function loadRegionStores(query: string) {
@@ -298,6 +339,7 @@ export default function ProductsPage() {
     }
 
     try {
+      await recordProductEvent(productId, "RESERVATION_STARTED");
       const reservation = await apiFetch<Reservation>(
         "/api/v1/reservations",
         {
@@ -702,12 +744,7 @@ export default function ProductsPage() {
                                 selectedFulfillmentForProduct(product) === method.value ? "active" : ""
                               }`}
                               key={method.value}
-                              onClick={() =>
-                                setFulfillmentByProduct((current) => ({
-                                  ...current,
-                                  [product.id]: method.value,
-                                }))
-                              }
+                              onClick={() => selectFulfillment(product.id, method.value)}
                             >
                               {method.label}
                             </button>

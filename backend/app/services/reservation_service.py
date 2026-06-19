@@ -20,7 +20,9 @@ from app.schemas.reservation import (
     ReservationCreate,
     ReservationStatusUpdate,
 )
+from app.schemas.product_event import ProductEventCreate
 from app.services.notification_service import create_admin_notifications, create_notification
+from app.services.product_event_service import record_product_event
 from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
@@ -180,6 +182,13 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
     )
     db.add(reservation)
     db.flush()
+    record_product_event(
+        db,
+        product.id,
+        payload=ProductEventCreate(event_type="RESERVATION_CREATED", source="WEB"),
+        user=user,
+        commit=False,
+    )
     record_reservation_history(
         db,
         reservation_id=reservation.id,

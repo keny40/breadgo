@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pro_dashboard import MerchantProDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
+from app.schemas.pro_product_funnel import MerchantProProductFunnelRead
 from app.schemas.pro_recommendation import (
     MerchantProRecommendationPerformanceRead,
     MerchantProRecommendationsRead,
@@ -17,6 +18,7 @@ from app.schemas.pro_recommendation import (
 from app.services.merchant_service import require_merchant_for_user
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
+from app.services.pro_product_funnel_service import build_merchant_pro_product_funnel
 from app.services.pro_recommendation_service import (
     build_merchant_pro_recommendation_performance,
     build_merchant_pro_recommendations,
@@ -71,3 +73,12 @@ def get_merchant_pro_recommendation_performance(
 ) -> MerchantProRecommendationPerformanceRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_recommendation_performance(db, merchant)
+
+
+@router.get("/product-funnel", response_model=MerchantProProductFunnelRead)
+def get_merchant_pro_product_funnel(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProProductFunnelRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_product_funnel(db, merchant)

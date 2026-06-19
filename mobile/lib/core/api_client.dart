@@ -118,6 +118,19 @@ class ApiClient {
         .toList();
   }
 
+  Future<void> recordProductEvent({
+    required String productId,
+    required String eventType,
+    String source = 'MOBILE',
+  }) async {
+    final response = await http.post(
+      _uri('/api/v1/products/$productId/events'),
+      headers: _headers(auth: sessionStore.accessToken != null),
+      body: jsonEncode({'event_type': eventType, 'source': source}),
+    );
+    await _decodeResponse(response);
+  }
+
   Future<List<Reservation>> fetchMyReservations() async {
     final response = await http.get(
       _uri('/api/v1/reservations/me'),

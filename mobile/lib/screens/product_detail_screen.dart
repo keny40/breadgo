@@ -38,6 +38,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _fulfillmentMethod = availableMethods.isNotEmpty
         ? availableMethods.first
         : 'PICKUP';
+    _recordProductEvent('DETAIL_VIEW');
   }
 
   @override
@@ -281,6 +282,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
 
+    await _recordProductEvent('RESERVATION_STARTED');
     await widget.reservationController.createReservationAndPay(
       productId: widget.product.id,
       quantity: _quantity,
@@ -299,6 +301,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           : null,
       deliveryFee: _deliveryFee,
     );
+  }
+
+  Future<void> _recordProductEvent(String eventType) async {
+    try {
+      await widget.reservationController.apiClient.recordProductEvent(
+        productId: widget.product.id,
+        eventType: eventType,
+      );
+    } catch (_) {
+      // Product analytics should not block browsing or reservations.
+    }
   }
 
   void _openReservations() {
