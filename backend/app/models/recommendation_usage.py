@@ -42,6 +42,11 @@ class RecommendationUsage(Base):
     recommended_discount_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     original_stock_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     original_discount_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    accepted_stock_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    accepted_discount_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    stock_delta: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    discount_price_delta: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    adoption_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -52,4 +57,3 @@ class RecommendationUsage(Base):
     merchant: Mapped["Merchant"] = relationship("Merchant", back_populates="recommendation_usages")
     source_product: Mapped["Product"] = relationship("Product", foreign_keys=[source_product_id])
     created_product: Mapped["Product | None"] = relationship("Product", foreign_keys=[created_product_id])
-

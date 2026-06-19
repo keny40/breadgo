@@ -35,6 +35,25 @@ function confidenceTone(value: string): "success" | "warning" | "muted" {
   return "muted";
 }
 
+function adoptionTypeLabel(value: string | null) {
+  if (value === "EXACT_ACCEPTED") return "그대로 채택";
+  if (value === "MODIFIED_ACCEPTED") return "수정 후 채택";
+  return "채택 방식 미기록";
+}
+
+function formatSignedNumber(value: number | null) {
+  if (value === null) return "-";
+  if (value > 0) return `+${value}`;
+  return `${value}`;
+}
+
+function formatSignedMoney(value: string | null) {
+  if (value === null) return "-";
+  const numberValue = Number(value);
+  if (numberValue > 0) return `+${numberValue.toLocaleString()}원`;
+  return `${numberValue.toLocaleString()}원`;
+}
+
 export default function MerchantRecommendationPerformancePage() {
   const guard = useRoleGuard("MERCHANT");
   const [performance, setPerformance] = useState<MerchantProRecommendationPerformance | null>(null);
@@ -108,6 +127,24 @@ export default function MerchantRecommendationPerformancePage() {
               label="추천 후 평균 판매율"
               value={formatPercent(performance.average_sell_through_rate_from_recommendations)}
             />
+            <StatCard
+              label="추천 그대로 채택"
+              value={`${performance.exact_accept_count}건`}
+              helper={formatPercent(performance.exact_accept_rate)}
+            />
+            <StatCard
+              label="수정 후 채택"
+              value={`${performance.modified_accept_count}건`}
+              helper={formatPercent(performance.modified_accept_rate)}
+            />
+            <StatCard
+              label="평균 재고 수정폭"
+              value={`${formatSignedNumber(performance.average_stock_delta)}개`}
+            />
+            <StatCard
+              label="평균 가격 수정폭"
+              value={formatSignedMoney(performance.average_discount_price_delta)}
+            />
           </div>
 
           {performance.usage_by_recommendation_type.length > 0 && (
@@ -172,12 +209,25 @@ function UsageCard({ usage }: { usage: RecommendationUsage }) {
         </div>
         <div className="actions">
           <Badge tone={confidenceTone(usage.confidence_label)}>{usage.confidence_label}</Badge>
+          <Badge tone={usage.adoption_type === "MODIFIED_ACCEPTED" ? "warning" : "success"}>
+            {adoptionTypeLabel(usage.adoption_type)}
+          </Badge>
           <Badge tone="muted">{usage.action_type}</Badge>
         </div>
       </div>
       <div className="detail-grid">
         <Metric label="추천 재고" value={`${usage.recommended_stock_quantity}개`} />
         <Metric label="추천 할인가" value={formatMoney(usage.recommended_discount_price)} />
+        <Metric
+          label="실제 채택 재고"
+          value={usage.accepted_stock_quantity === null ? "-" : `${usage.accepted_stock_quantity}개`}
+        />
+        <Metric
+          label="실제 채택 할인가"
+          value={usage.accepted_discount_price ? formatMoney(usage.accepted_discount_price) : "-"}
+        />
+        <Metric label="추천 대비 재고 수정폭" value={`${formatSignedNumber(usage.stock_delta)}개`} />
+        <Metric label="추천 대비 가격 수정폭" value={formatSignedMoney(usage.discount_price_delta)} />
         <Metric label="예약 수량" value={`${usage.created_product_reserved_quantity}개`} />
         <Metric label="픽업 수량" value={`${usage.created_product_picked_up_quantity}개`} />
         <Metric label="결제 금액" value={formatMoney(usage.created_product_paid_amount)} />
@@ -196,4 +246,3 @@ function Metric({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-

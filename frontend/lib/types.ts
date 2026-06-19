@@ -396,6 +396,11 @@ export type RecommendationUsage = {
   recommended_discount_price: string;
   original_stock_quantity: number | null;
   original_discount_price: string | null;
+  accepted_stock_quantity: number | null;
+  accepted_discount_price: string | null;
+  stock_delta: number | null;
+  discount_price_delta: string | null;
+  adoption_type: string | null;
   action_type: string;
   created_product_reserved_quantity: number;
   created_product_picked_up_quantity: number;
@@ -411,6 +416,12 @@ export type MerchantProRecommendationPerformance = {
   picked_up_quantity_from_recommendations: number;
   paid_amount_from_recommendations: string;
   average_sell_through_rate_from_recommendations: number;
+  exact_accept_count: number;
+  modified_accept_count: number;
+  exact_accept_rate: number;
+  modified_accept_rate: number;
+  average_stock_delta: number;
+  average_discount_price_delta: string;
   usage_by_recommendation_type: RecommendationTypeUsageSummary[];
   recent_usages: RecommendationUsage[];
 };

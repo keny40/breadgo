@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -34,6 +35,11 @@ class MerchantProRecommendationsRead(BaseModel):
 class ProRecommendationDraftCreateRequest(BaseModel):
     is_visible: bool = False
     name_suffix: str | None = "추천"
+    accepted_stock_quantity: int | None = None
+    accepted_discount_price: Decimal | None = None
+    accepted_sale_starts_at: datetime | None = None
+    accepted_sale_ends_at: datetime | None = None
+    note: str | None = None
 
 
 class ProRecommendationDraftCreateResponse(BaseModel):
@@ -61,6 +67,11 @@ class RecommendationUsageRead(BaseModel):
     recommended_discount_price: Decimal
     original_stock_quantity: int | None = None
     original_discount_price: Decimal | None = None
+    accepted_stock_quantity: int | None = None
+    accepted_discount_price: Decimal | None = None
+    stock_delta: int | None = None
+    discount_price_delta: Decimal | None = None
+    adoption_type: str | None = None
     action_type: str
     created_product_reserved_quantity: int
     created_product_picked_up_quantity: int
@@ -76,5 +87,11 @@ class MerchantProRecommendationPerformanceRead(BaseModel):
     picked_up_quantity_from_recommendations: int
     paid_amount_from_recommendations: Decimal
     average_sell_through_rate_from_recommendations: float
+    exact_accept_count: int
+    modified_accept_count: int
+    exact_accept_rate: float
+    modified_accept_rate: float
+    average_stock_delta: float
+    average_discount_price_delta: Decimal
     usage_by_recommendation_type: list[RecommendationTypeUsageSummary]
     recent_usages: list[RecommendationUsageRead]

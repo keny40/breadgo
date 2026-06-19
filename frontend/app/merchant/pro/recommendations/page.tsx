@@ -62,7 +62,11 @@ export default function MerchantProRecommendationsPage() {
     }
   }
 
-  async function createDraftFromRecommendation(recommendation: ProRecommendation) {
+  async function createDraftFromRecommendation(
+    recommendation: ProRecommendation,
+    acceptedStockQuantity: number,
+    acceptedDiscountPrice: string,
+  ) {
     setMessage("");
     setIsError(false);
     setDuplicatingId(recommendation.product_id);
@@ -75,12 +79,19 @@ export default function MerchantProRecommendationsPage() {
           body: JSON.stringify({
             is_visible: false,
             name_suffix: "추천",
+            accepted_stock_quantity: acceptedStockQuantity,
+            accepted_discount_price: acceptedDiscountPrice,
           }),
         },
         true,
       );
+      const isExact =
+        acceptedStockQuantity === recommendation.recommended_stock_quantity &&
+        Number(acceptedDiscountPrice) === Number(recommendation.recommended_discount_price);
       setMessage(
-        `${result.created_product.name} 초안을 생성하고 추천 사용 이력을 기록했습니다. 추천 할인가는 ${formatMoney(recommendation.recommended_discount_price)}이며, 상품관리에서 가격을 확인한 뒤 노출하세요.`,
+        `${result.created_product.name} 초안을 생성했습니다. ${
+          isExact ? "추천 그대로 채택" : "수정 후 채택"
+        } 이력도 함께 기록했습니다.`,
       );
       await loadRecommendations();
     } catch (error) {
@@ -171,23 +182,80 @@ export default function MerchantProRecommendationsPage() {
               </div>
 
               <p className="guidance-text">{recommendation.recommendation_message}</p>
-              <div className="actions">
-                <button
-                  type="button"
-                  onClick={() => createDraftFromRecommendation(recommendation)}
-                  disabled={duplicatingId === recommendation.product_id}
-                >
-                  {duplicatingId === recommendation.product_id ? "초안 생성 중" : "추천 재고로 초안 생성"}
-                </button>
-                <Link className="button-link secondary" href="/merchant/products">
-                  상품관리에서 가격 반영
-                </Link>
-              </div>
+              <DraftControls
+                recommendation={recommendation}
+                isSubmitting={duplicatingId === recommendation.product_id}
+                onSubmit={createDraftFromRecommendation}
+              />
             </article>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function DraftControls({
+  recommendation,
+  isSubmitting,
+  onSubmit,
+}: {
+  recommendation: ProRecommendation;
+  isSubmitting: boolean;
+  onSubmit: (
+    recommendation: ProRecommendation,
+    acceptedStockQuantity: number,
+    acceptedDiscountPrice: string,
+  ) => void;
+}) {
+  const [acceptedStockQuantity, setAcceptedStockQuantity] = useState(String(recommendation.recommended_stock_quantity));
+  const [acceptedDiscountPrice, setAcceptedDiscountPrice] = useState(String(recommendation.recommended_discount_price));
+  const isExact =
+    Number(acceptedStockQuantity) === recommendation.recommended_stock_quantity &&
+    Number(acceptedDiscountPrice) === Number(recommendation.recommended_discount_price);
+
+  return (
+    <div className="panel compact-panel">
+      <p className="eyebrow">점주가 실제 입력한 값</p>
+      <div className="form-grid compact-form">
+        <label>
+          채택 재고
+          <input
+            type="number"
+            min="0"
+            value={acceptedStockQuantity}
+            onChange={(event) => setAcceptedStockQuantity(event.target.value)}
+          />
+        </label>
+        <label>
+          채택 할인가
+          <input
+            type="number"
+            min="0"
+            step="100"
+            value={acceptedDiscountPrice}
+            onChange={(event) => setAcceptedDiscountPrice(event.target.value)}
+          />
+        </label>
+      </div>
+      <p className="guidance-text">
+        {isExact
+          ? "추천 그대로 채택으로 기록됩니다."
+          : "추천 대비 수정폭이 기록됩니다. 이 데이터는 향후 추천 품질 개선에 사용됩니다."}
+      </p>
+      <div className="actions">
+        <button
+          type="button"
+          onClick={() => onSubmit(recommendation, Number(acceptedStockQuantity), acceptedDiscountPrice || "0")}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "초안 생성 중" : isExact ? "이 추천으로 초안 만들기" : "수정해서 초안 만들기"}
+        </button>
+        <Link className="button-link secondary" href="/merchant/products">
+          상품관리에서 확인
+        </Link>
+      </div>
+    </div>
   );
 }
 

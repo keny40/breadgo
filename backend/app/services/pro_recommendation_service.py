@@ -228,18 +228,42 @@ def create_recommendation_draft(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found.")
 
     now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    accepted_stock_quantity = (
+        payload.accepted_stock_quantity
+        if payload.accepted_stock_quantity is not None
+        else recommendation.recommended_stock_quantity
+    )
+    accepted_discount_price = (
+        _money(payload.accepted_discount_price)
+        if payload.accepted_discount_price is not None
+        else recommendation.recommended_discount_price
+    )
+    if accepted_stock_quantity < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="accepted_stock_quantity must be 0 or more.")
+    if accepted_discount_price < ZERO:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="accepted_discount_price must be 0 or more.")
+    if accepted_discount_price > original_product.original_price:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="accepted_discount_price cannot be greater than original price.",
+        )
+    stock_delta = accepted_stock_quantity - recommendation.recommended_stock_quantity
+    discount_price_delta = _money(accepted_discount_price - recommendation.recommended_discount_price)
+    adoption_type = "EXACT_ACCEPTED" if stock_delta == 0 and discount_price_delta == ZERO else "MODIFIED_ACCEPTED"
+
     created_product = duplicate_product_for_merchant(
         db,
         merchant,
         product_id,
         ProductDuplicateCreate(
-            stock_quantity=recommendation.recommended_stock_quantity,
-            sale_starts_at=now + timedelta(hours=1),
-            sale_ends_at=now + timedelta(hours=4),
+            stock_quantity=accepted_stock_quantity,
+            sale_starts_at=payload.accepted_sale_starts_at or now + timedelta(hours=1),
+            sale_ends_at=payload.accepted_sale_ends_at or now + timedelta(hours=4),
             is_visible=payload.is_visible,
             name_suffix=payload.name_suffix or "추천",
         ),
     )
+    created_product.discount_price = accepted_discount_price
 
     usage = RecommendationUsage(
         merchant_id=merchant.id,
@@ -251,6 +275,11 @@ def create_recommendation_draft(
         recommended_discount_price=recommendation.recommended_discount_price,
         original_stock_quantity=original_product.quantity,
         original_discount_price=original_product.discount_price,
+        accepted_stock_quantity=accepted_stock_quantity,
+        accepted_discount_price=accepted_discount_price,
+        stock_delta=stock_delta,
+        discount_price_delta=discount_price_delta,
+        adoption_type=adoption_type,
         action_type="DRAFT_CREATED",
     )
     db.add(usage)
@@ -300,10 +329,37 @@ def build_merchant_pro_recommendation_performance(
     total_picked_up_quantity = 0
     total_paid_amount = ZERO
     sell_through_rates: list[float] = []
+    exact_accept_count = 0
+    modified_accept_count = 0
+    stock_deltas: list[int] = []
+    discount_price_deltas: list[Decimal] = []
     usage_type_summary: dict[str, RecommendationTypeUsageSummary] = {}
     recent_usages: list[RecommendationUsageRead] = []
 
     for usage in usages:
+        accepted_stock_quantity = usage.accepted_stock_quantity
+        if accepted_stock_quantity is None:
+            accepted_stock_quantity = usage.recommended_stock_quantity
+        accepted_discount_price = usage.accepted_discount_price
+        if accepted_discount_price is None:
+            accepted_discount_price = usage.recommended_discount_price
+        stock_delta = usage.stock_delta
+        if stock_delta is None:
+            stock_delta = accepted_stock_quantity - usage.recommended_stock_quantity
+        discount_price_delta = usage.discount_price_delta
+        if discount_price_delta is None:
+            discount_price_delta = _money(accepted_discount_price - usage.recommended_discount_price)
+        adoption_type = usage.adoption_type
+        if adoption_type is None:
+            adoption_type = "EXACT_ACCEPTED" if stock_delta == 0 and discount_price_delta == ZERO else "MODIFIED_ACCEPTED"
+
+        if adoption_type == "EXACT_ACCEPTED":
+            exact_accept_count += 1
+        elif adoption_type == "MODIFIED_ACCEPTED":
+            modified_accept_count += 1
+        stock_deltas.append(stock_delta)
+        discount_price_deltas.append(discount_price_delta)
+
         product_reservations = reservations_by_product.get(usage.created_product_id, [])
         reserved_quantity = sum(
             reservation.quantity
@@ -359,6 +415,11 @@ def build_merchant_pro_recommendation_performance(
                     recommended_discount_price=usage.recommended_discount_price,
                     original_stock_quantity=usage.original_stock_quantity,
                     original_discount_price=usage.original_discount_price,
+                    accepted_stock_quantity=accepted_stock_quantity,
+                    accepted_discount_price=accepted_discount_price,
+                    stock_delta=stock_delta,
+                    discount_price_delta=discount_price_delta,
+                    adoption_type=adoption_type,
                     action_type=usage.action_type,
                     created_product_reserved_quantity=reserved_quantity,
                     created_product_picked_up_quantity=picked_up_quantity,
@@ -369,6 +430,13 @@ def build_merchant_pro_recommendation_performance(
             )
 
     average_sell_through_rate = round(sum(sell_through_rates) / len(sell_through_rates), 1) if sell_through_rates else 0.0
+    accepted_count = exact_accept_count + modified_accept_count
+    average_stock_delta = round(sum(stock_deltas) / len(stock_deltas), 1) if stock_deltas else 0.0
+    average_discount_price_delta = (
+        _money(sum(discount_price_deltas, ZERO) / Decimal(len(discount_price_deltas)))
+        if discount_price_deltas
+        else ZERO
+    )
 
     return MerchantProRecommendationPerformanceRead(
         total_recommendation_drafts=sum(1 for usage in usages if usage.action_type == "DRAFT_CREATED"),
@@ -377,6 +445,12 @@ def build_merchant_pro_recommendation_performance(
         picked_up_quantity_from_recommendations=total_picked_up_quantity,
         paid_amount_from_recommendations=total_paid_amount,
         average_sell_through_rate_from_recommendations=average_sell_through_rate,
+        exact_accept_count=exact_accept_count,
+        modified_accept_count=modified_accept_count,
+        exact_accept_rate=_rate(exact_accept_count, accepted_count),
+        modified_accept_rate=_rate(modified_accept_count, accepted_count),
+        average_stock_delta=average_stock_delta,
+        average_discount_price_delta=average_discount_price_delta,
         usage_by_recommendation_type=list(usage_type_summary.values()),
         recent_usages=recent_usages,
     )
