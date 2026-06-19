@@ -53,3 +53,36 @@ class MerchantProDashboardRead(BaseModel):
     product_summaries: list[ProProductSummary]
     recent_7_days: list[ProDailySummary]
 
+
+class ProStoreDashboardSummary(BaseModel):
+    store_id: UUID
+    store_name: str
+    sido: str | None
+    sigungu: str | None
+    dong: str | None
+    active_product_count: int
+    reservation_count: int
+    paid_count: int
+    picked_up_count: int
+    cancelled_count: int
+    gross_sales_amount: Decimal
+    estimated_settlement_amount: Decimal
+    saved_quantity: int
+    sell_through_rate: float
+    detail_views: int
+    reservation_conversion_rate: float
+    status_label: str
+    store_insight_message: str
+
+
+class MerchantProStoresDashboardRead(BaseModel):
+    merchant_id: UUID
+    business_name: str
+    period_days: int
+    total_stores: int
+    total_reservations: int
+    total_sales_amount: Decimal
+    total_picked_up_count: int
+    total_saved_quantity: int
+    average_sell_through_rate: float
+    stores: list[ProStoreDashboardSummary]

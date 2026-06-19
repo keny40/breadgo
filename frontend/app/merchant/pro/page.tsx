@@ -165,6 +165,17 @@ export default function MerchantProDashboardPage() {
         </Link>
       </div>
 
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">다중 매장 운영</p>
+          <h2>매장 통합 보기</h2>
+          <p>최근 7일 기준 매장별 수율, 예약 전환, 매출, 폐기 절감 성과를 비교합니다.</p>
+        </div>
+        <Link className="button-link secondary" href="/merchant/pro/stores">
+          매장 통합 대시보드
+        </Link>
+      </div>
+
       <section className="panel">
         <div className="card-title-row">
           <div>

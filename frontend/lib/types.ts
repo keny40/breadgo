@@ -307,6 +307,40 @@ export type MerchantProDashboard = {
   recent_7_days: ProDailySummary[];
 };
 
+export type ProStoreDashboardSummary = {
+  store_id: string;
+  store_name: string;
+  sido: string | null;
+  sigungu: string | null;
+  dong: string | null;
+  active_product_count: number;
+  reservation_count: number;
+  paid_count: number;
+  picked_up_count: number;
+  cancelled_count: number;
+  gross_sales_amount: string;
+  estimated_settlement_amount: string;
+  saved_quantity: number;
+  sell_through_rate: number;
+  detail_views: number;
+  reservation_conversion_rate: number;
+  status_label: string;
+  store_insight_message: string;
+};
+
+export type MerchantProStoresDashboard = {
+  merchant_id: string;
+  business_name: string;
+  period_days: number;
+  total_stores: number;
+  total_reservations: number;
+  total_sales_amount: string;
+  total_picked_up_count: number;
+  total_saved_quantity: number;
+  average_sell_through_rate: number;
+  stores: ProStoreDashboardSummary[];
+};
+
 export type ProEsgProductSummary = {
   product_id: string;
   product_name: string;
