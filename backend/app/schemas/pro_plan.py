@@ -9,6 +9,7 @@ class ProPlanFeatures(BaseModel):
     relist_products: bool
     product_templates: bool
     csv_product_import: bool
+    inventory_ledger: bool
     esg_report: bool
     recommendations: bool
     recommendation_performance: bool

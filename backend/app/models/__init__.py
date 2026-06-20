@@ -5,6 +5,7 @@ from app.models.pos_integration import PosIntegration, PosSyncBatch, PosSyncRow
 from app.models.product import Product
 from app.models.product_event import ProductEvent
 from app.models.product_import import ProductImportBatch, ProductImportRow
+from app.models.product_inventory_event import ProductInventoryEvent
 from app.models.product_template import ProductTemplate
 from app.models.recommendation_action_event import RecommendationActionEvent
 from app.models.recommendation_usage import RecommendationUsage
@@ -25,6 +26,7 @@ __all__ = [
     "ProductEvent",
     "ProductImportBatch",
     "ProductImportRow",
+    "ProductInventoryEvent",
     "ProductTemplate",
     "RecommendationActionEvent",
     "RecommendationUsage",

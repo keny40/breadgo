@@ -545,6 +545,9 @@ export default function MerchantProductsPage() {
                 <button type="button" className="secondary" onClick={() => startEdit(product)}>
                   편집
                 </button>
+                <Link className="button-link secondary" href="/merchant/pro/inventory-ledger">
+                  재고 이력 보기
+                </Link>
                 {product.status === "HIDDEN" ? (
                   <button type="button" onClick={() => unhideProduct(product)}>
                     다시 판매

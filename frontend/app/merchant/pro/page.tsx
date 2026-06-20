@@ -216,6 +216,17 @@ export default function MerchantProDashboardPage() {
         </Link>
       </div>
 
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">Inventory Ledger</p>
+          <h2>재고 이력 보기</h2>
+          <p>CSV, POS, 추천, 예약, 수동 수정으로 재고가 어떻게 바뀌었는지 추적합니다.</p>
+        </div>
+        <Link className="button-link secondary" href="/merchant/pro/inventory-ledger">
+          재고 변경 이력
+        </Link>
+      </div>
+
       <section className="panel">
         <div className="card-title-row">
           <div>

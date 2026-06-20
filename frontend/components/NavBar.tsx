@@ -25,6 +25,7 @@ export default function NavBar() {
           { href: "/merchant/pro/recommendation-performance", label: "추천 성과" },
           { href: "/merchant/pro/product-funnel", label: "고객 전환" },
           { href: "/merchant/pro/esg", label: "ESG 리포트" },
+          { href: "/merchant/pro/inventory-ledger", label: "재고 이력" },
           { href: "/merchant/pro/pos", label: "POS 연동" },
           { href: "/merchant/stores", label: "매장" },
           { href: "/merchant/products", label: "상품 관리" },

@@ -26,6 +26,7 @@ from app.schemas.product import (
     ProductImportBatchRead,
     ProductUpdate,
 )
+from app.services.product_inventory_event_service import record_inventory_event
 
 KST = ZoneInfo("Asia/Seoul")
 CSV_REQUIRED_COLUMNS = {
@@ -396,6 +397,7 @@ def import_products_from_csv(
         created_count = 0
         updated_count = 0
         skipped_count = 0
+        quantity_before_by_row: dict[int, int | None] = {}
 
         for planned_row in planned_rows:
             row_result = planned_row.row_result
@@ -409,6 +411,7 @@ def import_products_from_csv(
                     created_product_ids.append(product.id)
                     created_count += 1
                 elif row_result.action_candidate == "UPDATED" and duplicate is not None:
+                    quantity_before_by_row[row_result.row_number] = duplicate.quantity
                     _apply_import_update(duplicate, payload)
                     row_result.product_id = duplicate.id
                     row_result.action = "UPDATED"
@@ -450,6 +453,44 @@ def import_products_from_csv(
                     error_message=row_result.error_message,
                 )
             )
+
+        for row_result in rows:
+            if row_result.product_id is None:
+                continue
+            if row_result.action == "CREATED":
+                payload = next(
+                    (planned.payload for planned in planned_rows if planned.row_result.row_number == row_result.row_number),
+                    None,
+                )
+                record_inventory_event(
+                    db,
+                    merchant_id=merchant.id,
+                    store_id=store_id,
+                    product_id=row_result.product_id,
+                    event_type="CSV_IMPORT_CREATE",
+                    quantity_before=0,
+                    quantity_after=payload.quantity if payload else None,
+                    source_type="CSV",
+                    source_id=batch.id,
+                    note="CSV 일괄 등록으로 상품을 생성했습니다.",
+                )
+            elif row_result.action == "UPDATED":
+                payload = next(
+                    (planned.payload for planned in planned_rows if planned.row_result.row_number == row_result.row_number),
+                    None,
+                )
+                record_inventory_event(
+                    db,
+                    merchant_id=merchant.id,
+                    store_id=store_id,
+                    product_id=row_result.product_id,
+                    event_type="CSV_IMPORT_UPDATE",
+                    quantity_before=quantity_before_by_row.get(row_result.row_number),
+                    quantity_after=payload.quantity if payload else None,
+                    source_type="CSV",
+                    source_id=batch.id,
+                    note="CSV 일괄 등록으로 기존 상품을 업데이트했습니다.",
+                )
 
         db.commit()
         return ProductCsvImportResult(
@@ -579,6 +620,7 @@ def get_my_products(db: Session, merchant: Merchant) -> list[Product]:
 def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: ProductUpdate) -> Product:
     product = _get_owned_product(db, merchant, product_id)
     previous_status = product.status
+    quantity_before = product.quantity
     update_data = payload.model_dump(exclude_unset=True)
 
     original_price = update_data.get("original_price", product.original_price)
@@ -615,6 +657,18 @@ def update_product(db: Session, merchant: Merchant, product_id: UUID, payload: P
 
     _apply_sold_out_status(product)
     _sync_recommendation_usage_product_status(db, product, previous_status)
+    if "quantity" in update_data and product.quantity != quantity_before:
+        record_inventory_event(
+            db,
+            merchant_id=merchant.id,
+            store_id=product.store_id,
+            product_id=product.id,
+            event_type="MANUAL_UPDATE",
+            quantity_before=quantity_before,
+            quantity_after=product.quantity,
+            source_type="MANUAL",
+            note="상품관리에서 재고를 수정했습니다.",
+        )
     db.commit()
     db.refresh(product)
     return product

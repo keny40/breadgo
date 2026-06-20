@@ -8,7 +8,6 @@ from app.api.v1.auth import bearer_scheme, get_current_user
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.product_event import ProductEventCreate, ProductEventRead
 from app.schemas.product import (
     ProductCreate,
     ProductCsvImportResult,
@@ -17,7 +16,10 @@ from app.schemas.product import (
     ProductRead,
     ProductUpdate,
 )
+from app.schemas.product_event import ProductEventCreate, ProductEventRead
+from app.schemas.product_inventory_event import ProductInventoryEventRead
 from app.services.merchant_service import require_merchant_for_user
+from app.services.product_inventory_event_service import list_product_inventory_events, record_inventory_event
 from app.services.product_service import (
     create_product_for_store,
     duplicate_product_for_merchant,
@@ -64,6 +66,18 @@ def create_product(
 ) -> ProductRead:
     merchant = require_merchant_for_user(db, current_user)
     product = create_product_for_store(db, merchant, payload)
+    record_inventory_event(
+        db,
+        merchant_id=merchant.id,
+        store_id=product.store_id,
+        product_id=product.id,
+        event_type="MANUAL_CREATE",
+        quantity_before=0,
+        quantity_after=product.quantity,
+        source_type="MANUAL",
+        note="상품관리에서 상품을 수동 생성했습니다.",
+        commit=True,
+    )
     return ProductRead.model_validate(product)
 
 
@@ -171,6 +185,17 @@ def get_current_merchant_product_import_batch(
     return get_product_import_batch(db, merchant, batch_id)
 
 
+@merchant_router.get("/{product_id}/inventory-events", response_model=list[ProductInventoryEventRead])
+def get_current_merchant_product_inventory_events(
+    product_id: UUID,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ProductInventoryEventRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_product_inventory_events(db, merchant, product_id, limit=limit)
+
+
 @merchant_router.post("/{product_id}/duplicate", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 def duplicate_current_merchant_product(
     product_id: UUID,
@@ -180,6 +205,19 @@ def duplicate_current_merchant_product(
 ) -> ProductRead:
     merchant = require_merchant_for_user(db, current_user)
     product = duplicate_product_for_merchant(db, merchant, product_id, payload)
+    record_inventory_event(
+        db,
+        merchant_id=merchant.id,
+        store_id=product.store_id,
+        product_id=product.id,
+        event_type="MANUAL_CREATE",
+        quantity_before=0,
+        quantity_after=product.quantity,
+        source_type="MANUAL",
+        source_id=product_id,
+        note="기존 상품을 그대로 다시 올려 생성했습니다.",
+        commit=True,
+    )
     return ProductRead.model_validate(product)
 
 

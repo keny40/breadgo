@@ -21,6 +21,7 @@ from app.schemas.product import ProductCreate
 from app.services.pos_providers.base import NormalizedPosItem
 from app.services.pos_providers.generic import GenericPosProvider
 from app.services.pos_providers.mock import MockPosProvider
+from app.services.product_inventory_event_service import record_inventory_event
 from app.services.product_service import (
     _apply_import_update,
     _find_duplicate_product,
@@ -200,6 +201,18 @@ def run_mock_pos_sync(db: Session, merchant: Merchant, payload: MockPosSyncReque
             if duplicate is None:
                 product = create_product_for_store(db, merchant, product_payload)
                 created_count += 1
+                record_inventory_event(
+                    db,
+                    merchant_id=merchant.id,
+                    store_id=store.id,
+                    product_id=product.id,
+                    event_type="POS_SYNC_CREATE",
+                    quantity_before=0,
+                    quantity_after=product.quantity,
+                    source_type="POS",
+                    source_id=batch.id,
+                    note="Mock POS 동기화로 상품을 생성했습니다.",
+                )
                 row = PosSyncRow(
                     batch_id=batch.id,
                     external_sku=normalized_item.external_sku,
@@ -238,8 +251,21 @@ def run_mock_pos_sync(db: Session, merchant: Merchant, payload: MockPosSyncReque
                     error_message=_row_reason("EXISTING_PRODUCT_HAS_RESERVATIONS", "예약이 있는 상품은 POS 동기화에서 자동 업데이트하지 않았습니다."),
                 )
             else:
+                quantity_before = duplicate.quantity
                 _apply_import_update(duplicate, product_payload)
                 updated_count += 1
+                record_inventory_event(
+                    db,
+                    merchant_id=merchant.id,
+                    store_id=store.id,
+                    product_id=duplicate.id,
+                    event_type="POS_SYNC_UPDATE",
+                    quantity_before=quantity_before,
+                    quantity_after=duplicate.quantity,
+                    source_type="POS",
+                    source_id=batch.id,
+                    note="Mock POS 동기화로 기존 상품을 업데이트했습니다.",
+                )
                 row = PosSyncRow(
                     batch_id=batch.id,
                     external_sku=normalized_item.external_sku,

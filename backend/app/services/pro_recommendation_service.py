@@ -27,6 +27,7 @@ from app.schemas.pro_recommendation import (
 )
 from app.schemas.recommendation_action_event import RecommendationActionEventCreate
 from app.services.product_service import duplicate_product_for_merchant
+from app.services.product_inventory_event_service import record_inventory_event
 from app.services.recommendation_action_event_service import (
     get_recent_recommendation_action_events,
     record_recommendation_action_event,
@@ -495,6 +496,18 @@ def create_recommendation_draft(
         ),
     )
     created_product.discount_price = accepted_discount_price
+    record_inventory_event(
+        db,
+        merchant_id=merchant.id,
+        store_id=created_product.store_id,
+        product_id=created_product.id,
+        event_type="RECOMMENDATION_DRAFT_CREATE",
+        quantity_before=0,
+        quantity_after=created_product.quantity,
+        source_type="RECOMMENDATION",
+        source_id=product_id,
+        note="BreadGo Pro 추천으로 상품 초안을 생성했습니다.",
+    )
 
     usage = RecommendationUsage(
         merchant_id=merchant.id,

@@ -23,6 +23,7 @@ from app.schemas.reservation import (
 from app.schemas.product_event import ProductEventCreate
 from app.services.notification_service import create_admin_notifications, create_notification
 from app.services.product_event_service import record_product_event
+from app.services.product_inventory_event_service import record_inventory_event
 from app.services.reservation_history_service import record_reservation_history
 from app.services.settlement_service import (
     mark_settlement_cancelled_for_reservation,
@@ -157,6 +158,7 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
                 detail="Recipient name, phone, and delivery address are required for delivery.",
             )
 
+    quantity_before = product.quantity
     product.quantity -= payload.quantity
     if product.quantity == 0:
         product.status = ProductStatus.SOLD_OUT
@@ -182,6 +184,20 @@ def create_reservation(db: Session, user: User, payload: ReservationCreate) -> R
     )
     db.add(reservation)
     db.flush()
+    store = db.get(Store, product.store_id)
+    if store is not None:
+        record_inventory_event(
+            db,
+            merchant_id=store.merchant_id,
+            store_id=product.store_id,
+            product_id=product.id,
+            event_type="RESERVATION_CREATED",
+            quantity_before=quantity_before,
+            quantity_after=product.quantity,
+            source_type="RESERVATION",
+            source_id=reservation.id,
+            note="예약 생성으로 재고가 차감되었습니다.",
+        )
     record_product_event(
         db,
         product.id,
@@ -296,6 +312,7 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
 
     previous_reservation_status = reservation.status
     previous_payment_status = payment.status
+    quantity_before = product.quantity
     _restore_product_quantity(product, reservation.quantity)
     reservation.status = ReservationStatus.CANCELLED
     if reservation.fulfillment_method != FulfillmentMethod.PICKUP:
@@ -303,6 +320,20 @@ def cancel_reservation(db: Session, user: User, reservation_id: UUID) -> Reserva
     payment.status = PaymentStatus.REFUNDED
     payment.cancelled_at = datetime.now(timezone.utc)
     mark_settlement_cancelled_for_reservation(db, reservation)
+    store = db.get(Store, product.store_id)
+    if store is not None:
+        record_inventory_event(
+            db,
+            merchant_id=store.merchant_id,
+            store_id=product.store_id,
+            product_id=product.id,
+            event_type="RESERVATION_CANCELLED",
+            quantity_before=quantity_before,
+            quantity_after=product.quantity,
+            source_type="RESERVATION",
+            source_id=reservation.id,
+            note="예약 취소 및 Mock 환불로 재고가 복구되었습니다.",
+        )
     create_notification(
         db,
         user=user,
@@ -394,6 +425,18 @@ def update_reservation_status(
         message="픽업 완료" if reservation.status == ReservationStatus.PICKED_UP else "예약 상태 변경",
     )
     if reservation.status == ReservationStatus.PICKED_UP:
+        record_inventory_event(
+            db,
+            merchant_id=merchant.id,
+            store_id=reservation.store_id,
+            product_id=reservation.product_id,
+            event_type="PICKUP_COMPLETED",
+            quantity_before=None,
+            quantity_after=None,
+            source_type="RESERVATION",
+            source_id=reservation.id,
+            note="픽업 완료 처리되었습니다. 예약 생성 시점에 이미 재고가 차감되었습니다.",
+        )
         create_notification(
             db,
             user=reservation.user,
@@ -516,6 +559,18 @@ def confirm_pickup_by_code(
     previous_status = reservation.status
     reservation.status = ReservationStatus.PICKED_UP
     settlement = mark_settlement_ready_for_reservation(db, reservation)
+    record_inventory_event(
+        db,
+        merchant_id=merchant.id,
+        store_id=reservation.store_id,
+        product_id=reservation.product_id,
+        event_type="PICKUP_COMPLETED",
+        quantity_before=None,
+        quantity_after=None,
+        source_type="RESERVATION",
+        source_id=reservation.id,
+        note="픽업 완료 처리되었습니다. 예약 생성 시점에 이미 재고가 차감되었습니다.",
+    )
     record_reservation_history(
         db,
         reservation_id=reservation.id,

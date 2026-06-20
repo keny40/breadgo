@@ -10,6 +10,7 @@ from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStore
 from app.schemas.pro_esg import MerchantProEsgReportRead
 from app.schemas.pro_plan import MerchantProPlanRead
 from app.schemas.pro_product_funnel import MerchantProProductFunnelRead
+from app.schemas.product_inventory_event import ProductInventoryEventRead
 from app.schemas.pro_recommendation import (
     MerchantProRecommendationPerformanceRead,
     MerchantProRecommendationsRead,
@@ -32,6 +33,7 @@ from app.services.pos_integration_service import (
     run_mock_pos_sync,
     upsert_pos_integration,
 )
+from app.services.product_inventory_event_service import list_inventory_events
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
 from app.services.pro_plan_service import build_merchant_pro_plan
@@ -129,6 +131,26 @@ def get_merchant_pro_product_funnel(
 ) -> MerchantProProductFunnelRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_product_funnel(db, merchant)
+
+
+@router.get("/inventory-events", response_model=list[ProductInventoryEventRead])
+def get_merchant_pro_inventory_events(
+    product_id: UUID | None = None,
+    event_type: str | None = None,
+    source_type: str | None = None,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ProductInventoryEventRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_inventory_events(
+        db,
+        merchant,
+        product_id=product_id,
+        event_type=event_type,
+        source_type=source_type,
+        limit=limit,
+    )
 
 
 @router.get("/pos-integration", response_model=PosIntegrationRead)

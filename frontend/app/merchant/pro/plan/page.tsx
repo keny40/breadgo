@@ -20,7 +20,7 @@ const planCards = [
     name: "BreadGo Pro",
     badge: "Pro",
     description: "점주용 수율 관리 플랜입니다. 반복 등록, ESG, 추천, 전환 분석을 제공합니다.",
-    features: ["수율 대시보드", "반복 상품 등록", "요일별 템플릿", "CSV 일괄 등록", "ESG 리포트", "추천 재고/할인가", "고객 전환 분석"],
+    features: ["수율 대시보드", "반복 상품 등록", "요일별 템플릿", "CSV 일괄 등록", "재고 변경 이력", "ESG 리포트", "추천 재고/할인가", "고객 전환 분석"],
     cta: "현재 MVP 기본 플랜",
   },
   {
@@ -38,6 +38,7 @@ const featureLabels: Record<keyof MerchantProPlan["features"], string> = {
   relist_products: "반복 상품 등록",
   product_templates: "요일별 상품 템플릿",
   csv_product_import: "CSV 일괄 등록 / POS 연동 준비",
+  inventory_ledger: "Inventory Ledger / 재고 변경 이력",
   esg_report: "ESG 리포트",
   recommendations: "추천 재고/할인",
   recommendation_performance: "추천 성과 분석",

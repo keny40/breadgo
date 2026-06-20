@@ -403,6 +403,7 @@ export type ProPlanFeatures = {
   relist_products: boolean;
   product_templates: boolean;
   csv_product_import: boolean;
+  inventory_ledger: boolean;
   esg_report: boolean;
   recommendations: boolean;
   recommendation_performance: boolean;
@@ -662,6 +663,23 @@ export type MockPosSyncResult = {
   failed_count: number;
   status: string;
   rows: PosSyncRow[];
+};
+
+export type ProductInventoryEvent = {
+  id: string;
+  merchant_id: string;
+  store_id: string | null;
+  product_id: string;
+  product_name: string | null;
+  store_name: string | null;
+  event_type: string;
+  quantity_before: number | null;
+  quantity_after: number | null;
+  quantity_delta: number | null;
+  source_type: string | null;
+  source_id: string | null;
+  note: string | null;
+  created_at: string;
 };
 
 export type ProductTemplate = {
