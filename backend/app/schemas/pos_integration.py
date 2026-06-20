@@ -54,6 +54,8 @@ class MockPosItem(BaseModel):
 
 class MockPosSyncRequest(BaseModel):
     mock_items: list[MockPosItem] = Field(min_length=1, max_length=200)
+    update_mode: str = Field(default="UPDATE_IF_NO_RESERVATIONS")
+    default_product_status: str = Field(default="HIDDEN")
 
 
 class PosSyncRowRead(BaseModel):

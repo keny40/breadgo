@@ -11,7 +11,6 @@ from app.models.pos_integration import PosIntegration, PosSyncBatch, PosSyncRow
 from app.models.product import ProductStatus
 from app.models.store import Store
 from app.schemas.pos_integration import (
-    MockPosItem,
     MockPosSyncRequest,
     MockPosSyncResult,
     PosIntegrationRead,
@@ -19,6 +18,9 @@ from app.schemas.pos_integration import (
     PosSyncBatchRead,
 )
 from app.schemas.product import ProductCreate
+from app.services.pos_providers.base import NormalizedPosItem
+from app.services.pos_providers.generic import GenericPosProvider
+from app.services.pos_providers.mock import MockPosProvider
 from app.services.product_service import (
     _apply_import_update,
     _find_duplicate_product,
@@ -28,6 +30,8 @@ from app.services.product_service import (
 )
 
 POS_PROVIDERS = {"MOCK_POS", "GENERIC_POS"}
+POS_UPDATE_MODES = {"UPDATE_HIDDEN_ONLY", "UPDATE_IF_NO_RESERVATIONS", "SKIP_EXISTING"}
+POS_DEFAULT_PRODUCT_STATUSES = {"HIDDEN"}
 
 
 def _validate_provider(provider: str) -> str:
@@ -86,7 +90,30 @@ def upsert_pos_integration(db: Session, merchant: Merchant, payload: PosIntegrat
     return integration
 
 
-def _mock_item_to_product_create(item: MockPosItem, store_id: UUID) -> ProductCreate:
+def _normalize_sync_policy(payload: MockPosSyncRequest) -> tuple[str, ProductStatus]:
+    update_mode = payload.update_mode.strip().upper()
+    if update_mode not in POS_UPDATE_MODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="update_mode must be UPDATE_HIDDEN_ONLY, UPDATE_IF_NO_RESERVATIONS, or SKIP_EXISTING.",
+        )
+
+    default_status = payload.default_product_status.strip().upper()
+    if default_status not in POS_DEFAULT_PRODUCT_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="default_product_status must be HIDDEN for POS MVP sync.",
+        )
+    return update_mode, ProductStatus(default_status)
+
+
+def _provider_for_integration(integration: PosIntegration, payload: MockPosSyncRequest) -> MockPosProvider | GenericPosProvider:
+    if integration.provider == "MOCK_POS":
+        return MockPosProvider(payload.mock_items)
+    return GenericPosProvider()
+
+
+def _pos_item_to_product_create(item: NormalizedPosItem, store_id: UUID, default_status: ProductStatus) -> ProductCreate:
     return ProductCreate(
         store_id=store_id,
         name=item.name.strip(),
@@ -102,8 +129,16 @@ def _mock_item_to_product_create(item: MockPosItem, store_id: UUID) -> ProductCr
         parcel_delivery_fee=item.parcel_delivery_fee,
         pickup_start_time=item.sale_starts_at,
         pickup_end_time=item.sale_ends_at,
-        status=ProductStatus.HIDDEN,
+        status=default_status,
     )
+
+
+def _row_reason(code: str, message: str) -> str:
+    return f"{code}: {message}"
+
+
+def _missing_sku_reason() -> str:
+    return _row_reason("MISSING_EXTERNAL_SKU", "external_sku가 없어 POS 동기화에서 처리할 수 없습니다.")
 
 
 def _batch_status(created_count: int, updated_count: int, skipped_count: int, failed_count: int) -> str:
@@ -118,12 +153,16 @@ def _batch_status(created_count: int, updated_count: int, skipped_count: int, fa
 def run_mock_pos_sync(db: Session, merchant: Merchant, payload: MockPosSyncRequest) -> MockPosSyncResult:
     integration = get_or_create_pos_integration(db, merchant)
     store = _get_owned_store(db, merchant, integration.store_id) if integration.store_id else _get_default_store(db, merchant)
+    update_mode, default_status = _normalize_sync_policy(payload)
+    provider = _provider_for_integration(integration, payload)
+    is_valid, connection_message = provider.validate_connection()
+    raw_items = provider.fetch_items()
 
     batch = PosSyncBatch(
         integration_id=integration.id,
         merchant_id=merchant.id,
         store_id=store.id,
-        total_rows=len(payload.mock_items),
+        total_rows=len(raw_items),
     )
     db.add(batch)
     db.flush()
@@ -133,36 +172,77 @@ def run_mock_pos_sync(db: Session, merchant: Merchant, payload: MockPosSyncReque
     skipped_count = 0
     failed_count = 0
 
-    for item in payload.mock_items:
+    if not is_valid:
+        failed_count += 1
+        db.add(
+            PosSyncRow(
+                batch_id=batch.id,
+                action="FAILED",
+                product_name=integration.provider,
+                error_message=_row_reason(
+                    connection_message or "PROVIDER_NOT_CONFIGURED",
+                    "현재 provider는 실제 외부 POS 호출 없이 skeleton 상태입니다.",
+                ),
+            )
+        )
+
+    for raw_item in raw_items if is_valid else []:
+        external_sku: str | None = None
+        product_name: str | None = None
         try:
-            product_payload = _mock_item_to_product_create(item, store.id)
+            normalized_item = provider.normalize_item(raw_item)
+            external_sku = normalized_item.external_sku
+            product_name = normalized_item.name
+            if not normalized_item.external_sku:
+                raise ValueError(_missing_sku_reason())
+            product_payload = _pos_item_to_product_create(normalized_item, store.id, default_status)
             duplicate = _find_duplicate_product(db, merchant, product_payload)
             if duplicate is None:
                 product = create_product_for_store(db, merchant, product_payload)
                 created_count += 1
                 row = PosSyncRow(
                     batch_id=batch.id,
-                    external_sku=item.external_sku,
+                    external_sku=normalized_item.external_sku,
                     product_id=product.id,
                     action="CREATED",
                     product_name=product.name,
+                )
+            elif update_mode == "SKIP_EXISTING":
+                skipped_count += 1
+                row = PosSyncRow(
+                    batch_id=batch.id,
+                    external_sku=normalized_item.external_sku,
+                    product_id=duplicate.id,
+                    action="SKIPPED",
+                    product_name=duplicate.name,
+                    error_message=_row_reason("EXISTING_PRODUCT_SKIPPED_BY_POLICY", "동기화 정책에 따라 기존 상품을 건너뛰었습니다."),
+                )
+            elif update_mode == "UPDATE_HIDDEN_ONLY" and duplicate.status != ProductStatus.HIDDEN:
+                skipped_count += 1
+                row = PosSyncRow(
+                    batch_id=batch.id,
+                    external_sku=normalized_item.external_sku,
+                    product_id=duplicate.id,
+                    action="SKIPPED",
+                    product_name=duplicate.name,
+                    error_message=_row_reason("EXISTING_PRODUCT_NOT_HIDDEN", "숨김 상품만 업데이트하는 정책이라 건너뛰었습니다."),
                 )
             elif _product_has_reservations(db, duplicate.id):
                 skipped_count += 1
                 row = PosSyncRow(
                     batch_id=batch.id,
-                    external_sku=item.external_sku,
+                    external_sku=normalized_item.external_sku,
                     product_id=duplicate.id,
                     action="SKIPPED",
                     product_name=duplicate.name,
-                    error_message="예약이 있는 상품은 Mock POS 동기화에서 자동 업데이트하지 않았습니다.",
+                    error_message=_row_reason("EXISTING_PRODUCT_HAS_RESERVATIONS", "예약이 있는 상품은 POS 동기화에서 자동 업데이트하지 않았습니다."),
                 )
             else:
                 _apply_import_update(duplicate, product_payload)
                 updated_count += 1
                 row = PosSyncRow(
                     batch_id=batch.id,
-                    external_sku=item.external_sku,
+                    external_sku=normalized_item.external_sku,
                     product_id=duplicate.id,
                     action="UPDATED",
                     product_name=duplicate.name,
@@ -170,12 +250,15 @@ def run_mock_pos_sync(db: Session, merchant: Merchant, payload: MockPosSyncReque
         except (ValueError, ValidationError, HTTPException) as exc:
             failed_count += 1
             detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
+            detail_text = str(detail)
+            if "discount_price" in detail_text and "greater than original_price" in detail_text:
+                detail_text = _row_reason("INVALID_PRICE", "할인가가 원가보다 클 수 없습니다.")
             row = PosSyncRow(
                 batch_id=batch.id,
-                external_sku=item.external_sku,
+                external_sku=external_sku,
                 action="FAILED",
-                product_name=item.name,
-                error_message=str(detail),
+                product_name=product_name,
+                error_message=detail_text,
             )
         db.add(row)
 

@@ -40,6 +40,20 @@ function actionTone(action: string): "success" | "warning" | "danger" | "muted" 
   return "muted";
 }
 
+function reasonLabel(message: string | null) {
+  if (!message) return "-";
+  const labels: Record<string, string> = {
+    EXISTING_PRODUCT_HAS_RESERVATIONS: "예약이 있는 기존 상품이라 건너뜀",
+    EXISTING_PRODUCT_SKIPPED_BY_POLICY: "정책에 따라 기존 상품 건너뜀",
+    EXISTING_PRODUCT_NOT_HIDDEN: "숨김 상품만 업데이트 정책으로 건너뜀",
+    INVALID_PRICE: "가격 오류",
+    MISSING_EXTERNAL_SKU: "external_sku 누락",
+    GENERIC_POS_PROVIDER_NOT_CONFIGURED: "Generic POS provider 준비 중",
+  };
+  const code = message.split(":")[0];
+  return labels[code] ? `${labels[code]} (${code})` : message;
+}
+
 export default function MerchantProPosPage() {
   const guard = useRoleGuard("MERCHANT");
   const [integration, setIntegration] = useState<PosIntegration | null>(null);
@@ -49,6 +63,8 @@ export default function MerchantProPosPage() {
   const [provider, setProvider] = useState("MOCK_POS");
   const [storeId, setStoreId] = useState("");
   const [externalStoreCode, setExternalStoreCode] = useState("");
+  const [updateMode, setUpdateMode] = useState("UPDATE_IF_NO_RESERVATIONS");
+  const [defaultProductStatus, setDefaultProductStatus] = useState("HIDDEN");
   const [mockJson, setMockJson] = useState(JSON.stringify(sampleItems, null, 2));
   const [syncResult, setSyncResult] = useState<MockPosSyncResult | null>(null);
   const [message, setMessage] = useState("");
@@ -132,7 +148,11 @@ export default function MerchantProPosPage() {
         "/api/v1/merchant/pro/pos-integration/mock-sync",
         {
           method: "POST",
-          body: JSON.stringify({ mock_items: parsed }),
+          body: JSON.stringify({
+            mock_items: parsed,
+            update_mode: updateMode,
+            default_product_status: defaultProductStatus,
+          }),
         },
         true,
       );
@@ -266,10 +286,29 @@ export default function MerchantProPosPage() {
           <div>
             <p className="eyebrow">Mock POS 동기화</p>
             <h2>external_sku 기준 상품 생성/업데이트</h2>
-            <p>예약이 없는 기존 상품은 업데이트하고, 예약이 있는 상품은 안전하게 건너뜁니다.</p>
+            <p>업데이트 정책을 선택하고, 기본 생성 상태는 고객에게 바로 노출되지 않는 HIDDEN으로 유지합니다.</p>
           </div>
           <Badge tone="warning">실제 POS 호출 없음</Badge>
         </div>
+        <div className="form-grid">
+          <label>
+            업데이트 정책
+            <select value={updateMode} onChange={(event) => setUpdateMode(event.target.value)}>
+              <option value="UPDATE_IF_NO_RESERVATIONS">예약 없으면 업데이트</option>
+              <option value="SKIP_EXISTING">기존 상품 건너뛰기</option>
+              <option value="UPDATE_HIDDEN_ONLY">숨김 상품만 업데이트</option>
+            </select>
+          </label>
+          <label>
+            기본 생성 상태
+            <select value={defaultProductStatus} onChange={(event) => setDefaultProductStatus(event.target.value)}>
+              <option value="HIDDEN">HIDDEN - 상품관리에서 확인 후 노출</option>
+            </select>
+          </label>
+        </div>
+        <p className="field-help">
+          ACTIVE 생성은 이번 MVP에서 제한합니다. POS에서 들어온 상품은 숨김 상태로 만든 뒤 점주가 상품관리에서 노출합니다.
+        </p>
         <label>
           Mock item JSON
           <textarea
@@ -394,7 +433,7 @@ function SyncRows({ rows }: { rows: PosSyncBatch["rows"] }) {
               <td>{row.external_sku || "-"}</td>
               <td>{row.product_name || "-"}</td>
               <td><Badge tone={actionTone(row.action)}>{row.action}</Badge></td>
-              <td>{row.error_message || "-"}</td>
+              <td>{reasonLabel(row.error_message)}</td>
             </tr>
           ))}
         </tbody>
