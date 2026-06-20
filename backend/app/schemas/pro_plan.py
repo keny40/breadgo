@@ -8,6 +8,7 @@ class ProPlanFeatures(BaseModel):
     yield_dashboard: bool
     relist_products: bool
     product_templates: bool
+    csv_product_import: bool
     esg_report: bool
     recommendations: bool
     recommendation_performance: bool

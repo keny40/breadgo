@@ -27,6 +27,7 @@ export default function NavBar() {
           { href: "/merchant/pro/esg", label: "ESG 리포트" },
           { href: "/merchant/stores", label: "매장" },
           { href: "/merchant/products", label: "상품 관리" },
+          { href: "/merchant/products/import", label: "CSV 등록" },
           { href: "/merchant/product-templates", label: "상품 템플릿" },
           { href: "/merchant/orders", label: "주문 관리" },
           { href: "/merchant/pickup", label: "픽업 확인" },

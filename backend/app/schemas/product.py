@@ -83,6 +83,20 @@ class ProductDuplicateCreate(BaseModel):
         return self
 
 
+class ProductCsvImportError(BaseModel):
+    row_number: int
+    field: str
+    message: str
+
+
+class ProductCsvImportResult(BaseModel):
+    total_rows: int
+    success_count: int
+    failed_count: int
+    created_product_ids: list[UUID]
+    errors: list[ProductCsvImportError]
+
+
 class ProductRead(BaseModel):
     id: UUID
     store_id: UUID

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,7 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.product_event import ProductEventCreate, ProductEventRead
-from app.schemas.product import ProductCreate, ProductDuplicateCreate, ProductRead, ProductUpdate
+from app.schemas.product import ProductCreate, ProductCsvImportResult, ProductDuplicateCreate, ProductRead, ProductUpdate
 from app.services.merchant_service import require_merchant_for_user
 from app.services.product_service import (
     create_product_for_store,
@@ -17,6 +17,7 @@ from app.services.product_service import (
     get_my_products,
     get_products_by_store,
     hide_product,
+    import_products_from_csv,
     update_product,
 )
 from app.services.product_event_service import record_product_event
@@ -98,6 +99,30 @@ def create_product_event(
 ) -> ProductEventRead:
     event = record_product_event(db, product_id, payload, current_user)
     return ProductEventRead.model_validate(event)
+
+
+@merchant_router.post("/import-csv/preview", response_model=ProductCsvImportResult)
+async def preview_current_merchant_product_csv_import(
+    store_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProductCsvImportResult:
+    merchant = require_merchant_for_user(db, current_user)
+    content = await file.read()
+    return import_products_from_csv(db, merchant, store_id, content, preview=True)
+
+
+@merchant_router.post("/import-csv", response_model=ProductCsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_current_merchant_products_from_csv(
+    store_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProductCsvImportResult:
+    merchant = require_merchant_for_user(db, current_user)
+    content = await file.read()
+    return import_products_from_csv(db, merchant, store_id, content, preview=False)
 
 
 @merchant_router.post("/{product_id}/duplicate", response_model=ProductRead, status_code=status.HTTP_201_CREATED)

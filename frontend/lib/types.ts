@@ -79,6 +79,20 @@ export type Product = {
   updated_at: string;
 };
 
+export type ProductCsvImportError = {
+  row_number: number;
+  field: string;
+  message: string;
+};
+
+export type ProductCsvImportResult = {
+  total_rows: number;
+  success_count: number;
+  failed_count: number;
+  created_product_ids: string[];
+  errors: ProductCsvImportError[];
+};
+
 export type Reservation = {
   id: string;
   user_id: string;
@@ -345,6 +359,7 @@ export type ProPlanFeatures = {
   yield_dashboard: boolean;
   relist_products: boolean;
   product_templates: boolean;
+  csv_product_import: boolean;
   esg_report: boolean;
   recommendations: boolean;
   recommendation_performance: boolean;

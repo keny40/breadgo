@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -453,15 +454,21 @@ export default function MerchantProductsPage() {
         title="상품 관리"
         description="상품 등록, 재고 수정, 이미지 변경, 판매 상태 관리를 한 화면에서 처리합니다."
         actions={
-          <button type="button" onClick={() => loadProducts()}>
-            상품 불러오기
-          </button>
+          <div className="actions">
+            <button type="button" onClick={() => loadProducts()}>
+              상품 불러오기
+            </button>
+            <Link className="button-link secondary" href="/merchant/products/import">
+              CSV 일괄 등록
+            </Link>
+          </div>
         }
       />
       <div className="message">
         <strong>어제 남은 빵 그대로 올리기</strong>
         <br />
         반복 상품 등록은 기존 상품 정보는 유지하고 오늘 재고와 마감 시간만 바꿔 빠르게 재등록합니다.
+        CSV 일괄 등록은 POS 연동 전 단계의 BreadGo Pro 고급 기능입니다.
       </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
