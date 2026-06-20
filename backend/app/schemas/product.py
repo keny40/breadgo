@@ -10,6 +10,7 @@ from app.models.product import ProductStatus
 class ProductCreate(BaseModel):
     store_id: UUID
     name: str = Field(min_length=1, max_length=255)
+    external_sku: str | None = Field(default=None, max_length=120)
     description: str | None = None
     image_url: str | None = Field(default=None, max_length=1000)
     original_price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
@@ -37,6 +38,7 @@ class ProductCreate(BaseModel):
 
 class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    external_sku: str | None = Field(default=None, max_length=120)
     description: str | None = None
     image_url: str | None = Field(default=None, max_length=1000)
     original_price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
@@ -89,18 +91,65 @@ class ProductCsvImportError(BaseModel):
     message: str
 
 
+class ProductCsvImportRowResult(BaseModel):
+    row_number: int
+    product_id: UUID | None = None
+    product_name: str | None = None
+    action: str
+    action_candidate: str
+    duplicate_detected: bool = False
+    error_message: str | None = None
+
+
 class ProductCsvImportResult(BaseModel):
+    batch_id: UUID | None = None
     total_rows: int
     success_count: int
     failed_count: int
+    created_count: int = 0
+    updated_count: int = 0
+    skipped_count: int = 0
     created_product_ids: list[UUID]
     errors: list[ProductCsvImportError]
+    rows: list[ProductCsvImportRowResult] = []
+
+
+class ProductImportRowRead(BaseModel):
+    id: UUID
+    batch_id: UUID
+    row_number: int
+    product_id: UUID | None
+    action: str
+    product_name: str | None
+    error_message: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProductImportBatchRead(BaseModel):
+    id: UUID
+    merchant_id: UUID
+    store_id: UUID | None
+    file_name: str
+    total_rows: int
+    success_count: int
+    failed_count: int
+    created_count: int
+    updated_count: int
+    skipped_count: int
+    status: str
+    created_at: datetime
+    rows: list[ProductImportRowRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProductRead(BaseModel):
     id: UUID
     store_id: UUID
     name: str
+    external_sku: str | None
     description: str | None
     image_url: str | None
     original_price: Decimal

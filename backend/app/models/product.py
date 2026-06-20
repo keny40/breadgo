@@ -33,6 +33,7 @@ class Product(Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    external_sku: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     original_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)

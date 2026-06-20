@@ -62,6 +62,7 @@ export type Product = {
   id: string;
   store_id: string;
   name: string;
+  external_sku: string | null;
   description: string | null;
   image_url: string | null;
   original_price: string;
@@ -86,11 +87,53 @@ export type ProductCsvImportError = {
 };
 
 export type ProductCsvImportResult = {
+  batch_id: string | null;
   total_rows: number;
   success_count: number;
   failed_count: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
   created_product_ids: string[];
   errors: ProductCsvImportError[];
+  rows: ProductCsvImportRowResult[];
+};
+
+export type ProductCsvImportRowResult = {
+  row_number: number;
+  product_id: string | null;
+  product_name: string | null;
+  action: string;
+  action_candidate: string;
+  duplicate_detected: boolean;
+  error_message: string | null;
+};
+
+export type ProductImportRow = {
+  id: string;
+  batch_id: string;
+  row_number: number;
+  product_id: string | null;
+  action: string;
+  product_name: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type ProductImportBatch = {
+  id: string;
+  merchant_id: string;
+  store_id: string | null;
+  file_name: string;
+  total_rows: number;
+  success_count: number;
+  failed_count: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  status: string;
+  created_at: string;
+  rows: ProductImportRow[];
 };
 
 export type Reservation = {

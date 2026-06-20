@@ -1,5 +1,6 @@
 import csv
 import io
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
@@ -12,9 +13,19 @@ from sqlalchemy.orm import Session
 
 from app.models.merchant import Merchant
 from app.models.product import Product, ProductStatus
+from app.models.product_import import ProductImportBatch, ProductImportRow
 from app.models.recommendation_usage import RecommendationUsage
+from app.models.reservation import Reservation
 from app.models.store import Store
-from app.schemas.product import ProductCreate, ProductCsvImportError, ProductCsvImportResult, ProductDuplicateCreate, ProductUpdate
+from app.schemas.product import (
+    ProductCreate,
+    ProductCsvImportError,
+    ProductCsvImportResult,
+    ProductCsvImportRowResult,
+    ProductDuplicateCreate,
+    ProductImportBatchRead,
+    ProductUpdate,
+)
 
 KST = ZoneInfo("Asia/Seoul")
 CSV_REQUIRED_COLUMNS = {
@@ -25,6 +36,13 @@ CSV_REQUIRED_COLUMNS = {
     "sale_starts_at",
     "sale_ends_at",
 }
+CSV_IMPORT_ACTIONS = {"CREATE_ONLY", "UPDATE_OR_CREATE", "SKIP_DUPLICATE"}
+
+
+@dataclass
+class CsvPlannedRow:
+    row_result: ProductCsvImportRowResult
+    payload: ProductCreate
 
 
 def _get_owned_store(db: Session, merchant: Merchant, store_id: UUID) -> Store:
@@ -84,6 +102,7 @@ def create_product_for_store(db: Session, merchant: Merchant, payload: ProductCr
     product = Product(
         store_id=payload.store_id,
         name=payload.name.strip(),
+        external_sku=payload.external_sku.strip() if payload.external_sku else None,
         description=payload.description.strip() if payload.description else None,
         image_url=payload.image_url.strip() if payload.image_url else None,
         original_price=payload.original_price,
@@ -183,6 +202,13 @@ def _validate_csv_header(fieldnames: list[str] | None) -> None:
         )
 
 
+def _normalize_import_action(value: str | None, default_import_action: str) -> str:
+    raw_value = value.strip().upper() if value else default_import_action
+    if raw_value not in CSV_IMPORT_ACTIONS:
+        raise ValueError("import_action은 CREATE_ONLY, UPDATE_OR_CREATE, SKIP_DUPLICATE 중 하나여야 합니다.")
+    return raw_value
+
+
 def _row_to_product_create(row: dict[str, str | None], store_id: UUID) -> ProductCreate:
     name = (row.get("name") or "").strip()
     if not name:
@@ -200,6 +226,7 @@ def _row_to_product_create(row: dict[str, str | None], store_id: UUID) -> Produc
     return ProductCreate(
         store_id=store_id,
         name=name,
+        external_sku=(row.get("external_sku") or row.get("sku") or "").strip() or None,
         description=(row.get("description") or "").strip() or None,
         image_url=(row.get("image_url") or "").strip() or None,
         original_price=original_price,
@@ -216,6 +243,63 @@ def _row_to_product_create(row: dict[str, str | None], store_id: UUID) -> Produc
     )
 
 
+def _find_duplicate_product(db: Session, merchant: Merchant, payload: ProductCreate) -> Product | None:
+    if payload.external_sku:
+        product = db.scalar(
+            select(Product)
+            .join(Store, Product.store_id == Store.id)
+            .where(
+                Store.merchant_id == merchant.id,
+                Product.store_id == payload.store_id,
+                Product.external_sku == payload.external_sku,
+            )
+            .order_by(Product.created_at.desc())
+        )
+        if product is not None:
+            return product
+
+    return db.scalar(
+        select(Product)
+        .join(Store, Product.store_id == Store.id)
+        .where(
+            Store.merchant_id == merchant.id,
+            Product.store_id == payload.store_id,
+            Product.name == payload.name,
+            Product.pickup_start_time == payload.pickup_start_time,
+        )
+        .order_by(Product.created_at.desc())
+    )
+
+
+def _product_has_reservations(db: Session, product_id: UUID) -> bool:
+    return db.scalar(select(Reservation.id).where(Reservation.product_id == product_id).limit(1)) is not None
+
+
+def _apply_import_update(product: Product, payload: ProductCreate) -> None:
+    product.external_sku = payload.external_sku
+    product.description = payload.description
+    product.image_url = payload.image_url
+    product.original_price = payload.original_price
+    product.discount_price = payload.discount_price
+    product.quantity = payload.quantity
+    product.allow_pickup = payload.allow_pickup
+    product.allow_quick_delivery = payload.allow_quick_delivery
+    product.allow_parcel_delivery = payload.allow_parcel_delivery
+    product.quick_delivery_fee = payload.quick_delivery_fee
+    product.parcel_delivery_fee = payload.parcel_delivery_fee
+    product.pickup_start_time = payload.pickup_start_time
+    product.pickup_end_time = payload.pickup_end_time
+    _apply_sold_out_status(product)
+
+
+def _batch_status(success_count: int, failed_count: int) -> str:
+    if success_count == 0 and failed_count > 0:
+        return "FAILED"
+    if failed_count > 0:
+        return "COMPLETED_WITH_ERRORS"
+    return "COMPLETED"
+
+
 def import_products_from_csv(
     db: Session,
     merchant: Merchant,
@@ -223,15 +307,22 @@ def import_products_from_csv(
     content: bytes,
     *,
     preview: bool,
+    file_name: str = "products.csv",
+    default_import_action: str = "CREATE_ONLY",
 ) -> ProductCsvImportResult:
     _get_owned_store(db, merchant, store_id)
+    default_import_action = _normalize_import_action(default_import_action, "CREATE_ONLY")
     text = _decode_csv_content(content)
     reader = csv.DictReader(io.StringIO(text))
     _validate_csv_header(reader.fieldnames)
 
     created_product_ids: list[UUID] = []
     errors: list[ProductCsvImportError] = []
-    valid_payloads: list[ProductCreate] = []
+    rows: list[ProductCsvImportRowResult] = []
+    planned_rows: list[CsvPlannedRow] = []
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
     total_rows = 0
 
     for row_number, row in enumerate(reader, start=2):
@@ -239,7 +330,48 @@ def import_products_from_csv(
             continue
         total_rows += 1
         try:
-            valid_payloads.append(_row_to_product_create(row, store_id))
+            import_action = _normalize_import_action(row.get("import_action"), default_import_action)
+            payload = _row_to_product_create(row, store_id)
+            duplicate = _find_duplicate_product(db, merchant, payload)
+            duplicate_detected = duplicate is not None
+            action_candidate = "CREATED"
+            product_id: UUID | None = None
+
+            if duplicate_detected and duplicate is not None:
+                product_id = duplicate.id
+                if import_action == "UPDATE_OR_CREATE":
+                    if _product_has_reservations(db, duplicate.id):
+                        action_candidate = "SKIPPED"
+                    else:
+                        action_candidate = "UPDATED"
+                else:
+                    action_candidate = "SKIPPED"
+
+            if action_candidate == "CREATED":
+                created_count += 1
+            elif action_candidate == "UPDATED":
+                updated_count += 1
+            elif action_candidate == "SKIPPED":
+                skipped_count += 1
+
+            row_result = ProductCsvImportRowResult(
+                row_number=row_number,
+                product_id=product_id,
+                product_name=payload.name,
+                action=action_candidate if preview else "PENDING",
+                action_candidate=action_candidate,
+                duplicate_detected=duplicate_detected,
+                error_message=(
+                    "예약이 있는 기존 상품은 CSV로 업데이트하지 않고 건너뜁니다."
+                    if duplicate_detected
+                    and duplicate is not None
+                    and import_action == "UPDATE_OR_CREATE"
+                    and _product_has_reservations(db, duplicate.id)
+                    else None
+                ),
+            )
+            rows.append(row_result)
+            planned_rows.append(CsvPlannedRow(row_result=row_result, payload=payload))
         except (ValueError, ValidationError) as exc:
             field = "row"
             message = str(exc)
@@ -248,21 +380,129 @@ def import_products_from_csv(
                     field = candidate
                     break
             errors.append(ProductCsvImportError(row_number=row_number, field=field, message=message))
+            rows.append(
+                ProductCsvImportRowResult(
+                    row_number=row_number,
+                    product_name=(row.get("name") or "").strip() or None,
+                    action="FAILED",
+                    action_candidate="FAILED",
+                    duplicate_detected=False,
+                    error_message=message,
+                )
+            )
 
     if not preview:
-        for payload in valid_payloads:
-            product = create_product_for_store(db, merchant, payload)
-            created_product_ids.append(product.id)
+        created_product_ids = []
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
 
-    success_count = len(valid_payloads)
+        for planned_row in planned_rows:
+            row_result = planned_row.row_result
+            try:
+                payload = planned_row.payload
+                duplicate = _find_duplicate_product(db, merchant, payload)
+                if row_result.action_candidate == "CREATED":
+                    product = create_product_for_store(db, merchant, payload)
+                    row_result.product_id = product.id
+                    row_result.action = "CREATED"
+                    created_product_ids.append(product.id)
+                    created_count += 1
+                elif row_result.action_candidate == "UPDATED" and duplicate is not None:
+                    _apply_import_update(duplicate, payload)
+                    row_result.product_id = duplicate.id
+                    row_result.action = "UPDATED"
+                    updated_count += 1
+                else:
+                    row_result.action = "SKIPPED"
+                    skipped_count += 1
+            except (ValueError, ValidationError) as exc:
+                row_result.action = "FAILED"
+                row_result.action_candidate = "FAILED"
+                row_result.error_message = str(exc)
+                errors.append(ProductCsvImportError(row_number=row_result.row_number, field="row", message=str(exc)))
+
+        success_count = created_count + updated_count + skipped_count
+        failed_count = len(errors)
+        batch = ProductImportBatch(
+            merchant_id=merchant.id,
+            store_id=store_id,
+            file_name=file_name[:255] or "products.csv",
+            total_rows=total_rows,
+            success_count=success_count,
+            failed_count=failed_count,
+            created_count=created_count,
+            updated_count=updated_count,
+            skipped_count=skipped_count,
+            status=_batch_status(success_count, failed_count),
+        )
+        db.add(batch)
+        db.flush()
+
+        for row_result in rows:
+            db.add(
+                ProductImportRow(
+                    batch_id=batch.id,
+                    row_number=row_result.row_number,
+                    product_id=row_result.product_id,
+                    action=row_result.action,
+                    product_name=row_result.product_name,
+                    error_message=row_result.error_message,
+                )
+            )
+
+        db.commit()
+        return ProductCsvImportResult(
+            batch_id=batch.id,
+            total_rows=total_rows,
+            success_count=success_count,
+            failed_count=failed_count,
+            created_count=created_count,
+            updated_count=updated_count,
+            skipped_count=skipped_count,
+            created_product_ids=created_product_ids,
+            errors=errors,
+            rows=rows,
+        )
+
+    success_count = created_count + updated_count + skipped_count
     failed_count = len(errors)
     return ProductCsvImportResult(
+        batch_id=None,
         total_rows=total_rows,
         success_count=success_count,
         failed_count=failed_count,
+        created_count=created_count,
+        updated_count=updated_count,
+        skipped_count=skipped_count,
         created_product_ids=created_product_ids,
         errors=errors,
+        rows=rows,
     )
+
+
+def get_product_import_batches(db: Session, merchant: Merchant) -> list[ProductImportBatch]:
+    return list(
+        db.scalars(
+            select(ProductImportBatch)
+            .where(ProductImportBatch.merchant_id == merchant.id)
+            .order_by(ProductImportBatch.created_at.desc())
+            .limit(30)
+        )
+    )
+
+
+def get_product_import_batch(db: Session, merchant: Merchant, batch_id: UUID) -> ProductImportBatchRead:
+    from sqlalchemy.orm import selectinload
+
+    batch = db.scalar(
+        select(ProductImportBatch)
+        .where(ProductImportBatch.id == batch_id, ProductImportBatch.merchant_id == merchant.id)
+        .options(selectinload(ProductImportBatch.rows))
+    )
+    if batch is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import batch not found.")
+    return ProductImportBatchRead.model_validate(batch)
 
 
 def duplicate_product_for_merchant(

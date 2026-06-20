@@ -9,11 +9,20 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.product_event import ProductEventCreate, ProductEventRead
-from app.schemas.product import ProductCreate, ProductCsvImportResult, ProductDuplicateCreate, ProductRead, ProductUpdate
+from app.schemas.product import (
+    ProductCreate,
+    ProductCsvImportResult,
+    ProductDuplicateCreate,
+    ProductImportBatchRead,
+    ProductRead,
+    ProductUpdate,
+)
 from app.services.merchant_service import require_merchant_for_user
 from app.services.product_service import (
     create_product_for_store,
     duplicate_product_for_merchant,
+    get_product_import_batch,
+    get_product_import_batches,
     get_my_products,
     get_products_by_store,
     hide_product,
@@ -104,25 +113,62 @@ def create_product_event(
 @merchant_router.post("/import-csv/preview", response_model=ProductCsvImportResult)
 async def preview_current_merchant_product_csv_import(
     store_id: UUID = Form(...),
+    default_import_action: str = Form("CREATE_ONLY"),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ProductCsvImportResult:
     merchant = require_merchant_for_user(db, current_user)
     content = await file.read()
-    return import_products_from_csv(db, merchant, store_id, content, preview=True)
+    return import_products_from_csv(
+        db,
+        merchant,
+        store_id,
+        content,
+        preview=True,
+        file_name=file.filename or "products.csv",
+        default_import_action=default_import_action,
+    )
 
 
 @merchant_router.post("/import-csv", response_model=ProductCsvImportResult, status_code=status.HTTP_201_CREATED)
 async def import_current_merchant_products_from_csv(
     store_id: UUID = Form(...),
+    default_import_action: str = Form("CREATE_ONLY"),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ProductCsvImportResult:
     merchant = require_merchant_for_user(db, current_user)
     content = await file.read()
-    return import_products_from_csv(db, merchant, store_id, content, preview=False)
+    return import_products_from_csv(
+        db,
+        merchant,
+        store_id,
+        content,
+        preview=False,
+        file_name=file.filename or "products.csv",
+        default_import_action=default_import_action,
+    )
+
+
+@merchant_router.get("/import-batches", response_model=list[ProductImportBatchRead])
+def get_current_merchant_product_import_batches(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ProductImportBatchRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return [ProductImportBatchRead.model_validate(batch) for batch in get_product_import_batches(db, merchant)]
+
+
+@merchant_router.get("/import-batches/{batch_id}", response_model=ProductImportBatchRead)
+def get_current_merchant_product_import_batch(
+    batch_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProductImportBatchRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_product_import_batch(db, merchant, batch_id)
 
 
 @merchant_router.post("/{product_id}/duplicate", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
