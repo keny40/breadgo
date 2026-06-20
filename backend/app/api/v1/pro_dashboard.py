@@ -16,8 +16,22 @@ from app.schemas.pro_recommendation import (
     ProRecommendationDraftCreateRequest,
     ProRecommendationDraftCreateResponse,
 )
+from app.schemas.pos_integration import (
+    MockPosSyncRequest,
+    MockPosSyncResult,
+    PosIntegrationRead,
+    PosIntegrationUpsert,
+    PosSyncBatchRead,
+)
 from app.schemas.recommendation_action_event import RecommendationActionEventCreate, RecommendationActionEventRead
 from app.services.merchant_service import require_merchant_for_user
+from app.services.pos_integration_service import (
+    get_pos_sync_batch,
+    get_pos_sync_batches,
+    read_pos_integration,
+    run_mock_pos_sync,
+    upsert_pos_integration,
+)
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
 from app.services.pro_plan_service import build_merchant_pro_plan
@@ -115,3 +129,52 @@ def get_merchant_pro_product_funnel(
 ) -> MerchantProProductFunnelRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_product_funnel(db, merchant)
+
+
+@router.get("/pos-integration", response_model=PosIntegrationRead)
+def get_merchant_pro_pos_integration(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PosIntegrationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return read_pos_integration(db, merchant)
+
+
+@router.post("/pos-integration", response_model=PosIntegrationRead)
+def save_merchant_pro_pos_integration(
+    payload: PosIntegrationUpsert,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PosIntegrationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    integration = upsert_pos_integration(db, merchant, payload)
+    return PosIntegrationRead.model_validate(integration)
+
+
+@router.post("/pos-integration/mock-sync", response_model=MockPosSyncResult)
+def run_merchant_pro_mock_pos_sync(
+    payload: MockPosSyncRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MockPosSyncResult:
+    merchant = require_merchant_for_user(db, current_user)
+    return run_mock_pos_sync(db, merchant, payload)
+
+
+@router.get("/pos-integration/sync-batches", response_model=list[PosSyncBatchRead])
+def get_merchant_pro_pos_sync_batches(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[PosSyncBatchRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_pos_sync_batches(db, merchant)
+
+
+@router.get("/pos-integration/sync-batches/{batch_id}", response_model=PosSyncBatchRead)
+def get_merchant_pro_pos_sync_batch(
+    batch_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PosSyncBatchRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_pos_sync_batch(db, merchant, batch_id)

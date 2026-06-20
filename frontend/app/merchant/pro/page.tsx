@@ -205,6 +205,17 @@ export default function MerchantProDashboardPage() {
         </Link>
       </div>
 
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">Enterprise 준비 기능</p>
+          <h2>POS 연동 준비</h2>
+          <p>external_sku 기준 Mock POS 동기화로 실제 POS/API 연동 전 상품 생성과 업데이트 흐름을 검증합니다.</p>
+        </div>
+        <Link className="button-link secondary" href="/merchant/pro/pos">
+          POS 연동 테스트
+        </Link>
+      </div>
+
       <section className="panel">
         <div className="card-title-row">
           <div>

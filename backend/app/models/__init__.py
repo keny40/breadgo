@@ -1,6 +1,7 @@
 from app.models.merchant import Merchant
 from app.models.notification import Notification
 from app.models.payment import Payment
+from app.models.pos_integration import PosIntegration, PosSyncBatch, PosSyncRow
 from app.models.product import Product
 from app.models.product_event import ProductEvent
 from app.models.product_import import ProductImportBatch, ProductImportRow
@@ -17,6 +18,9 @@ __all__ = [
     "Merchant",
     "Notification",
     "Payment",
+    "PosIntegration",
+    "PosSyncBatch",
+    "PosSyncRow",
     "Product",
     "ProductEvent",
     "ProductImportBatch",

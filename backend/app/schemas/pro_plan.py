@@ -14,6 +14,7 @@ class ProPlanFeatures(BaseModel):
     recommendation_performance: bool
     product_funnel: bool
     multi_store_dashboard: bool
+    pos_api_integration: bool
 
 
 class MerchantProPlanRead(BaseModel):

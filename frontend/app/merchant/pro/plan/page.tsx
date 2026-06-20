@@ -28,7 +28,7 @@ const planCards = [
     name: "Enterprise",
     badge: "Enterprise",
     description: "다중 매장/프랜차이즈 운영을 위한 확장 플랜입니다.",
-    features: ["매장 통합 대시보드", "프랜차이즈/본사 리포트", "향후 POS/API 연동", "전담 운영 리포트"],
+    features: ["매장 통합 대시보드", "프랜차이즈/본사 리포트", "CSV 일괄 등록 고도화", "POS/API 연동 준비", "전담 운영 리포트"],
     cta: "도입 문의 준비 중",
   },
 ];
@@ -43,6 +43,7 @@ const featureLabels: Record<keyof MerchantProPlan["features"], string> = {
   recommendation_performance: "추천 성과 분석",
   product_funnel: "고객 전환 퍼널",
   multi_store_dashboard: "다중 매장 통합",
+  pos_api_integration: "POS/API 연동 준비",
 };
 
 function planTone(plan: string): "success" | "warning" | "muted" {

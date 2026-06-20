@@ -408,6 +408,7 @@ export type ProPlanFeatures = {
   recommendation_performance: boolean;
   product_funnel: boolean;
   multi_store_dashboard: boolean;
+  pos_api_integration: boolean;
 };
 
 export type MerchantProPlan = {
@@ -611,6 +612,56 @@ export type MerchantProProductFunnel = {
   total_picked_up_count: number;
   detail_to_reservation_rate: number;
   product_funnel_summaries: ProProductFunnelSummary[];
+};
+
+export type PosIntegration = {
+  id: string;
+  merchant_id: string;
+  store_id: string | null;
+  provider: string;
+  status: string;
+  external_store_code: string | null;
+  last_synced_at: string | null;
+  last_sync_status: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PosSyncRow = {
+  id: string;
+  batch_id: string;
+  external_sku: string | null;
+  product_id: string | null;
+  action: string;
+  product_name: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type PosSyncBatch = {
+  id: string;
+  integration_id: string;
+  merchant_id: string;
+  store_id: string | null;
+  total_rows: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  failed_count: number;
+  status: string;
+  created_at: string;
+  rows: PosSyncRow[];
+};
+
+export type MockPosSyncResult = {
+  batch_id: string;
+  total_rows: number;
+  created_count: number;
+  updated_count: number;
+  skipped_count: number;
+  failed_count: number;
+  status: string;
+  rows: PosSyncRow[];
 };
 
 export type ProductTemplate = {
