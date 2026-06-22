@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.inventory_alert_action import InventoryAlertActionCreate, InventoryAlertActionRead
 from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStoresDashboardRead
+from app.schemas.pro_daily_brief import MerchantProDailyBriefRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
 from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead
 from app.schemas.pro_plan import MerchantProPlanRead
@@ -38,6 +39,7 @@ from app.services.pos_integration_service import (
 )
 from app.services.product_inventory_event_service import list_inventory_events
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
+from app.services.pro_daily_brief_service import build_merchant_pro_daily_brief
 from app.services.pro_esg_service import build_merchant_pro_esg_report
 from app.services.pro_inventory_alert_service import build_merchant_pro_inventory_alerts
 from app.services.pro_plan_service import build_merchant_pro_plan
@@ -59,6 +61,15 @@ def get_merchant_pro_dashboard(
 ) -> MerchantProDashboardRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_dashboard(db, merchant)
+
+
+@router.get("/daily-brief", response_model=MerchantProDailyBriefRead)
+def get_merchant_pro_daily_brief(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProDailyBriefRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_daily_brief(db, merchant)
 
 
 @router.get("/plan", response_model=MerchantProPlanRead)

@@ -7,6 +7,7 @@ import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type {
   MerchantProDashboard,
+  MerchantProDailyBrief,
   MerchantProInventoryAlerts,
   MerchantProPlan,
   MerchantProRecommendations,
@@ -42,6 +43,7 @@ function priorityRank(value: string) {
 export default function MerchantProDashboardPage() {
   const guard = useRoleGuard("MERCHANT");
   const [dashboard, setDashboard] = useState<MerchantProDashboard | null>(null);
+  const [dailyBrief, setDailyBrief] = useState<MerchantProDailyBrief | null>(null);
   const [plan, setPlan] = useState<MerchantProPlan | null>(null);
   const [inventoryAlerts, setInventoryAlerts] = useState<MerchantProInventoryAlerts | null>(null);
   const [recommendations, setRecommendations] = useState<ProRecommendation[]>([]);
@@ -73,16 +75,18 @@ export default function MerchantProDashboardPage() {
     setIsError(false);
 
     try {
-      const [data, recommendationData, planData, alertData] = await Promise.all([
+      const [data, recommendationData, planData, alertData, briefData] = await Promise.all([
         apiFetch<MerchantProDashboard>("/api/v1/merchant/pro/dashboard", {}, true),
         apiFetch<MerchantProRecommendations>("/api/v1/merchant/pro/recommendations", {}, true),
         apiFetch<MerchantProPlan>("/api/v1/merchant/pro/plan", {}, true),
         apiFetch<MerchantProInventoryAlerts>("/api/v1/merchant/pro/inventory-alerts", {}, true),
+        apiFetch<MerchantProDailyBrief>("/api/v1/merchant/pro/daily-brief", {}, true),
       ]);
       setDashboard(data);
       setRecommendations(recommendationData.recommendations);
       setPlan(planData);
       setInventoryAlerts(alertData);
+      setDailyBrief(briefData);
       setMessage("BreadGo Pro 수율 데이터를 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -147,6 +151,27 @@ export default function MerchantProDashboardPage() {
           <span>판매율</span>
           <strong>{dashboard ? formatPercent(dashboard.sell_through_rate) : "0.0%"}</strong>
           <small>예약 수량 / 오늘 등록 추정 수량</small>
+        </div>
+      </div>
+
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">Daily Pro Brief</p>
+          <h2>오늘의 운영 브리프</h2>
+          <p>
+            BreadGo Pro가 오늘 먼저 확인할 운영 이슈를 정리했습니다.
+            {dailyBrief
+              ? ` 미해결 재고 알림 ${dailyBrief.unresolved_alert_count}건, 추천 액션 ${dailyBrief.recommendation_action_count}건, POS 상태 ${dailyBrief.pos_last_sync_status || "기록 없음"}입니다.`
+              : ""}
+          </p>
+        </div>
+        <div className="actions">
+          <Badge tone={(dailyBrief?.high_severity_alert_count || 0) > 0 ? "danger" : "success"}>
+            HIGH {dailyBrief?.high_severity_alert_count || 0}
+          </Badge>
+          <Link className="button-link secondary" href="/merchant/pro/daily-brief">
+            오늘 브리프 보기
+          </Link>
         </div>
       </div>
 

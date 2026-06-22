@@ -501,6 +501,34 @@ export type MerchantProRecommendations = {
   recommendations: ProRecommendation[];
 };
 
+export type ProDailyBriefTask = {
+  task_type: string;
+  priority: string;
+  title: string;
+  message: string;
+  action_label: string;
+  action_href: string;
+};
+
+export type MerchantProDailyBrief = {
+  date: string;
+  today_sales_amount: string;
+  today_reservation_count: number;
+  today_picked_up_count: number;
+  today_cancelled_count: number;
+  saved_quantity_today: number;
+  unresolved_alert_count: number;
+  action_started_alert_count: number;
+  high_severity_alert_count: number;
+  recommendation_action_count: number;
+  pos_last_sync_status: string | null;
+  pos_last_synced_at: string | null;
+  csv_recent_import_count: number;
+  csv_recent_failed_count: number;
+  inventory_event_count_today: number;
+  tasks: ProDailyBriefTask[];
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

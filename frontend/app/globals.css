@@ -1211,6 +1211,26 @@ code {
   gap: 12px;
 }
 
+.summary-grid.compact {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stacked-list {
+  display: grid;
+  gap: 12px;
+}
+
+.compact-card {
+  display: grid;
+  gap: 12px;
+}
+
 .summary-card {
   display: grid;
   gap: 7px;
@@ -1409,6 +1429,10 @@ tr:last-child td {
   }
 
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-two {
     grid-template-columns: 1fr;
   }
 
