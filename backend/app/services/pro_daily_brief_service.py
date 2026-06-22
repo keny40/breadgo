@@ -1,5 +1,7 @@
+import csv
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+from io import StringIO
 from zoneinfo import ZoneInfo
 
 from uuid import UUID
@@ -592,4 +594,68 @@ def build_merchant_pro_weekly_report(
             pos_sync_issue_count,
             csv_import_error_count,
         ),
+    )
+
+
+def weekly_report_to_csv(report: MerchantProWeeklyReportRead) -> str:
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "date",
+            "sales_amount",
+            "reservation_count",
+            "picked_up_count",
+            "cancelled_count",
+            "saved_quantity",
+            "unresolved_alert_count",
+            "recommendation_action_count",
+        ]
+    )
+    for trend in report.daily_trends:
+        writer.writerow(
+            [
+                trend.date.isoformat(),
+                trend.sales_amount,
+                trend.reservation_count,
+                trend.picked_up_count,
+                trend.cancelled_count,
+                trend.saved_quantity,
+                trend.unresolved_alert_count,
+                trend.recommendation_action_count,
+            ]
+        )
+    return output.getvalue()
+
+
+def weekly_report_to_text(report: MerchantProWeeklyReportRead) -> str:
+    insight_lines = "\n".join(
+        f"- {insight.title}: {insight.message}" for insight in report.insights
+    )
+    if not insight_lines:
+        insight_lines = "- 표시할 인사이트가 없습니다."
+
+    return "\n".join(
+        [
+            "BreadGo Pro 주간 운영 리포트",
+            f"기간: {report.start_date.isoformat()} ~ {report.end_date.isoformat()}",
+            "",
+            "[이번 주 운영 요약]",
+            f"- 총 매출: {int(report.total_sales_amount):,}원",
+            f"- 예약 수: {report.total_reservation_count}건",
+            f"- 픽업 완료: {report.total_picked_up_count}건",
+            f"- 취소: {report.total_cancelled_count}건",
+            f"- 폐기 절감: {report.total_saved_quantity}개",
+            f"- 평균 미해결 알림: {report.average_unresolved_alert_count:.1f}건",
+            f"- HIGH 알림: {report.high_severity_alert_count}건",
+            f"- 추천 액션: {report.total_recommendation_action_count}건",
+            f"- 재고 변경 이력: {report.total_inventory_event_count}건",
+            f"- POS 확인 필요 일수: {report.pos_sync_issue_count}일",
+            f"- CSV 오류: {report.csv_import_error_count}건",
+            "",
+            "[주요 인사이트]",
+            insight_lines,
+            "",
+            "이 요약은 실제 AI 생성 문장이 아닌 BreadGo Pro rule-based 운영 리포트입니다.",
+        ]
     )

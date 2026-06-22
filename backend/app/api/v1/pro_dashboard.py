@@ -1,7 +1,8 @@
 from uuid import UUID
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -51,6 +52,8 @@ from app.services.pro_daily_brief_service import (
     create_or_update_daily_brief_snapshot,
     get_daily_brief_snapshot,
     list_daily_brief_history,
+    weekly_report_to_csv,
+    weekly_report_to_text,
 )
 from app.services.pro_esg_service import build_merchant_pro_esg_report
 from app.services.pro_inventory_alert_service import build_merchant_pro_inventory_alerts
@@ -122,6 +125,30 @@ def get_merchant_pro_weekly_report(
 ) -> MerchantProWeeklyReportRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.get("/weekly-report/export")
+def export_merchant_pro_weekly_report(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    export_format: str = Query(default="text", alias="format", pattern="^(json|csv|text)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    merchant = require_merchant_for_user(db, current_user)
+    report = build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
+
+    if export_format == "json":
+        return JSONResponse(content=report.model_dump(mode="json"))
+
+    if export_format == "csv":
+        return Response(
+            content=weekly_report_to_csv(report),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="breadgo-weekly-report.csv"'},
+        )
+
+    return PlainTextResponse(content=weekly_report_to_text(report))
 
 
 @router.get("/plan", response_model=MerchantProPlanRead)

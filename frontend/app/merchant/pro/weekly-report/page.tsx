@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
-import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { apiFetch, buildApiUrl, friendlyErrorMessage, getToken } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type { MerchantProWeeklyReport, ProWeeklyReportDailyTrend, ProWeeklyReportInsight } from "@/lib/types";
 
@@ -58,6 +58,7 @@ export default function MerchantProWeeklyReportPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!guard.allowed) return;
@@ -82,6 +83,63 @@ export default function MerchantProWeeklyReportPage() {
     }
   }
 
+  async function fetchExport(format: "csv" | "text") {
+    const token = getToken();
+    if (!token) {
+      throw new Error("로그인이 필요합니다.");
+    }
+    const response = await fetch(buildApiUrl(`/api/v1/merchant/pro/weekly-report/export?format=${format}`), {
+      headers: {
+        Accept: format === "csv" ? "text/csv" : "text/plain",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    return response;
+  }
+
+  async function downloadCsv() {
+    setExporting(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const response = await fetchExport("csv");
+      const csv = await response.text();
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "breadgo-weekly-report.csv";
+      link.click();
+      window.URL.revokeObjectURL(url);
+      setMessage("주간 리포트 CSV를 다운로드했습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function copySummary() {
+    setExporting(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const response = await fetchExport("text");
+      const text = await response.text();
+      await navigator.clipboard.writeText(text);
+      setMessage("공유용 주간 리포트 요약을 클립보드에 복사했습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -99,6 +157,12 @@ export default function MerchantProWeeklyReportPage() {
           <>
             <button type="button" onClick={loadReport} disabled={loading}>
               {loading ? "불러오는 중" : "리포트 새로고침"}
+            </button>
+            <button type="button" onClick={downloadCsv} disabled={exporting}>
+              {exporting ? "처리 중" : "CSV 다운로드"}
+            </button>
+            <button type="button" onClick={copySummary} disabled={exporting}>
+              요약 복사
             </button>
             <Link className="button-link secondary" href="/merchant/pro/daily-brief/history">
               Daily Brief 이력
