@@ -9,6 +9,7 @@ from app.models.product_import import ProductImportBatch, ProductImportRow
 from app.models.product_inventory_event import ProductInventoryEvent
 from app.models.product_template import ProductTemplate
 from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
+from app.models.pro_weekly_report import ProWeeklyReportInsight, ProWeeklyReportSnapshot
 from app.models.recommendation_action_event import RecommendationActionEvent
 from app.models.recommendation_usage import RecommendationUsage
 from app.models.reservation import Reservation
@@ -33,6 +34,8 @@ __all__ = [
     "ProductTemplate",
     "ProDailyBriefSnapshot",
     "ProDailyBriefTask",
+    "ProWeeklyReportInsight",
+    "ProWeeklyReportSnapshot",
     "RecommendationActionEvent",
     "RecommendationUsage",
     "Reservation",

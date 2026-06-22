@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, buildApiUrl, friendlyErrorMessage, getToken } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProWeeklyReport, ProWeeklyReportDailyTrend, ProWeeklyReportInsight } from "@/lib/types";
+import type {
+  MerchantProWeeklyReport,
+  ProWeeklyReportAutoSnapshotPreview,
+  ProWeeklyReportAutoSnapshotRun,
+  ProWeeklyReportDailyTrend,
+  ProWeeklyReportInsight,
+  ProWeeklyReportSnapshot,
+} from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -54,25 +62,25 @@ function InsightCard({ insight }: { insight: ProWeeklyReportInsight }) {
 
 export default function MerchantProWeeklyReportPage() {
   const guard = useRoleGuard("MERCHANT");
+  const router = useRouter();
   const [report, setReport] = useState<MerchantProWeeklyReport | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-
-  useEffect(() => {
-    if (!guard.allowed) return;
-    void loadReport();
-  }, [guard.allowed]);
+  const [saving, setSaving] = useState(false);
+  const [autoSnapshotLoading, setAutoSnapshotLoading] = useState(false);
+  const [autoSnapshotPreview, setAutoSnapshotPreview] = useState<ProWeeklyReportAutoSnapshotPreview | null>(null);
 
   const trendMax = useMemo(() => maxTrendValue(report?.daily_trends || []), [report?.daily_trends]);
 
-  async function loadReport() {
+  const loadReport = useCallback(async () => {
     setLoading(true);
     setMessage("");
     setIsError(false);
     try {
-      const data = await apiFetch<MerchantProWeeklyReport>("/api/v1/merchant/pro/weekly-report", {}, true);
+      const query = reportQuery();
+      const data = await apiFetch<MerchantProWeeklyReport>(`/api/v1/merchant/pro/weekly-report${query}`, {}, true);
       setReport(data);
       setMessage("주간 운영 리포트를 불러왔습니다.");
     } catch (error) {
@@ -81,6 +89,22 @@ export default function MerchantProWeeklyReportPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!guard.allowed) return;
+    void Promise.resolve().then(loadReport);
+  }, [guard.allowed, loadReport]);
+
+  function reportQuery() {
+    const params = new URLSearchParams();
+    const currentParams = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+    const startDate = currentParams.get("start_date");
+    const endDate = currentParams.get("end_date");
+    if (startDate) params.set("start_date", startDate);
+    if (endDate) params.set("end_date", endDate);
+    const query = params.toString();
+    return query ? `?${query}` : "";
   }
 
   async function fetchExport(format: "csv" | "text") {
@@ -88,7 +112,9 @@ export default function MerchantProWeeklyReportPage() {
     if (!token) {
       throw new Error("로그인이 필요합니다.");
     }
-    const response = await fetch(buildApiUrl(`/api/v1/merchant/pro/weekly-report/export?format=${format}`), {
+    const params = new URLSearchParams(reportQuery().replace(/^\?/, ""));
+    params.set("format", format);
+    const response = await fetch(buildApiUrl(`/api/v1/merchant/pro/weekly-report/export?${params.toString()}`), {
       headers: {
         Accept: format === "csv" ? "text/csv" : "text/plain",
         Authorization: `Bearer ${token}`,
@@ -140,6 +166,70 @@ export default function MerchantProWeeklyReportPage() {
     }
   }
 
+  async function saveWeeklyReport() {
+    setSaving(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const snapshot = await apiFetch<ProWeeklyReportSnapshot>(
+        `/api/v1/merchant/pro/weekly-report/snapshot${reportQuery()}`,
+        { method: "POST" },
+        true,
+      );
+      setMessage("이번 주 리포트를 저장했습니다. 동일 기간 리포트는 최신 값으로 업데이트됩니다.");
+      router.push(`/merchant/pro/weekly-report/history?snapshot=${snapshot.id}`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function previewAutoSnapshot() {
+    setAutoSnapshotLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const preview = await apiFetch<ProWeeklyReportAutoSnapshotPreview>(
+        `/api/v1/merchant/pro/weekly-report/auto-snapshot-preview${reportQuery()}`,
+        { method: "POST" },
+        true,
+      );
+      setAutoSnapshotPreview(preview);
+      setMessage(
+        preview.would_create_new
+          ? "자동 저장 시 새 주간 리포트 snapshot이 생성됩니다."
+          : "자동 저장 시 기존 주간 리포트 snapshot이 최신 값으로 업데이트됩니다.",
+      );
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setAutoSnapshotLoading(false);
+    }
+  }
+
+  async function runAutoSnapshot() {
+    setAutoSnapshotLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProWeeklyReportAutoSnapshotRun>(
+        `/api/v1/merchant/pro/weekly-report/auto-snapshot${reportQuery()}`,
+        { method: "POST" },
+        true,
+      );
+      setMessage(result.message);
+      router.push(`/merchant/pro/weekly-report/history?snapshot=${result.snapshot_id}`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setAutoSnapshotLoading(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -164,8 +254,14 @@ export default function MerchantProWeeklyReportPage() {
             <button type="button" onClick={copySummary} disabled={exporting}>
               요약 복사
             </button>
+            <button type="button" onClick={saveWeeklyReport} disabled={saving}>
+              {saving ? "저장 중" : "이번 주 리포트 저장"}
+            </button>
             <Link className="button-link secondary" href="/merchant/pro/daily-brief/history">
               Daily Brief 이력
+            </Link>
+            <Link className="button-link secondary" href="/merchant/pro/weekly-report/history">
+              저장 이력 보기
             </Link>
           </>
         }
@@ -190,6 +286,45 @@ export default function MerchantProWeeklyReportPage() {
           <small>최근 기간 내 반영 일수</small>
         </div>
       </div>
+
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">Auto Snapshot MVP</p>
+            <h2>주간 리포트 자동 저장 준비</h2>
+            <p>
+              실제 cron은 아직 연결하지 않았습니다. 향후 매주 자동 저장될 리포트의 기간과 핵심 지표를
+              미리 확인하고, 같은 로직으로 snapshot을 생성합니다.
+            </p>
+          </div>
+          <Badge tone="muted">수동/자동 공통 저장 이력</Badge>
+        </div>
+        <div className="actions">
+          <button type="button" onClick={previewAutoSnapshot} disabled={autoSnapshotLoading}>
+            {autoSnapshotLoading ? "확인 중" : "자동 저장 미리보기"}
+          </button>
+          <button type="button" onClick={runAutoSnapshot} disabled={autoSnapshotLoading}>
+            {autoSnapshotLoading ? "저장 중" : "이번 주 리포트 자동 저장"}
+          </button>
+          <Link className="button-link secondary" href="/merchant/pro/weekly-report/history">
+            저장 이력 보기
+          </Link>
+        </div>
+        {autoSnapshotPreview && (
+          <div className="summary-grid compact-grid">
+            <StatCard
+              label="저장될 기간"
+              value={`${formatDate(autoSnapshotPreview.start_date)} - ${formatDate(autoSnapshotPreview.end_date)}`}
+              helper={autoSnapshotPreview.would_create_new ? "새 snapshot 생성 예정" : "기존 snapshot 업데이트 예정"}
+            />
+            <StatCard label="총 매출" value={formatMoney(autoSnapshotPreview.report_summary.total_sales_amount)} />
+            <StatCard label="예약" value={autoSnapshotPreview.report_summary.total_reservation_count} />
+            <StatCard label="픽업" value={autoSnapshotPreview.report_summary.total_picked_up_count} />
+            <StatCard label="폐기 절감" value={`${autoSnapshotPreview.report_summary.total_saved_quantity}개`} />
+            <StatCard label="인사이트" value={`${autoSnapshotPreview.insights.length}개`} />
+          </div>
+        )}
+      </section>
 
       <div className="summary-grid">
         <StatCard label="총 매출" value={report ? formatMoney(report.total_sales_amount) : "0원"} helper="Mock 결제 기준" />

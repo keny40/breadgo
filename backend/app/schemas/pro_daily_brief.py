@@ -122,3 +122,60 @@ class MerchantProWeeklyReportRead(BaseModel):
     snapshot_days_count: int
     daily_trends: list[ProWeeklyReportDailyTrendRead]
     insights: list[ProWeeklyReportInsightRead]
+
+
+class ProWeeklyReportSnapshotInsightRead(BaseModel):
+    id: UUID
+    snapshot_id: UUID
+    title: str | None = None
+    message: str
+    severity: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProWeeklyReportSnapshotRead(BaseModel):
+    id: UUID
+    merchant_id: UUID
+    store_id: UUID | None = None
+    start_date: date
+    end_date: date
+    total_sales_amount: Decimal
+    total_reservation_count: int
+    total_picked_up_count: int
+    total_cancelled_count: int
+    total_saved_quantity: int
+    average_unresolved_alert_count: Decimal
+    high_severity_alert_count: int
+    total_recommendation_action_count: int
+    total_inventory_event_count: int
+    pos_sync_issue_count: int
+    csv_import_error_count: int
+    text_summary: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    insights: list[ProWeeklyReportSnapshotInsightRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MerchantProWeeklyReportHistoryRead(BaseModel):
+    snapshots: list[ProWeeklyReportSnapshotRead]
+
+
+class ProWeeklyReportAutoSnapshotPreviewRead(BaseModel):
+    start_date: date
+    end_date: date
+    would_create_new: bool
+    existing_snapshot_id: UUID | None = None
+    report_summary: MerchantProWeeklyReportRead
+    insights: list[ProWeeklyReportInsightRead]
+
+
+class ProWeeklyReportAutoSnapshotRunRead(BaseModel):
+    snapshot_id: UUID
+    created_or_updated: str
+    start_date: date
+    end_date: date
+    message: str

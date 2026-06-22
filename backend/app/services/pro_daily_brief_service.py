@@ -12,15 +12,20 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.merchant import Merchant
 from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
+from app.models.pro_weekly_report import ProWeeklyReportInsight, ProWeeklyReportSnapshot
 from app.models.product_import import ProductImportBatch
 from app.models.product_inventory_event import ProductInventoryEvent
 from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefHistoryRead,
     MerchantProDailyBriefRead,
     MerchantProWeeklyReportRead,
+    MerchantProWeeklyReportHistoryRead,
+    ProWeeklyReportAutoSnapshotPreviewRead,
+    ProWeeklyReportAutoSnapshotRunRead,
     ProDailyBriefHistoryDeltaRead,
     ProDailyBriefSnapshotRead,
     ProDailyBriefTaskRead,
+    ProWeeklyReportSnapshotRead,
     ProWeeklyReportDailyTrendRead,
     ProWeeklyReportInsightRead,
 )
@@ -657,5 +662,244 @@ def weekly_report_to_text(report: MerchantProWeeklyReportRead) -> str:
             insight_lines,
             "",
             "이 요약은 실제 AI 생성 문장이 아닌 BreadGo Pro rule-based 운영 리포트입니다.",
+        ]
+    )
+
+
+def _weekly_snapshot_to_read(snapshot: ProWeeklyReportSnapshot) -> ProWeeklyReportSnapshotRead:
+    return ProWeeklyReportSnapshotRead.model_validate(snapshot)
+
+
+def _apply_weekly_report_to_snapshot(
+    snapshot: ProWeeklyReportSnapshot,
+    report: MerchantProWeeklyReportRead,
+) -> None:
+    snapshot.start_date = report.start_date
+    snapshot.end_date = report.end_date
+    snapshot.total_sales_amount = report.total_sales_amount
+    snapshot.total_reservation_count = report.total_reservation_count
+    snapshot.total_picked_up_count = report.total_picked_up_count
+    snapshot.total_cancelled_count = report.total_cancelled_count
+    snapshot.total_saved_quantity = report.total_saved_quantity
+    snapshot.average_unresolved_alert_count = Decimal(str(report.average_unresolved_alert_count))
+    snapshot.high_severity_alert_count = report.high_severity_alert_count
+    snapshot.total_recommendation_action_count = report.total_recommendation_action_count
+    snapshot.total_inventory_event_count = report.total_inventory_event_count
+    snapshot.pos_sync_issue_count = report.pos_sync_issue_count
+    snapshot.csv_import_error_count = report.csv_import_error_count
+    snapshot.text_summary = weekly_report_to_text(report)
+    snapshot.updated_at = datetime.now(timezone.utc)
+
+
+def _find_weekly_report_snapshot(
+    db: Session,
+    merchant: Merchant,
+    start_date: date,
+    end_date: date,
+) -> ProWeeklyReportSnapshot | None:
+    return db.scalar(
+        select(ProWeeklyReportSnapshot)
+        .where(
+            ProWeeklyReportSnapshot.merchant_id == merchant.id,
+            ProWeeklyReportSnapshot.start_date == start_date,
+            ProWeeklyReportSnapshot.end_date == end_date,
+        )
+        .options(selectinload(ProWeeklyReportSnapshot.insights))
+    )
+
+
+def _create_or_update_weekly_report_snapshot_with_status(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> tuple[ProWeeklyReportSnapshotRead, str]:
+    report = build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
+    snapshot = _find_weekly_report_snapshot(db, merchant, report.start_date, report.end_date)
+    created_or_updated = "UPDATED"
+    if snapshot is None:
+        snapshot = ProWeeklyReportSnapshot(
+            merchant_id=merchant.id,
+            start_date=report.start_date,
+            end_date=report.end_date,
+        )
+        db.add(snapshot)
+        created_or_updated = "CREATED"
+
+    _apply_weekly_report_to_snapshot(snapshot, report)
+    db.flush()
+
+    db.execute(delete(ProWeeklyReportInsight).where(ProWeeklyReportInsight.snapshot_id == snapshot.id))
+    for insight in report.insights:
+        db.add(
+            ProWeeklyReportInsight(
+                snapshot_id=snapshot.id,
+                title=insight.title,
+                message=insight.message,
+                severity=insight.severity,
+            )
+        )
+
+    db.commit()
+    refreshed = db.scalar(
+        select(ProWeeklyReportSnapshot)
+        .where(ProWeeklyReportSnapshot.id == snapshot.id)
+        .options(selectinload(ProWeeklyReportSnapshot.insights))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report snapshot not found.")
+    return _weekly_snapshot_to_read(refreshed), created_or_updated
+
+
+def create_or_update_weekly_report_snapshot(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> ProWeeklyReportSnapshotRead:
+    snapshot, _created_or_updated = _create_or_update_weekly_report_snapshot_with_status(
+        db,
+        merchant,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return snapshot
+
+
+def preview_auto_weekly_snapshot(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> ProWeeklyReportAutoSnapshotPreviewRead:
+    report = build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
+    existing_snapshot = _find_weekly_report_snapshot(db, merchant, report.start_date, report.end_date)
+    return ProWeeklyReportAutoSnapshotPreviewRead(
+        start_date=report.start_date,
+        end_date=report.end_date,
+        would_create_new=existing_snapshot is None,
+        existing_snapshot_id=existing_snapshot.id if existing_snapshot else None,
+        report_summary=report,
+        insights=report.insights,
+    )
+
+
+def create_current_week_snapshot(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> ProWeeklyReportAutoSnapshotRunRead:
+    snapshot, created_or_updated = _create_or_update_weekly_report_snapshot_with_status(
+        db,
+        merchant,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    message = (
+        "자동 저장 준비 흐름으로 새 주간 리포트 snapshot을 생성했습니다."
+        if created_or_updated == "CREATED"
+        else "자동 저장 준비 흐름으로 기존 주간 리포트 snapshot을 최신 값으로 업데이트했습니다."
+    )
+    return ProWeeklyReportAutoSnapshotRunRead(
+        snapshot_id=snapshot.id,
+        created_or_updated=created_or_updated,
+        start_date=snapshot.start_date,
+        end_date=snapshot.end_date,
+        message=message,
+    )
+
+
+def list_weekly_report_history(
+    db: Session,
+    merchant: Merchant,
+    limit: int = 30,
+) -> MerchantProWeeklyReportHistoryRead:
+    bounded_limit = max(1, min(limit, 30))
+    snapshots = list(
+        db.scalars(
+            select(ProWeeklyReportSnapshot)
+            .where(ProWeeklyReportSnapshot.merchant_id == merchant.id)
+            .options(selectinload(ProWeeklyReportSnapshot.insights))
+            .order_by(ProWeeklyReportSnapshot.end_date.desc(), ProWeeklyReportSnapshot.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+    return MerchantProWeeklyReportHistoryRead(
+        snapshots=[_weekly_snapshot_to_read(snapshot) for snapshot in snapshots]
+    )
+
+
+def get_weekly_report_snapshot(
+    db: Session,
+    merchant: Merchant,
+    snapshot_id: UUID,
+) -> ProWeeklyReportSnapshotRead:
+    snapshot = db.scalar(
+        select(ProWeeklyReportSnapshot)
+        .where(
+            ProWeeklyReportSnapshot.id == snapshot_id,
+            ProWeeklyReportSnapshot.merchant_id == merchant.id,
+        )
+        .options(selectinload(ProWeeklyReportSnapshot.insights))
+    )
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report snapshot not found.")
+    return _weekly_snapshot_to_read(snapshot)
+
+
+def weekly_report_snapshot_to_csv(snapshot: ProWeeklyReportSnapshotRead) -> str:
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["key", "value"])
+    writer.writerow(["start_date", snapshot.start_date.isoformat()])
+    writer.writerow(["end_date", snapshot.end_date.isoformat()])
+    writer.writerow(["total_sales_amount", snapshot.total_sales_amount])
+    writer.writerow(["total_reservation_count", snapshot.total_reservation_count])
+    writer.writerow(["total_picked_up_count", snapshot.total_picked_up_count])
+    writer.writerow(["total_cancelled_count", snapshot.total_cancelled_count])
+    writer.writerow(["total_saved_quantity", snapshot.total_saved_quantity])
+    writer.writerow(["average_unresolved_alert_count", snapshot.average_unresolved_alert_count])
+    writer.writerow(["high_severity_alert_count", snapshot.high_severity_alert_count])
+    writer.writerow(["total_recommendation_action_count", snapshot.total_recommendation_action_count])
+    writer.writerow(["total_inventory_event_count", snapshot.total_inventory_event_count])
+    writer.writerow(["pos_sync_issue_count", snapshot.pos_sync_issue_count])
+    writer.writerow(["csv_import_error_count", snapshot.csv_import_error_count])
+    writer.writerow([])
+    writer.writerow(["insight_title", "insight_message", "severity"])
+    for insight in snapshot.insights:
+        writer.writerow([insight.title or "", insight.message, insight.severity or "INFO"])
+    return output.getvalue()
+
+
+def weekly_report_snapshot_to_text(snapshot: ProWeeklyReportSnapshotRead) -> str:
+    if snapshot.text_summary:
+        return snapshot.text_summary
+
+    insight_lines = "\n".join(
+        f"- {insight.title or '운영 인사이트'}: {insight.message}" for insight in snapshot.insights
+    )
+    if not insight_lines:
+        insight_lines = "- 표시할 인사이트가 없습니다."
+
+    return "\n".join(
+        [
+            "BreadGo Pro 저장된 주간 운영 리포트",
+            f"기간: {snapshot.start_date.isoformat()} ~ {snapshot.end_date.isoformat()}",
+            "",
+            "[저장된 운영 요약]",
+            f"- 총 매출: {int(snapshot.total_sales_amount):,}원",
+            f"- 예약 수: {snapshot.total_reservation_count}건",
+            f"- 픽업 완료: {snapshot.total_picked_up_count}건",
+            f"- 취소: {snapshot.total_cancelled_count}건",
+            f"- 폐기 절감: {snapshot.total_saved_quantity}개",
+            f"- 평균 미해결 알림: {snapshot.average_unresolved_alert_count}건",
+            f"- HIGH 알림: {snapshot.high_severity_alert_count}건",
+            f"- 추천 액션: {snapshot.total_recommendation_action_count}건",
+            "",
+            "[저장된 인사이트]",
+            insight_lines,
+            "",
+            "이 요약은 저장된 BreadGo Pro rule-based 운영 리포트입니다.",
         ]
     )

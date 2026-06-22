@@ -616,6 +616,59 @@ export type MerchantProWeeklyReport = {
   insights: ProWeeklyReportInsight[];
 };
 
+export type ProWeeklyReportSnapshotInsight = {
+  id: string;
+  snapshot_id: string;
+  title: string | null;
+  message: string;
+  severity: string | null;
+  created_at: string;
+};
+
+export type ProWeeklyReportSnapshot = {
+  id: string;
+  merchant_id: string;
+  store_id: string | null;
+  start_date: string;
+  end_date: string;
+  total_sales_amount: string;
+  total_reservation_count: number;
+  total_picked_up_count: number;
+  total_cancelled_count: number;
+  total_saved_quantity: number;
+  average_unresolved_alert_count: string;
+  high_severity_alert_count: number;
+  total_recommendation_action_count: number;
+  total_inventory_event_count: number;
+  pos_sync_issue_count: number;
+  csv_import_error_count: number;
+  text_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  insights: ProWeeklyReportSnapshotInsight[];
+};
+
+export type MerchantProWeeklyReportHistory = {
+  snapshots: ProWeeklyReportSnapshot[];
+};
+
+export type ProWeeklyReportAutoSnapshotPreview = {
+  start_date: string;
+  end_date: string;
+  would_create_new: boolean;
+  existing_snapshot_id: string | null;
+  report_summary: MerchantProWeeklyReport;
+  insights: ProWeeklyReportInsight[];
+};
+
+export type ProWeeklyReportAutoSnapshotRun = {
+  snapshot_id: string;
+  created_or_updated: "CREATED" | "UPDATED" | string;
+  start_date: string;
+  end_date: string;
+  message: string;
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

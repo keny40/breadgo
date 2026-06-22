@@ -13,8 +13,12 @@ from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStore
 from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefHistoryRead,
     MerchantProDailyBriefRead,
+    MerchantProWeeklyReportHistoryRead,
     MerchantProWeeklyReportRead,
     ProDailyBriefSnapshotRead,
+    ProWeeklyReportAutoSnapshotPreviewRead,
+    ProWeeklyReportAutoSnapshotRunRead,
+    ProWeeklyReportSnapshotRead,
 )
 from app.schemas.pro_esg import MerchantProEsgReportRead
 from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead
@@ -50,9 +54,16 @@ from app.services.pro_daily_brief_service import (
     build_merchant_pro_daily_brief,
     build_merchant_pro_weekly_report,
     create_or_update_daily_brief_snapshot,
+    create_or_update_weekly_report_snapshot,
+    create_current_week_snapshot,
     get_daily_brief_snapshot,
+    get_weekly_report_snapshot,
     list_daily_brief_history,
+    list_weekly_report_history,
+    preview_auto_weekly_snapshot,
     weekly_report_to_csv,
+    weekly_report_snapshot_to_csv,
+    weekly_report_snapshot_to_text,
     weekly_report_to_text,
 )
 from app.services.pro_esg_service import build_merchant_pro_esg_report
@@ -149,6 +160,82 @@ def export_merchant_pro_weekly_report(
         )
 
     return PlainTextResponse(content=weekly_report_to_text(report))
+
+
+@router.post("/weekly-report/snapshot", response_model=ProWeeklyReportSnapshotRead)
+def create_merchant_pro_weekly_report_snapshot(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportSnapshotRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_or_update_weekly_report_snapshot(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.post("/weekly-report/auto-snapshot-preview", response_model=ProWeeklyReportAutoSnapshotPreviewRead)
+def preview_merchant_pro_weekly_report_auto_snapshot(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportAutoSnapshotPreviewRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return preview_auto_weekly_snapshot(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.post("/weekly-report/auto-snapshot", response_model=ProWeeklyReportAutoSnapshotRunRead)
+def create_merchant_pro_weekly_report_auto_snapshot(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportAutoSnapshotRunRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_current_week_snapshot(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.get("/weekly-report/history", response_model=MerchantProWeeklyReportHistoryRead)
+def get_merchant_pro_weekly_report_history(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportHistoryRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_weekly_report_history(db, merchant, limit=limit)
+
+
+@router.get("/weekly-report/history/{snapshot_id}", response_model=ProWeeklyReportSnapshotRead)
+def get_merchant_pro_weekly_report_history_detail(
+    snapshot_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportSnapshotRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_weekly_report_snapshot(db, merchant, snapshot_id)
+
+
+@router.get("/weekly-report/history/{snapshot_id}/export")
+def export_merchant_pro_weekly_report_snapshot(
+    snapshot_id: UUID,
+    export_format: str = Query(default="text", alias="format", pattern="^(json|csv|text)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    merchant = require_merchant_for_user(db, current_user)
+    snapshot = get_weekly_report_snapshot(db, merchant, snapshot_id)
+
+    if export_format == "json":
+        return JSONResponse(content=snapshot.model_dump(mode="json"))
+
+    if export_format == "csv":
+        return Response(
+            content=weekly_report_snapshot_to_csv(snapshot),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="breadgo-saved-weekly-report.csv"'},
+        )
+
+    return PlainTextResponse(content=weekly_report_snapshot_to_text(snapshot))
 
 
 @router.get("/plan", response_model=MerchantProPlanRead)
