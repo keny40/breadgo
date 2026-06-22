@@ -7,6 +7,7 @@ import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type {
   MerchantProDashboard,
+  MerchantProInventoryAlerts,
   MerchantProPlan,
   MerchantProRecommendations,
   ProDailySummary,
@@ -42,6 +43,7 @@ export default function MerchantProDashboardPage() {
   const guard = useRoleGuard("MERCHANT");
   const [dashboard, setDashboard] = useState<MerchantProDashboard | null>(null);
   const [plan, setPlan] = useState<MerchantProPlan | null>(null);
+  const [inventoryAlerts, setInventoryAlerts] = useState<MerchantProInventoryAlerts | null>(null);
   const [recommendations, setRecommendations] = useState<ProRecommendation[]>([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -71,14 +73,16 @@ export default function MerchantProDashboardPage() {
     setIsError(false);
 
     try {
-      const [data, recommendationData, planData] = await Promise.all([
+      const [data, recommendationData, planData, alertData] = await Promise.all([
         apiFetch<MerchantProDashboard>("/api/v1/merchant/pro/dashboard", {}, true),
         apiFetch<MerchantProRecommendations>("/api/v1/merchant/pro/recommendations", {}, true),
         apiFetch<MerchantProPlan>("/api/v1/merchant/pro/plan", {}, true),
+        apiFetch<MerchantProInventoryAlerts>("/api/v1/merchant/pro/inventory-alerts", {}, true),
       ]);
       setDashboard(data);
       setRecommendations(recommendationData.recommendations);
       setPlan(planData);
+      setInventoryAlerts(alertData);
       setMessage("BreadGo Pro 수율 데이터를 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -231,11 +235,21 @@ export default function MerchantProDashboardPage() {
         <div>
           <p className="eyebrow">운영 알림</p>
           <h2>재고 이상 알림</h2>
-          <p>마감 후 재고, 낮은 예약 전환, 큰 재고 변동처럼 점주가 확인해야 할 신호를 자동으로 계산합니다.</p>
+          <p>
+            마감 후 재고, 낮은 예약 전환, 큰 재고 변동처럼 점주가 확인해야 할 신호를 자동으로 계산합니다.
+            {inventoryAlerts
+              ? ` 현재 미확인 ${inventoryAlerts.alerts.filter((alert) => !alert.latest_action_type).length}건, 조치 중 ${inventoryAlerts.alerts.filter((alert) => alert.latest_action_type === "ACTION_STARTED").length}건입니다.`
+              : ""}
+          </p>
         </div>
-        <Link className="button-link secondary" href="/merchant/pro/inventory-alerts">
-          재고 이상 알림 보기
-        </Link>
+        <div className="actions">
+          <Badge tone={(inventoryAlerts?.high_count || 0) > 0 ? "danger" : "muted"}>
+            HIGH {inventoryAlerts?.high_count || 0}
+          </Badge>
+          <Link className="button-link secondary" href="/merchant/pro/inventory-alerts">
+            재고 이상 알림 보기
+          </Link>
+        </div>
       </div>
 
       <section className="panel">

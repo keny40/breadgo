@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.db.session import get_db
 from app.models.user import User
+from app.schemas.inventory_alert_action import InventoryAlertActionCreate, InventoryAlertActionRead
 from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStoresDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
 from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead
@@ -27,6 +28,7 @@ from app.schemas.pos_integration import (
 )
 from app.schemas.recommendation_action_event import RecommendationActionEventCreate, RecommendationActionEventRead
 from app.services.merchant_service import require_merchant_for_user
+from app.services.inventory_alert_action_service import create_inventory_alert_action, list_inventory_alert_actions
 from app.services.pos_integration_service import (
     get_pos_sync_batch,
     get_pos_sync_batches,
@@ -162,6 +164,28 @@ def get_merchant_pro_inventory_alerts(
 ) -> MerchantProInventoryAlertsRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_inventory_alerts(db, merchant)
+
+
+@router.post("/inventory-alert-actions", response_model=InventoryAlertActionRead)
+def create_merchant_pro_inventory_alert_action(
+    payload: InventoryAlertActionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> InventoryAlertActionRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_inventory_alert_action(db, merchant, payload)
+
+
+@router.get("/inventory-alert-actions", response_model=list[InventoryAlertActionRead])
+def get_merchant_pro_inventory_alert_actions(
+    product_id: UUID | None = None,
+    alert_type: str | None = None,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[InventoryAlertActionRead]:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_inventory_alert_actions(db, merchant, product_id=product_id, alert_type=alert_type, limit=limit)
 
 
 @router.get("/pos-integration", response_model=PosIntegrationRead)

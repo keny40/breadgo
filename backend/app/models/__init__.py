@@ -1,4 +1,5 @@
 from app.models.merchant import Merchant
+from app.models.inventory_alert_action import InventoryAlertAction
 from app.models.notification import Notification
 from app.models.payment import Payment
 from app.models.pos_integration import PosIntegration, PosSyncBatch, PosSyncRow
@@ -17,6 +18,7 @@ from app.models.user import User
 
 __all__ = [
     "Merchant",
+    "InventoryAlertAction",
     "Notification",
     "Payment",
     "PosIntegration",

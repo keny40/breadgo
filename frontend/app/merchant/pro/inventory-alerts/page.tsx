@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProInventoryAlerts, ProInventoryAlert } from "@/lib/types";
+import type { InventoryAlertAction, MerchantProInventoryAlerts, ProInventoryAlert } from "@/lib/types";
 
 const alertTypeLabels: Record<string, string> = {
   NEGATIVE_STOCK: "음수 재고",
@@ -30,6 +30,24 @@ function formatDateTime(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function actionLabel(actionType: string | null) {
+  const labels: Record<string, string> = {
+    ACKNOWLEDGED: "확인됨",
+    ACTION_STARTED: "조치 중",
+    MARKED_RESOLVED: "해결 처리됨",
+    DISMISSED: "숨김",
+  };
+  return actionType ? labels[actionType] || actionType : "미확인";
+}
+
+function actionTone(actionType: string | null): "success" | "warning" | "danger" | "muted" {
+  if (actionType === "MARKED_RESOLVED") return "success";
+  if (actionType === "ACTION_STARTED") return "warning";
+  if (actionType === "DISMISSED") return "muted";
+  if (actionType === "ACKNOWLEDGED") return "muted";
+  return "danger";
 }
 
 export default function MerchantProInventoryAlertsPage() {
@@ -61,6 +79,32 @@ export default function MerchantProInventoryAlertsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function recordAlertAction(alert: ProInventoryAlert, actionType: string) {
+    setMessage("");
+    setIsError(false);
+    try {
+      await apiFetch<InventoryAlertAction>(
+        "/api/v1/merchant/pro/inventory-alert-actions",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            product_id: alert.product_id,
+            alert_type: alert.alert_type,
+            severity: alert.severity,
+            action_type: actionType,
+            note: `${alert.title} - ${actionLabel(actionType)}`,
+          }),
+        },
+        true,
+      );
+      setMessage(`${alert.product_name} 알림을 '${actionLabel(actionType)}' 상태로 기록했습니다.`);
+      await loadAlerts();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
     }
   }
 
@@ -123,7 +167,11 @@ export default function MerchantProInventoryAlertsPage() {
         ) : (
           <div className="pro-product-grid">
             {data.alerts.map((alert) => (
-              <InventoryAlertCard key={`${alert.product_id}-${alert.alert_type}`} alert={alert} />
+              <InventoryAlertCard
+                key={`${alert.product_id}-${alert.alert_type}`}
+                alert={alert}
+                onRecordAction={recordAlertAction}
+              />
             ))}
           </div>
         )}
@@ -132,7 +180,13 @@ export default function MerchantProInventoryAlertsPage() {
   );
 }
 
-function InventoryAlertCard({ alert }: { alert: ProInventoryAlert }) {
+function InventoryAlertCard({
+  alert,
+  onRecordAction,
+}: {
+  alert: ProInventoryAlert;
+  onRecordAction: (alert: ProInventoryAlert, actionType: string) => Promise<void>;
+}) {
   return (
     <article className="item pro-product-card">
       <div className="card-title-row">
@@ -144,7 +198,14 @@ function InventoryAlertCard({ alert }: { alert: ProInventoryAlert }) {
       </div>
       <div className="actions">
         <Badge tone="muted">{alertTypeLabels[alert.alert_type] || alert.alert_type}</Badge>
+        <Badge tone={actionTone(alert.latest_action_type)}>{actionLabel(alert.latest_action_type)}</Badge>
       </div>
+      {alert.latest_action_at && (
+        <p className="field-help">
+          최근 조치: {actionLabel(alert.latest_action_type)} / {formatDateTime(alert.latest_action_at)}
+          {alert.is_resolved ? " / 해결 처리됨. 조건이 남아 있으면 재확인이 필요합니다." : ""}
+        </p>
+      )}
       <h4>{alert.title}</h4>
       <p>{alert.message}</p>
       <div className="detail-grid">
@@ -167,6 +228,36 @@ function InventoryAlertCard({ alert }: { alert: ProInventoryAlert }) {
         <br />
         {alert.suggested_action}
       </p>
+      <div className="actions">
+        <button
+          type="button"
+          className="secondary compact-button"
+          onClick={() => void onRecordAction(alert, "ACKNOWLEDGED")}
+        >
+          확인
+        </button>
+        <button
+          type="button"
+          className="secondary compact-button"
+          onClick={() => void onRecordAction(alert, "ACTION_STARTED")}
+        >
+          조치 시작
+        </button>
+        <button
+          type="button"
+          className="secondary compact-button"
+          onClick={() => void onRecordAction(alert, "MARKED_RESOLVED")}
+        >
+          해결 처리
+        </button>
+        <button
+          type="button"
+          className="secondary compact-button"
+          onClick={() => void onRecordAction(alert, "DISMISSED")}
+        >
+          숨기기
+        </button>
+      </div>
       <div className="actions">
         <Link className="button-link secondary" href="/merchant/products">
           상품관리

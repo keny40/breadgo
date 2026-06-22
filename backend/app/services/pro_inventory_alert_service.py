@@ -11,6 +11,7 @@ from app.models.product_inventory_event import ProductInventoryEvent
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.store import Store
 from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead, ProInventoryAlertRead
+from app.services.inventory_alert_action_service import latest_inventory_alert_actions_by_key
 
 
 SEVERITY_RANK = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
@@ -80,6 +81,7 @@ def build_merchant_pro_inventory_alerts(
     product_ids = [product.id for product in products]
     if not product_ids:
         return MerchantProInventoryAlertsRead(total_alerts=0, high_count=0, medium_count=0, low_count=0, alerts=[])
+    latest_actions = latest_inventory_alert_actions_by_key(db, merchant)
 
     reservations = list(
         db.scalars(
@@ -231,6 +233,14 @@ def build_merchant_pro_inventory_alerts(
             )
 
     alerts.sort(key=lambda item: (SEVERITY_RANK.get(item.severity, 3), item.product_name, item.alert_type))
+    for alert in alerts:
+        latest_action = latest_actions.get((alert.product_id, alert.alert_type))
+        if latest_action is None:
+            continue
+        alert.latest_action_type = latest_action.action_type
+        alert.latest_action_at = latest_action.created_at
+        alert.is_acknowledged = latest_action.action_type in {"ACKNOWLEDGED", "ACTION_STARTED", "MARKED_RESOLVED", "DISMISSED"}
+        alert.is_resolved = latest_action.action_type == "MARKED_RESOLVED"
     high_count = sum(1 for item in alerts if item.severity == "HIGH")
     medium_count = sum(1 for item in alerts if item.severity == "MEDIUM")
     low_count = sum(1 for item in alerts if item.severity == "LOW")

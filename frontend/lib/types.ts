@@ -697,6 +697,10 @@ export type ProInventoryAlert = {
   related_metric: string | null;
   recent_inventory_note: string | null;
   detected_at: string;
+  latest_action_type: string | null;
+  latest_action_at: string | null;
+  is_acknowledged: boolean;
+  is_resolved: boolean;
 };
 
 export type MerchantProInventoryAlerts = {
@@ -705,6 +709,18 @@ export type MerchantProInventoryAlerts = {
   medium_count: number;
   low_count: number;
   alerts: ProInventoryAlert[];
+};
+
+export type InventoryAlertAction = {
+  id: string;
+  merchant_id: string;
+  product_id: string | null;
+  product_name: string | null;
+  alert_type: string;
+  severity: string;
+  action_type: string;
+  note: string | null;
+  created_at: string;
 };
 
 export type ProductTemplate = {
