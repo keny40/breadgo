@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import date
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStore
 from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefHistoryRead,
     MerchantProDailyBriefRead,
+    MerchantProWeeklyReportRead,
     ProDailyBriefSnapshotRead,
 )
 from app.schemas.pro_esg import MerchantProEsgReportRead
@@ -45,6 +47,7 @@ from app.services.product_inventory_event_service import list_inventory_events
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
 from app.services.pro_daily_brief_service import (
     build_merchant_pro_daily_brief,
+    build_merchant_pro_weekly_report,
     create_or_update_daily_brief_snapshot,
     get_daily_brief_snapshot,
     list_daily_brief_history,
@@ -108,6 +111,17 @@ def get_merchant_pro_daily_brief_history_detail(
 ) -> ProDailyBriefSnapshotRead:
     merchant = require_merchant_for_user(db, current_user)
     return get_daily_brief_snapshot(db, merchant, snapshot_id)
+
+
+@router.get("/weekly-report", response_model=MerchantProWeeklyReportRead)
+def get_merchant_pro_weekly_report(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
 
 
 @router.get("/plan", response_model=MerchantProPlanRead)

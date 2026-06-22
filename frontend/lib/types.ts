@@ -580,6 +580,42 @@ export type MerchantProDailyBriefHistory = {
   delta: ProDailyBriefHistoryDelta;
 };
 
+export type ProWeeklyReportDailyTrend = {
+  date: string;
+  sales_amount: string;
+  reservation_count: number;
+  picked_up_count: number;
+  cancelled_count: number;
+  saved_quantity: number;
+  unresolved_alert_count: number;
+  recommendation_action_count: number;
+};
+
+export type ProWeeklyReportInsight = {
+  title: string;
+  message: string;
+  severity: string;
+};
+
+export type MerchantProWeeklyReport = {
+  start_date: string;
+  end_date: string;
+  total_sales_amount: string;
+  total_reservation_count: number;
+  total_picked_up_count: number;
+  total_cancelled_count: number;
+  total_saved_quantity: number;
+  average_unresolved_alert_count: number;
+  high_severity_alert_count: number;
+  total_recommendation_action_count: number;
+  total_inventory_event_count: number;
+  pos_sync_issue_count: number;
+  csv_import_error_count: number;
+  snapshot_days_count: number;
+  daily_trends: ProWeeklyReportDailyTrend[];
+  insights: ProWeeklyReportInsight[];
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

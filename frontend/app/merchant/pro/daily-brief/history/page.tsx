@@ -142,6 +142,9 @@ export default function MerchantProDailyBriefHistoryPage() {
             <Link className="button-link secondary" href="/merchant/pro/daily-brief">
               오늘 브리프
             </Link>
+            <Link className="button-link secondary" href="/merchant/pro/weekly-report">
+              주간 리포트
+            </Link>
           </>
         }
       />

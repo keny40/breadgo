@@ -175,6 +175,9 @@ export default function MerchantProDashboardPage() {
           <Link className="button-link secondary" href="/merchant/pro/daily-brief/history">
             브리프 이력 보기
           </Link>
+          <Link className="button-link secondary" href="/merchant/pro/weekly-report">
+            주간 리포트 보기
+          </Link>
         </div>
       </div>
 

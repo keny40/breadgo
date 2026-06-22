@@ -86,3 +86,39 @@ class MerchantProDailyBriefHistoryRead(BaseModel):
     latest_snapshot_id: UUID | None = None
     previous_snapshot_id: UUID | None = None
     delta: ProDailyBriefHistoryDeltaRead
+
+
+class ProWeeklyReportDailyTrendRead(BaseModel):
+    date: date
+    sales_amount: Decimal
+    reservation_count: int
+    picked_up_count: int
+    cancelled_count: int
+    saved_quantity: int
+    unresolved_alert_count: int
+    recommendation_action_count: int
+
+
+class ProWeeklyReportInsightRead(BaseModel):
+    title: str
+    message: str
+    severity: str = "INFO"
+
+
+class MerchantProWeeklyReportRead(BaseModel):
+    start_date: date
+    end_date: date
+    total_sales_amount: Decimal
+    total_reservation_count: int
+    total_picked_up_count: int
+    total_cancelled_count: int
+    total_saved_quantity: int
+    average_unresolved_alert_count: float
+    high_severity_alert_count: int
+    total_recommendation_action_count: int
+    total_inventory_event_count: int
+    pos_sync_issue_count: int
+    csv_import_error_count: int
+    snapshot_days_count: int
+    daily_trends: list[ProWeeklyReportDailyTrendRead]
+    insights: list[ProWeeklyReportInsightRead]

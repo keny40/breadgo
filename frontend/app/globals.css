@@ -1231,6 +1231,38 @@ code {
   gap: 12px;
 }
 
+.weekly-trend-grid {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.weekly-trend-card {
+  align-content: end;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  min-height: 220px;
+  padding: 14px;
+}
+
+.weekly-trend-bar {
+  align-self: end;
+  background: linear-gradient(180deg, var(--primary), #9bd7ad);
+  border-radius: 8px 8px 2px 2px;
+  min-height: 8px;
+  width: 100%;
+}
+
+.weekly-trend-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .summary-card {
   display: grid;
   gap: 7px;

@@ -1,4 +1,5 @@
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from uuid import UUID
@@ -14,9 +15,12 @@ from app.models.product_inventory_event import ProductInventoryEvent
 from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefHistoryRead,
     MerchantProDailyBriefRead,
+    MerchantProWeeklyReportRead,
     ProDailyBriefHistoryDeltaRead,
     ProDailyBriefSnapshotRead,
     ProDailyBriefTaskRead,
+    ProWeeklyReportDailyTrendRead,
+    ProWeeklyReportInsightRead,
 )
 from app.schemas.pro_inventory_alert import ProInventoryAlertRead
 from app.schemas.pro_recommendation import ProRecommendationRead
@@ -28,6 +32,8 @@ from app.services.pro_recommendation_service import build_merchant_pro_recommend
 KST = ZoneInfo("Asia/Seoul")
 RESOLVED_ACTIONS = {"MARKED_RESOLVED", "DISMISSED"}
 PRIORITY_RANK = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+MAX_WEEKLY_REPORT_DAYS = 31
+ZERO = Decimal("0.00")
 
 
 def _today_window() -> tuple[datetime, datetime]:
@@ -335,3 +341,255 @@ def get_daily_brief_snapshot(
     if snapshot is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daily brief snapshot not found.")
     return _snapshot_to_read(snapshot)
+
+
+def _default_report_range() -> tuple[date, date]:
+    end_date = datetime.now(KST).date()
+    return end_date - timedelta(days=6), end_date
+
+
+def _date_span(start_date: date, end_date: date) -> list[date]:
+    if end_date < start_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_date must be after start_date.")
+    if (end_date - start_date).days + 1 > MAX_WEEKLY_REPORT_DAYS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Weekly report range cannot exceed 31 days.")
+    return [start_date + timedelta(days=offset) for offset in range((end_date - start_date).days + 1)]
+
+
+def _trend_from_snapshot(snapshot: ProDailyBriefSnapshot) -> ProWeeklyReportDailyTrendRead:
+    return ProWeeklyReportDailyTrendRead(
+        date=snapshot.brief_date,
+        sales_amount=snapshot.today_sales_amount,
+        reservation_count=snapshot.today_reservation_count,
+        picked_up_count=snapshot.today_picked_up_count,
+        cancelled_count=snapshot.today_cancelled_count,
+        saved_quantity=snapshot.saved_quantity_today,
+        unresolved_alert_count=snapshot.unresolved_alert_count,
+        recommendation_action_count=snapshot.recommendation_action_count,
+    )
+
+
+def _trend_from_brief(brief: MerchantProDailyBriefRead) -> ProWeeklyReportDailyTrendRead:
+    return ProWeeklyReportDailyTrendRead(
+        date=brief.date,
+        sales_amount=brief.today_sales_amount,
+        reservation_count=brief.today_reservation_count,
+        picked_up_count=brief.today_picked_up_count,
+        cancelled_count=brief.today_cancelled_count,
+        saved_quantity=brief.saved_quantity_today,
+        unresolved_alert_count=brief.unresolved_alert_count,
+        recommendation_action_count=brief.recommendation_action_count,
+    )
+
+
+def _empty_trend(target_date: date) -> ProWeeklyReportDailyTrendRead:
+    return ProWeeklyReportDailyTrendRead(
+        date=target_date,
+        sales_amount=0,
+        reservation_count=0,
+        picked_up_count=0,
+        cancelled_count=0,
+        saved_quantity=0,
+        unresolved_alert_count=0,
+        recommendation_action_count=0,
+    )
+
+
+def _build_weekly_insights(
+    trends: list[ProWeeklyReportDailyTrendRead],
+    snapshot_days_count: int,
+    total_recommendation_action_count: int,
+    pos_sync_issue_count: int,
+    csv_import_error_count: int,
+) -> list[ProWeeklyReportInsightRead]:
+    insights: list[ProWeeklyReportInsightRead] = []
+
+    first_with_data = next((trend for trend in trends if trend.sales_amount or trend.reservation_count or trend.unresolved_alert_count), None)
+    last_with_data = next(
+        (trend for trend in reversed(trends) if trend.sales_amount or trend.reservation_count or trend.unresolved_alert_count),
+        None,
+    )
+    if first_with_data and last_with_data and first_with_data.date != last_with_data.date:
+        alert_delta = last_with_data.unresolved_alert_count - first_with_data.unresolved_alert_count
+        if alert_delta < 0:
+            insights.append(
+                ProWeeklyReportInsightRead(
+                    title="미해결 알림이 줄었습니다",
+                    message=f"기간 시작 대비 미해결 알림이 {abs(alert_delta)}건 줄었습니다.",
+                    severity="POSITIVE",
+                )
+            )
+        elif alert_delta > 0:
+            insights.append(
+                ProWeeklyReportInsightRead(
+                    title="미해결 알림 확인이 필요합니다",
+                    message=f"기간 시작 대비 미해결 알림이 {alert_delta}건 늘었습니다.",
+                    severity="WARNING",
+                )
+            )
+
+        saved_delta = last_with_data.saved_quantity - first_with_data.saved_quantity
+        if saved_delta > 0:
+            insights.append(
+                ProWeeklyReportInsightRead(
+                    title="폐기 절감 수량이 증가했습니다",
+                    message=f"기간 시작 대비 일간 폐기 절감 수량이 {saved_delta}개 늘었습니다.",
+                    severity="POSITIVE",
+                )
+            )
+
+    total_reservations = sum(trend.reservation_count for trend in trends)
+    total_picked_up = sum(trend.picked_up_count for trend in trends)
+    if total_reservations > 0:
+        pickup_rate = total_picked_up / total_reservations * 100
+        if pickup_rate < 60:
+            insights.append(
+                ProWeeklyReportInsightRead(
+                    title="픽업 완료율을 확인해야 합니다",
+                    message=f"최근 기간 픽업 완료율이 {pickup_rate:.1f}%입니다. 픽업 시간과 고객 안내를 점검해 주세요.",
+                    severity="WARNING",
+                )
+            )
+
+    if total_recommendation_action_count < 3:
+        insights.append(
+            ProWeeklyReportInsightRead(
+                title="추천 액션 실행이 적습니다",
+                message="추천 액션이 적게 기록되었습니다. 추천 화면에서 재고/할인가 제안을 확인해 보세요.",
+                severity="INFO",
+            )
+        )
+
+    if pos_sync_issue_count > 0:
+        insights.append(
+            ProWeeklyReportInsightRead(
+                title="POS 동기화 상태 점검",
+                message=f"POS 동기화 확인이 필요한 날짜가 {pos_sync_issue_count}일 있습니다.",
+                severity="WARNING",
+            )
+        )
+
+    if csv_import_error_count > 0:
+        insights.append(
+            ProWeeklyReportInsightRead(
+                title="CSV 업로드 오류 확인",
+                message=f"CSV import 오류가 총 {csv_import_error_count}건 기록되었습니다.",
+                severity="WARNING",
+            )
+        )
+
+    if snapshot_days_count < len(trends):
+        insights.append(
+            ProWeeklyReportInsightRead(
+                title="전일 브리프가 쌓일수록 더 정확해집니다",
+                message="저장된 Daily Brief가 없는 날짜는 0으로 표시됩니다. 매일 브리프를 저장하면 추이가 더 선명해집니다.",
+                severity="INFO",
+            )
+        )
+
+    if not insights:
+        insights.append(
+            ProWeeklyReportInsightRead(
+                title="이번 주 운영 흐름이 안정적입니다",
+                message="큰 경고 신호는 없습니다. Daily Brief를 계속 저장해 운영 개선 흐름을 추적하세요.",
+                severity="POSITIVE",
+            )
+        )
+
+    return insights[:6]
+
+
+def build_merchant_pro_weekly_report(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> MerchantProWeeklyReportRead:
+    if start_date is None or end_date is None:
+        default_start, default_end = _default_report_range()
+        start_date = start_date or default_start
+        end_date = end_date or default_end
+
+    dates = _date_span(start_date, end_date)
+    today = datetime.now(KST).date()
+
+    snapshots = list(
+        db.scalars(
+            select(ProDailyBriefSnapshot)
+            .where(
+                ProDailyBriefSnapshot.merchant_id == merchant.id,
+                ProDailyBriefSnapshot.brief_date >= start_date,
+                ProDailyBriefSnapshot.brief_date <= end_date,
+            )
+            .order_by(ProDailyBriefSnapshot.brief_date.asc())
+        )
+    )
+    snapshots_by_date = {snapshot.brief_date: snapshot for snapshot in snapshots}
+
+    live_today = None
+    if start_date <= today <= end_date and today not in snapshots_by_date:
+        live_today = build_merchant_pro_daily_brief(db, merchant)
+
+    daily_trends: list[ProWeeklyReportDailyTrendRead] = []
+    pos_sync_issue_count = 0
+    csv_import_error_count = 0
+    high_severity_alert_count = 0
+    total_inventory_event_count = 0
+    snapshot_days_count = len(snapshots)
+
+    for target_date in dates:
+        snapshot = snapshots_by_date.get(target_date)
+        if snapshot:
+            trend = _trend_from_snapshot(snapshot)
+            if snapshot.pos_last_sync_status != "COMPLETED":
+                pos_sync_issue_count += 1
+            csv_import_error_count += snapshot.csv_recent_failed_count
+            high_severity_alert_count += snapshot.high_severity_alert_count
+            total_inventory_event_count += snapshot.inventory_event_count_today
+        elif live_today and target_date == live_today.date:
+            trend = _trend_from_brief(live_today)
+            if live_today.pos_last_sync_status != "COMPLETED":
+                pos_sync_issue_count += 1
+            csv_import_error_count += live_today.csv_recent_failed_count
+            high_severity_alert_count += live_today.high_severity_alert_count
+            total_inventory_event_count += live_today.inventory_event_count_today
+        else:
+            trend = _empty_trend(target_date)
+        daily_trends.append(trend)
+
+    total_sales_amount = sum((trend.sales_amount for trend in daily_trends), start=ZERO)
+    total_reservation_count = sum(trend.reservation_count for trend in daily_trends)
+    total_picked_up_count = sum(trend.picked_up_count for trend in daily_trends)
+    total_cancelled_count = sum(trend.cancelled_count for trend in daily_trends)
+    total_saved_quantity = sum(trend.saved_quantity for trend in daily_trends)
+    total_recommendation_action_count = sum(trend.recommendation_action_count for trend in daily_trends)
+    average_unresolved_alert_count = (
+        sum(trend.unresolved_alert_count for trend in daily_trends) / len(daily_trends)
+        if daily_trends
+        else 0.0
+    )
+
+    return MerchantProWeeklyReportRead(
+        start_date=start_date,
+        end_date=end_date,
+        total_sales_amount=total_sales_amount,
+        total_reservation_count=total_reservation_count,
+        total_picked_up_count=total_picked_up_count,
+        total_cancelled_count=total_cancelled_count,
+        total_saved_quantity=total_saved_quantity,
+        average_unresolved_alert_count=round(average_unresolved_alert_count, 1),
+        high_severity_alert_count=high_severity_alert_count,
+        total_recommendation_action_count=total_recommendation_action_count,
+        total_inventory_event_count=total_inventory_event_count,
+        pos_sync_issue_count=pos_sync_issue_count,
+        csv_import_error_count=csv_import_error_count,
+        snapshot_days_count=snapshot_days_count + (1 if live_today else 0),
+        daily_trends=daily_trends,
+        insights=_build_weekly_insights(
+            daily_trends,
+            snapshot_days_count + (1 if live_today else 0),
+            total_recommendation_action_count,
+            pos_sync_issue_count,
+            csv_import_error_count,
+        ),
+    )
