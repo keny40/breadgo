@@ -10,6 +10,11 @@ from urllib.request import Request, urlopen
 
 BASE_URL = os.environ.get("BREADGO_API_BASE_URL", "http://localhost:8000").rstrip("/")
 PASSWORD = "12345678"
+SMOKE_REGION = {
+    "sido": "서울특별시",
+    "sigungu": "강남구",
+    "dong": "역삼동",
+}
 
 
 @dataclass
@@ -109,6 +114,69 @@ def login(email: str, label: str) -> str:
     return token
 
 
+def is_local_base_url() -> bool:
+    return BASE_URL.startswith("http://localhost") or BASE_URL.startswith("http://127.0.0.1")
+
+
+def seed_local_demo_data_if_available() -> bool:
+    if not is_local_base_url():
+        return False
+
+    try:
+        from seed_demo import main as seed_demo_main
+    except Exception as exc:  # pragma: no cover - best-effort fallback for local smoke only.
+        print(f"[WARN] Local demo seed import failed: {exc}")
+        return False
+
+    print("[INFO] Local region product data is missing. Re-seeding demo data and retrying once.")
+    seed_demo_main()
+    return True
+
+
+def region_products_path() -> str:
+    return f"/api/v1/regions/products?{urlencode(SMOKE_REGION)}"
+
+
+def describe_region_expectation() -> dict[str, Any]:
+    return {
+        "expected_region": SMOKE_REGION,
+        "expected_product_condition": {
+            "status": "ACTIVE",
+            "quantity": "> 0",
+        },
+        "hint": "Run `python scripts/seed_demo.py` for local smoke data.",
+    }
+
+
+def load_region_products(seed_retry: bool = True) -> list[dict[str, Any]]:
+    path = region_products_path()
+    products = expect_status(
+        "Region products found",
+        request_json("Region products found", "GET", path),
+        {200},
+    )
+    if isinstance(products, list) and products:
+        return products
+
+    if seed_retry and seed_local_demo_data_if_available():
+        products = expect_status(
+            "Region products found after local seed",
+            request_json("Region products found after local seed", "GET", path),
+            {200},
+        )
+        if isinstance(products, list) and products:
+            return products
+
+    raise SmokeTestError(
+        "Region products found",
+        200,
+        {
+            **describe_region_expectation(),
+            "actual_products": products,
+        },
+    )
+
+
 def main() -> int:
     try:
         health = expect_status(
@@ -121,20 +189,7 @@ def main() -> int:
 
         customer_token = login("customer@breadgo.test", "Customer login")
 
-        query = urlencode(
-            {
-                "sido": "서울특별시",
-                "sigungu": "강남구",
-                "dong": "역삼동",
-            }
-        )
-        products = expect_status(
-            "Region products found",
-            request_json("Region products found", "GET", f"/api/v1/regions/products?{query}"),
-            {200},
-        )
-        if not isinstance(products, list) or not products:
-            raise SmokeTestError("Region products found", 200, products)
+        products = load_region_products()
 
         product = next(
             (
@@ -144,8 +199,25 @@ def main() -> int:
             ),
             None,
         )
+        if product is None and seed_local_demo_data_if_available():
+            products = load_region_products(seed_retry=False)
+            product = next(
+                (
+                    item
+                    for item in products
+                    if item.get("status") == "ACTIVE" and int(item.get("quantity", 0)) > 0
+                ),
+                None,
+            )
         if product is None:
-            raise SmokeTestError("Active product with stock found", 200, products)
+            raise SmokeTestError(
+                "Active product with stock found",
+                200,
+                {
+                    **describe_region_expectation(),
+                    "actual_products": products,
+                },
+            )
         print_pass("Active product with stock found")
 
         reservation = expect_status(
