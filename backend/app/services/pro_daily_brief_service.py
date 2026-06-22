@@ -1,13 +1,23 @@
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.merchant import Merchant
+from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
 from app.models.product_import import ProductImportBatch
 from app.models.product_inventory_event import ProductInventoryEvent
-from app.schemas.pro_daily_brief import MerchantProDailyBriefRead, ProDailyBriefTaskRead
+from app.schemas.pro_daily_brief import (
+    MerchantProDailyBriefHistoryRead,
+    MerchantProDailyBriefRead,
+    ProDailyBriefHistoryDeltaRead,
+    ProDailyBriefSnapshotRead,
+    ProDailyBriefTaskRead,
+)
 from app.schemas.pro_inventory_alert import ProInventoryAlertRead
 from app.schemas.pro_recommendation import ProRecommendationRead
 from app.services.pos_integration_service import get_or_create_pos_integration
@@ -198,3 +208,130 @@ def build_merchant_pro_daily_brief(db: Session, merchant: Merchant) -> MerchantP
         inventory_event_count_today=inventory_event_count_today,
         tasks=tasks,
     )
+
+
+def _snapshot_to_read(snapshot: ProDailyBriefSnapshot) -> ProDailyBriefSnapshotRead:
+    return ProDailyBriefSnapshotRead.model_validate(snapshot)
+
+
+def _apply_brief_to_snapshot(snapshot: ProDailyBriefSnapshot, brief: MerchantProDailyBriefRead) -> None:
+    snapshot.brief_date = brief.date
+    snapshot.today_sales_amount = brief.today_sales_amount
+    snapshot.today_reservation_count = brief.today_reservation_count
+    snapshot.today_picked_up_count = brief.today_picked_up_count
+    snapshot.today_cancelled_count = brief.today_cancelled_count
+    snapshot.saved_quantity_today = brief.saved_quantity_today
+    snapshot.unresolved_alert_count = brief.unresolved_alert_count
+    snapshot.action_started_alert_count = brief.action_started_alert_count
+    snapshot.high_severity_alert_count = brief.high_severity_alert_count
+    snapshot.recommendation_action_count = brief.recommendation_action_count
+    snapshot.pos_last_sync_status = brief.pos_last_sync_status
+    snapshot.pos_last_synced_at = brief.pos_last_synced_at
+    snapshot.csv_recent_import_count = brief.csv_recent_import_count
+    snapshot.csv_recent_failed_count = brief.csv_recent_failed_count
+    snapshot.inventory_event_count_today = brief.inventory_event_count_today
+    snapshot.updated_at = datetime.now(timezone.utc)
+
+
+def create_or_update_daily_brief_snapshot(db: Session, merchant: Merchant) -> ProDailyBriefSnapshotRead:
+    brief = build_merchant_pro_daily_brief(db, merchant)
+    snapshot = db.scalar(
+        select(ProDailyBriefSnapshot)
+        .where(
+            ProDailyBriefSnapshot.merchant_id == merchant.id,
+            ProDailyBriefSnapshot.brief_date == brief.date,
+        )
+        .options(selectinload(ProDailyBriefSnapshot.tasks))
+    )
+    if snapshot is None:
+        snapshot = ProDailyBriefSnapshot(
+            merchant_id=merchant.id,
+            brief_date=brief.date,
+        )
+        db.add(snapshot)
+
+    _apply_brief_to_snapshot(snapshot, brief)
+    db.flush()
+
+    db.execute(delete(ProDailyBriefTask).where(ProDailyBriefTask.snapshot_id == snapshot.id))
+    for task in brief.tasks:
+        db.add(
+            ProDailyBriefTask(
+                snapshot_id=snapshot.id,
+                task_type=task.task_type,
+                priority=task.priority,
+                title=task.title,
+                message=task.message,
+                action_label=task.action_label,
+                action_href=task.action_href,
+            )
+        )
+
+    db.commit()
+    refreshed = db.scalar(
+        select(ProDailyBriefSnapshot)
+        .where(ProDailyBriefSnapshot.id == snapshot.id)
+        .options(selectinload(ProDailyBriefSnapshot.tasks))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daily brief snapshot not found.")
+    return _snapshot_to_read(refreshed)
+
+
+def _history_delta(snapshots: list[ProDailyBriefSnapshot]) -> ProDailyBriefHistoryDeltaRead:
+    if len(snapshots) < 2:
+        return ProDailyBriefHistoryDeltaRead()
+
+    latest = snapshots[0]
+    previous = snapshots[1]
+    return ProDailyBriefHistoryDeltaRead(
+        unresolved_alert_delta=latest.unresolved_alert_count - previous.unresolved_alert_count,
+        sales_delta=latest.today_sales_amount - previous.today_sales_amount,
+        reservation_delta=latest.today_reservation_count - previous.today_reservation_count,
+        picked_up_delta=latest.today_picked_up_count - previous.today_picked_up_count,
+        saved_quantity_delta=latest.saved_quantity_today - previous.saved_quantity_today,
+    )
+
+
+def list_daily_brief_history(
+    db: Session,
+    merchant: Merchant,
+    limit: int = 30,
+) -> MerchantProDailyBriefHistoryRead:
+    bounded_limit = max(1, min(limit, 30))
+    snapshots = list(
+        db.scalars(
+            select(ProDailyBriefSnapshot)
+            .where(ProDailyBriefSnapshot.merchant_id == merchant.id)
+            .options(selectinload(ProDailyBriefSnapshot.tasks))
+            .order_by(ProDailyBriefSnapshot.brief_date.desc(), ProDailyBriefSnapshot.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+
+    latest = snapshots[0] if snapshots else None
+    previous = snapshots[1] if len(snapshots) > 1 else None
+    return MerchantProDailyBriefHistoryRead(
+        snapshots=[_snapshot_to_read(snapshot) for snapshot in snapshots],
+        latest_snapshot_id=latest.id if latest else None,
+        previous_snapshot_id=previous.id if previous else None,
+        delta=_history_delta(snapshots),
+    )
+
+
+def get_daily_brief_snapshot(
+    db: Session,
+    merchant: Merchant,
+    snapshot_id: UUID,
+) -> ProDailyBriefSnapshotRead:
+    snapshot = db.scalar(
+        select(ProDailyBriefSnapshot)
+        .where(
+            ProDailyBriefSnapshot.id == snapshot_id,
+            ProDailyBriefSnapshot.merchant_id == merchant.id,
+        )
+        .options(selectinload(ProDailyBriefSnapshot.tasks))
+    )
+    if snapshot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Daily brief snapshot not found.")
+    return _snapshot_to_read(snapshot)

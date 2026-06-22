@@ -75,7 +75,7 @@ export function EmptyState({ title, description }: { title: string; description?
   );
 }
 
-export function StatCard({ label, value, helper }: { label: string; value: number | string; helper?: string }) {
+export function StatCard({ label, value, helper }: { label: string; value: number | string | ReactNode; helper?: string }) {
   return (
     <div className="summary-card">
       <span>{label}</span>

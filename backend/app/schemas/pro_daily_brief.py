@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProDailyBriefTaskRead(BaseModel):
@@ -30,3 +31,58 @@ class MerchantProDailyBriefRead(BaseModel):
     csv_recent_failed_count: int
     inventory_event_count_today: int
     tasks: list[ProDailyBriefTaskRead]
+
+
+class ProDailyBriefSnapshotTaskRead(BaseModel):
+    id: UUID
+    snapshot_id: UUID
+    task_type: str
+    priority: str
+    title: str
+    message: str
+    action_label: str | None = None
+    action_href: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProDailyBriefSnapshotRead(BaseModel):
+    id: UUID
+    merchant_id: UUID
+    store_id: UUID | None = None
+    brief_date: date
+    today_sales_amount: Decimal
+    today_reservation_count: int
+    today_picked_up_count: int
+    today_cancelled_count: int
+    saved_quantity_today: int
+    unresolved_alert_count: int
+    action_started_alert_count: int
+    high_severity_alert_count: int
+    recommendation_action_count: int
+    pos_last_sync_status: str | None = None
+    pos_last_synced_at: datetime | None = None
+    csv_recent_import_count: int
+    csv_recent_failed_count: int
+    inventory_event_count_today: int
+    created_at: datetime
+    updated_at: datetime
+    tasks: list[ProDailyBriefSnapshotTaskRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProDailyBriefHistoryDeltaRead(BaseModel):
+    unresolved_alert_delta: int | None = None
+    sales_delta: Decimal | None = None
+    reservation_delta: int | None = None
+    picked_up_delta: int | None = None
+    saved_quantity_delta: int | None = None
+
+
+class MerchantProDailyBriefHistoryRead(BaseModel):
+    snapshots: list[ProDailyBriefSnapshotRead]
+    latest_snapshot_id: UUID | None = None
+    previous_snapshot_id: UUID | None = None
+    delta: ProDailyBriefHistoryDeltaRead

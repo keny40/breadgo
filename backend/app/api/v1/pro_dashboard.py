@@ -8,7 +8,11 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.inventory_alert_action import InventoryAlertActionCreate, InventoryAlertActionRead
 from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStoresDashboardRead
-from app.schemas.pro_daily_brief import MerchantProDailyBriefRead
+from app.schemas.pro_daily_brief import (
+    MerchantProDailyBriefHistoryRead,
+    MerchantProDailyBriefRead,
+    ProDailyBriefSnapshotRead,
+)
 from app.schemas.pro_esg import MerchantProEsgReportRead
 from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead
 from app.schemas.pro_plan import MerchantProPlanRead
@@ -39,7 +43,12 @@ from app.services.pos_integration_service import (
 )
 from app.services.product_inventory_event_service import list_inventory_events
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
-from app.services.pro_daily_brief_service import build_merchant_pro_daily_brief
+from app.services.pro_daily_brief_service import (
+    build_merchant_pro_daily_brief,
+    create_or_update_daily_brief_snapshot,
+    get_daily_brief_snapshot,
+    list_daily_brief_history,
+)
 from app.services.pro_esg_service import build_merchant_pro_esg_report
 from app.services.pro_inventory_alert_service import build_merchant_pro_inventory_alerts
 from app.services.pro_plan_service import build_merchant_pro_plan
@@ -70,6 +79,35 @@ def get_merchant_pro_daily_brief(
 ) -> MerchantProDailyBriefRead:
     merchant = require_merchant_for_user(db, current_user)
     return build_merchant_pro_daily_brief(db, merchant)
+
+
+@router.post("/daily-brief/snapshot", response_model=ProDailyBriefSnapshotRead)
+def create_merchant_pro_daily_brief_snapshot(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProDailyBriefSnapshotRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_or_update_daily_brief_snapshot(db, merchant)
+
+
+@router.get("/daily-brief/history", response_model=MerchantProDailyBriefHistoryRead)
+def get_merchant_pro_daily_brief_history(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProDailyBriefHistoryRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_daily_brief_history(db, merchant, limit=limit)
+
+
+@router.get("/daily-brief/history/{snapshot_id}", response_model=ProDailyBriefSnapshotRead)
+def get_merchant_pro_daily_brief_history_detail(
+    snapshot_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProDailyBriefSnapshotRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_daily_brief_snapshot(db, merchant, snapshot_id)
 
 
 @router.get("/plan", response_model=MerchantProPlanRead)

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { MerchantProDailyBrief, ProDailyBriefTask } from "@/lib/types";
+import type { MerchantProDailyBrief, ProDailyBriefSnapshot, ProDailyBriefTask } from "@/lib/types";
 
 function formatMoney(value: string) {
   return `${Number(value).toLocaleString()}원`;
@@ -68,10 +69,12 @@ function TaskCard({ task }: { task: ProDailyBriefTask }) {
 
 export default function MerchantProDailyBriefPage() {
   const guard = useRoleGuard("MERCHANT");
+  const router = useRouter();
   const [brief, setBrief] = useState<MerchantProDailyBrief | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!guard.allowed) return;
@@ -96,6 +99,26 @@ export default function MerchantProDailyBriefPage() {
     }
   }
 
+  async function saveSnapshot() {
+    setSaving(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const snapshot = await apiFetch<ProDailyBriefSnapshot>(
+        "/api/v1/merchant/pro/daily-brief/snapshot",
+        { method: "POST" },
+        true,
+      );
+      setMessage("오늘 브리프를 저장했습니다. 운영 개선 흐름에서 다시 확인할 수 있습니다.");
+      router.push(`/merchant/pro/daily-brief/history?snapshot=${snapshot.id}`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -110,9 +133,17 @@ export default function MerchantProDailyBriefPage() {
         title="오늘의 운영 브리프"
         description="BreadGo Pro가 오늘 먼저 확인할 운영 이슈, 추천 액션, POS/CSV 상태를 한 화면에 정리합니다."
         actions={
-          <button type="button" onClick={loadBrief} disabled={loading}>
-            {loading ? "불러오는 중" : "브리프 새로고침"}
-          </button>
+          <>
+            <button type="button" onClick={loadBrief} disabled={loading || saving}>
+              {loading ? "불러오는 중" : "브리프 새로고침"}
+            </button>
+            <button type="button" onClick={saveSnapshot} disabled={loading || saving}>
+              {saving ? "저장 중" : "오늘 브리프 저장"}
+            </button>
+            <Link className="button-link secondary" href="/merchant/pro/daily-brief/history">
+              브리프 이력
+            </Link>
+          </>
         }
       />
 
@@ -124,7 +155,7 @@ export default function MerchantProDailyBriefPage() {
           <h2>{brief?.date || "오늘"} 운영 요약</h2>
           <p>
             오늘 매출, 픽업, 취소, 미해결 재고 알림과 추천 액션을 빠르게 확인하세요. 실제 AI 요약이 아닌
-            현재 데이터 기반 MVP 운영 브리프입니다.
+            현재 데이터 기반 MVP 운영 브리프입니다. 저장 버튼을 누르면 오늘 상태가 이력으로 남습니다.
           </p>
         </div>
         <div className="pro-score">
