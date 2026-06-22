@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -110,9 +111,14 @@ export default function MerchantProInventoryLedgerPage() {
         title="재고 변경 이력"
         description="CSV, POS, 추천, 예약, 수동 수정으로 인한 재고 변동 원인을 추적합니다."
         actions={
-          <button type="button" onClick={() => void loadEvents()} disabled={loading}>
-            {loading ? "불러오는 중" : "이력 새로고침"}
-          </button>
+          <>
+            <button type="button" onClick={() => void loadEvents()} disabled={loading}>
+              {loading ? "불러오는 중" : "이력 새로고침"}
+            </button>
+            <Link className="button-link secondary" href="/merchant/pro/inventory-alerts">
+              재고 이상 알림 보기
+            </Link>
+          </>
         }
       />
 

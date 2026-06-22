@@ -227,6 +227,17 @@ export default function MerchantProDashboardPage() {
         </Link>
       </div>
 
+      <div className="panel pro-relist-card">
+        <div>
+          <p className="eyebrow">운영 알림</p>
+          <h2>재고 이상 알림</h2>
+          <p>마감 후 재고, 낮은 예약 전환, 큰 재고 변동처럼 점주가 확인해야 할 신호를 자동으로 계산합니다.</p>
+        </div>
+        <Link className="button-link secondary" href="/merchant/pro/inventory-alerts">
+          재고 이상 알림 보기
+        </Link>
+      </div>
+
       <section className="panel">
         <div className="card-title-row">
           <div>

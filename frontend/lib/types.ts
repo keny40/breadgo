@@ -404,6 +404,7 @@ export type ProPlanFeatures = {
   product_templates: boolean;
   csv_product_import: boolean;
   inventory_ledger: boolean;
+  inventory_alerts: boolean;
   esg_report: boolean;
   recommendations: boolean;
   recommendation_performance: boolean;
@@ -680,6 +681,30 @@ export type ProductInventoryEvent = {
   source_id: string | null;
   note: string | null;
   created_at: string;
+};
+
+export type ProInventoryAlert = {
+  product_id: string;
+  product_name: string;
+  store_id: string;
+  store_name: string;
+  severity: string;
+  alert_type: string;
+  title: string;
+  message: string;
+  suggested_action: string;
+  current_stock_quantity: number;
+  related_metric: string | null;
+  recent_inventory_note: string | null;
+  detected_at: string;
+};
+
+export type MerchantProInventoryAlerts = {
+  total_alerts: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  alerts: ProInventoryAlert[];
 };
 
 export type ProductTemplate = {

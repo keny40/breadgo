@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStoresDashboardRead
 from app.schemas.pro_esg import MerchantProEsgReportRead
+from app.schemas.pro_inventory_alert import MerchantProInventoryAlertsRead
 from app.schemas.pro_plan import MerchantProPlanRead
 from app.schemas.pro_product_funnel import MerchantProProductFunnelRead
 from app.schemas.product_inventory_event import ProductInventoryEventRead
@@ -36,6 +37,7 @@ from app.services.pos_integration_service import (
 from app.services.product_inventory_event_service import list_inventory_events
 from app.services.pro_dashboard_service import build_merchant_pro_dashboard, build_merchant_pro_stores_dashboard
 from app.services.pro_esg_service import build_merchant_pro_esg_report
+from app.services.pro_inventory_alert_service import build_merchant_pro_inventory_alerts
 from app.services.pro_plan_service import build_merchant_pro_plan
 from app.services.pro_product_funnel_service import build_merchant_pro_product_funnel
 from app.services.pro_recommendation_service import (
@@ -151,6 +153,15 @@ def get_merchant_pro_inventory_events(
         source_type=source_type,
         limit=limit,
     )
+
+
+@router.get("/inventory-alerts", response_model=MerchantProInventoryAlertsRead)
+def get_merchant_pro_inventory_alerts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProInventoryAlertsRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return build_merchant_pro_inventory_alerts(db, merchant)
 
 
 @router.get("/pos-integration", response_model=PosIntegrationRead)
