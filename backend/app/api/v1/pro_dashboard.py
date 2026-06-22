@@ -13,11 +13,13 @@ from app.schemas.pro_dashboard import MerchantProDashboardRead, MerchantProStore
 from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefHistoryRead,
     MerchantProDailyBriefRead,
+    MerchantProWeeklyReportBatchRunHistoryRead,
     MerchantProWeeklyReportHistoryRead,
     MerchantProWeeklyReportRead,
     ProDailyBriefSnapshotRead,
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
+    ProWeeklyReportBatchRunRead,
     ProWeeklyReportSnapshotRead,
 )
 from app.schemas.pro_esg import MerchantProEsgReportRead
@@ -56,9 +58,12 @@ from app.services.pro_daily_brief_service import (
     create_or_update_daily_brief_snapshot,
     create_or_update_weekly_report_snapshot,
     create_current_week_snapshot,
+    create_weekly_report_batch_test_run,
     get_daily_brief_snapshot,
+    get_weekly_report_batch_run,
     get_weekly_report_snapshot,
     list_daily_brief_history,
+    list_weekly_report_batch_runs,
     list_weekly_report_history,
     preview_auto_weekly_snapshot,
     weekly_report_to_csv,
@@ -193,6 +198,37 @@ def create_merchant_pro_weekly_report_auto_snapshot(
 ) -> ProWeeklyReportAutoSnapshotRunRead:
     merchant = require_merchant_for_user(db, current_user)
     return create_current_week_snapshot(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.post("/weekly-report/batch-test-run", response_model=ProWeeklyReportBatchRunRead)
+def create_merchant_pro_weekly_report_batch_test_run(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportBatchRunRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return create_weekly_report_batch_test_run(db, merchant, start_date=start_date, end_date=end_date)
+
+
+@router.get("/weekly-report/batch-runs", response_model=MerchantProWeeklyReportBatchRunHistoryRead)
+def get_merchant_pro_weekly_report_batch_runs(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportBatchRunHistoryRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_weekly_report_batch_runs(db, merchant, limit=limit)
+
+
+@router.get("/weekly-report/batch-runs/{batch_run_id}", response_model=ProWeeklyReportBatchRunRead)
+def get_merchant_pro_weekly_report_batch_run_detail(
+    batch_run_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportBatchRunRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_weekly_report_batch_run(db, merchant, batch_run_id)
 
 
 @router.get("/weekly-report/history", response_model=MerchantProWeeklyReportHistoryRead)

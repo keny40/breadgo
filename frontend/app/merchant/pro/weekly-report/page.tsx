@@ -8,6 +8,7 @@ import { apiFetch, buildApiUrl, friendlyErrorMessage, getToken } from "@/lib/api
 import { useRoleGuard } from "@/lib/authGuard";
 import type {
   MerchantProWeeklyReport,
+  MerchantProWeeklyReportBatchRunHistory,
   ProWeeklyReportAutoSnapshotPreview,
   ProWeeklyReportAutoSnapshotRun,
   ProWeeklyReportDailyTrend,
@@ -71,6 +72,8 @@ export default function MerchantProWeeklyReportPage() {
   const [saving, setSaving] = useState(false);
   const [autoSnapshotLoading, setAutoSnapshotLoading] = useState(false);
   const [autoSnapshotPreview, setAutoSnapshotPreview] = useState<ProWeeklyReportAutoSnapshotPreview | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchHistory, setBatchHistory] = useState<MerchantProWeeklyReportBatchRunHistory | null>(null);
 
   const trendMax = useMemo(() => maxTrendValue(report?.daily_trends || []), [report?.daily_trends]);
 
@@ -91,10 +94,26 @@ export default function MerchantProWeeklyReportPage() {
     }
   }, []);
 
+  const loadBatchRuns = useCallback(async () => {
+    try {
+      const data = await apiFetch<MerchantProWeeklyReportBatchRunHistory>(
+        "/api/v1/merchant/pro/weekly-report/batch-runs",
+        {},
+        true,
+      );
+      setBatchHistory(data);
+    } catch {
+      setBatchHistory(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (!guard.allowed) return;
-    void Promise.resolve().then(loadReport);
-  }, [guard.allowed, loadReport]);
+    void Promise.resolve().then(async () => {
+      await loadReport();
+      await loadBatchRuns();
+    });
+  }, [guard.allowed, loadBatchRuns, loadReport]);
 
   function reportQuery() {
     const params = new URLSearchParams();
@@ -230,6 +249,31 @@ export default function MerchantProWeeklyReportPage() {
     }
   }
 
+  async function runBatchTest() {
+    setBatchLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<MerchantProWeeklyReportBatchRunHistory["batch_runs"][number]>(
+        `/api/v1/merchant/pro/weekly-report/batch-test-run${reportQuery()}`,
+        { method: "POST" },
+        true,
+      );
+      const item = result.items[0];
+      setMessage(
+        item?.snapshot_id
+          ? `자동 생성 테스트가 완료되었습니다. snapshot: ${item.snapshot_id}`
+          : result.message || "자동 생성 테스트가 완료되었습니다.",
+      );
+      await loadBatchRuns();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setBatchLoading(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -323,6 +367,60 @@ export default function MerchantProWeeklyReportPage() {
             <StatCard label="폐기 절감" value={`${autoSnapshotPreview.report_summary.total_saved_quantity}개`} />
             <StatCard label="인사이트" value={`${autoSnapshotPreview.insights.length}개`} />
           </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">Batch Run Log</p>
+            <h2>자동 생성 테스트 실행 이력</h2>
+            <p>
+              실제 cron은 아직 없지만, 운영자가 나중에 실행할 자동 생성 작업의 성공/실패와 대상 기간을
+              기록하는 MVP 로그입니다.
+            </p>
+          </div>
+          <Badge tone="muted">MANUAL_TEST</Badge>
+        </div>
+        <div className="actions">
+          <button type="button" onClick={runBatchTest} disabled={batchLoading}>
+            {batchLoading ? "실행 중" : "자동 생성 테스트 실행"}
+          </button>
+          <button type="button" onClick={loadBatchRuns} disabled={batchLoading}>
+            이력 새로고침
+          </button>
+        </div>
+        {batchHistory && batchHistory.batch_runs.length > 0 ? (
+          <div className="stacked-list">
+            {batchHistory.batch_runs.slice(0, 5).map((run) => {
+              const item = run.items[0];
+              return (
+                <article className="item compact-card" key={run.id}>
+                  <div className="card-title-row">
+                    <div>
+                      <strong>
+                        {formatDate(run.start_date)} - {formatDate(run.end_date)}
+                      </strong>
+                      <p>{run.message || "Weekly Report batch run"}</p>
+                    </div>
+                    <Badge tone={run.status === "COMPLETED" ? "success" : run.status === "FAILED" ? "danger" : "warning"}>
+                      {run.status}
+                    </Badge>
+                  </div>
+                  <p>
+                    성공 {run.success_count} · 실패 {run.failed_count} · 건너뜀 {run.skipped_count}
+                  </p>
+                  {item?.snapshot_id && (
+                    <Link className="button-link secondary" href={`/merchant/pro/weekly-report/history?snapshot=${item.snapshot_id}`}>
+                      저장 이력에서 확인
+                    </Link>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState title="아직 자동 생성 테스트 이력이 없습니다." />
         )}
       </section>
 

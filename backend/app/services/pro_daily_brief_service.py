@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.merchant import Merchant
 from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
-from app.models.pro_weekly_report import ProWeeklyReportInsight, ProWeeklyReportSnapshot
+from app.models.pro_weekly_report import (
+    ProWeeklyReportBatchRun,
+    ProWeeklyReportBatchRunItem,
+    ProWeeklyReportInsight,
+    ProWeeklyReportSnapshot,
+)
 from app.models.product_import import ProductImportBatch
 from app.models.product_inventory_event import ProductInventoryEvent
 from app.schemas.pro_daily_brief import (
@@ -22,9 +27,13 @@ from app.schemas.pro_daily_brief import (
     MerchantProWeeklyReportHistoryRead,
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
+    AdminProWeeklyReportBatchRunMonitorRead,
+    AdminProWeeklyReportBatchRunSummaryRead,
+    MerchantProWeeklyReportBatchRunHistoryRead,
     ProDailyBriefHistoryDeltaRead,
     ProDailyBriefSnapshotRead,
     ProDailyBriefTaskRead,
+    ProWeeklyReportBatchRunRead,
     ProWeeklyReportSnapshotRead,
     ProWeeklyReportDailyTrendRead,
     ProWeeklyReportInsightRead,
@@ -808,6 +817,170 @@ def create_current_week_snapshot(
         end_date=snapshot.end_date,
         message=message,
     )
+
+
+def _batch_run_to_read(batch_run: ProWeeklyReportBatchRun) -> ProWeeklyReportBatchRunRead:
+    return ProWeeklyReportBatchRunRead.model_validate(batch_run)
+
+
+def create_weekly_report_batch_test_run(
+    db: Session,
+    merchant: Merchant,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> ProWeeklyReportBatchRunRead:
+    report = build_merchant_pro_weekly_report(db, merchant, start_date=start_date, end_date=end_date)
+    now = datetime.now(timezone.utc)
+    batch_run = ProWeeklyReportBatchRun(
+        run_type="MANUAL_TEST",
+        status="STARTED",
+        start_date=report.start_date,
+        end_date=report.end_date,
+        target_merchant_count=1,
+        success_count=0,
+        failed_count=0,
+        skipped_count=0,
+        message="Weekly Report 자동 생성 테스트를 시작했습니다.",
+        created_at=now,
+    )
+    db.add(batch_run)
+    db.flush()
+
+    try:
+        snapshot_result = create_current_week_snapshot(
+            db,
+            merchant,
+            start_date=report.start_date,
+            end_date=report.end_date,
+        )
+        item = ProWeeklyReportBatchRunItem(
+            batch_run_id=batch_run.id,
+            merchant_id=merchant.id,
+            snapshot_id=snapshot_result.snapshot_id,
+            status="SUCCESS",
+            message=snapshot_result.message,
+        )
+        batch_run.status = "COMPLETED"
+        batch_run.success_count = 1
+        batch_run.message = "Weekly Report 자동 생성 테스트가 완료되었습니다."
+    except Exception as exc:
+        item = ProWeeklyReportBatchRunItem(
+            batch_run_id=batch_run.id,
+            merchant_id=merchant.id,
+            status="FAILED",
+            message=str(exc),
+        )
+        batch_run.status = "FAILED"
+        batch_run.failed_count = 1
+        batch_run.message = "Weekly Report 자동 생성 테스트가 실패했습니다."
+
+    batch_run.completed_at = datetime.now(timezone.utc)
+    db.add(item)
+    db.commit()
+    refreshed = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.id == batch_run.id)
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+    return _batch_run_to_read(refreshed)
+
+
+def list_weekly_report_batch_runs(
+    db: Session,
+    merchant: Merchant,
+    limit: int = 20,
+) -> MerchantProWeeklyReportBatchRunHistoryRead:
+    bounded_limit = max(1, min(limit, 50))
+    batch_runs = list(
+        db.scalars(
+            select(ProWeeklyReportBatchRun)
+            .join(ProWeeklyReportBatchRunItem)
+            .where(ProWeeklyReportBatchRunItem.merchant_id == merchant.id)
+            .options(selectinload(ProWeeklyReportBatchRun.items))
+            .order_by(ProWeeklyReportBatchRun.created_at.desc())
+            .limit(bounded_limit)
+        )
+        .unique()
+    )
+    return MerchantProWeeklyReportBatchRunHistoryRead(batch_runs=[_batch_run_to_read(run) for run in batch_runs])
+
+
+def get_weekly_report_batch_run(
+    db: Session,
+    merchant: Merchant,
+    batch_run_id: UUID,
+) -> ProWeeklyReportBatchRunRead:
+    batch_run = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .join(ProWeeklyReportBatchRunItem)
+        .where(
+            ProWeeklyReportBatchRun.id == batch_run_id,
+            ProWeeklyReportBatchRunItem.merchant_id == merchant.id,
+        )
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if batch_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+    return _batch_run_to_read(batch_run)
+
+
+def list_admin_weekly_report_batch_runs(
+    db: Session,
+    status_filter: str | None = None,
+    run_type: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    limit: int = 50,
+) -> AdminProWeeklyReportBatchRunMonitorRead:
+    conditions = []
+    if status_filter:
+        conditions.append(ProWeeklyReportBatchRun.status == status_filter)
+    if run_type:
+        conditions.append(ProWeeklyReportBatchRun.run_type == run_type)
+    if start_date:
+        conditions.append(ProWeeklyReportBatchRun.start_date >= start_date)
+    if end_date:
+        conditions.append(ProWeeklyReportBatchRun.end_date <= end_date)
+
+    base_query = select(ProWeeklyReportBatchRun).where(*conditions)
+    all_runs = list(db.scalars(base_query.order_by(ProWeeklyReportBatchRun.created_at.desc())))
+    bounded_limit = max(1, min(limit, 100))
+    runs = list(
+        db.scalars(
+            base_query.options(selectinload(ProWeeklyReportBatchRun.items))
+            .order_by(ProWeeklyReportBatchRun.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+    latest = all_runs[0] if all_runs else None
+    summary = AdminProWeeklyReportBatchRunSummaryRead(
+        total_runs=len(all_runs),
+        completed_count=sum(1 for run in all_runs if run.status == "COMPLETED"),
+        failed_count=sum(1 for run in all_runs if run.status == "FAILED"),
+        partial_count=sum(1 for run in all_runs if run.status == "PARTIAL"),
+        latest_run_status=latest.status if latest else None,
+        latest_run_at=latest.created_at if latest else None,
+    )
+    return AdminProWeeklyReportBatchRunMonitorRead(
+        summary=summary,
+        batch_runs=[_batch_run_to_read(run) for run in runs],
+    )
+
+
+def get_admin_weekly_report_batch_run(
+    db: Session,
+    batch_run_id: UUID,
+) -> ProWeeklyReportBatchRunRead:
+    batch_run = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.id == batch_run_id)
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if batch_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+    return _batch_run_to_read(batch_run)
 
 
 def list_weekly_report_history(

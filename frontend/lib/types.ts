@@ -669,6 +669,50 @@ export type ProWeeklyReportAutoSnapshotRun = {
   message: string;
 };
 
+export type ProWeeklyReportBatchRunItem = {
+  id: string;
+  batch_run_id: string;
+  merchant_id: string;
+  snapshot_id: string | null;
+  status: string;
+  message: string | null;
+  created_at: string;
+};
+
+export type ProWeeklyReportBatchRun = {
+  id: string;
+  run_type: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  target_merchant_count: number;
+  success_count: number;
+  failed_count: number;
+  skipped_count: number;
+  message: string | null;
+  created_at: string;
+  completed_at: string | null;
+  items: ProWeeklyReportBatchRunItem[];
+};
+
+export type MerchantProWeeklyReportBatchRunHistory = {
+  batch_runs: ProWeeklyReportBatchRun[];
+};
+
+export type AdminProWeeklyReportBatchRunSummary = {
+  total_runs: number;
+  completed_count: number;
+  failed_count: number;
+  partial_count: number;
+  latest_run_status: string | null;
+  latest_run_at: string | null;
+};
+
+export type AdminProWeeklyReportBatchRunMonitor = {
+  summary: AdminProWeeklyReportBatchRunSummary;
+  batch_runs: ProWeeklyReportBatchRun[];
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

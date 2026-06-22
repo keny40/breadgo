@@ -1,6 +1,7 @@
 from uuid import UUID
+from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -10,6 +11,7 @@ from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantStatusUpda
 from app.schemas.auth import UserResponse
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
+from app.schemas.pro_daily_brief import AdminProWeeklyReportBatchRunMonitorRead, ProWeeklyReportBatchRunRead
 from app.schemas.product import ProductRead
 from app.schemas.reservation import DeliveryStatusUpdate, ReservationRead
 from app.schemas.reservation_history import ReservationHistoryRead
@@ -27,6 +29,10 @@ from app.services.admin_service import (
 )
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
+from app.services.pro_daily_brief_service import (
+    get_admin_weekly_report_batch_run,
+    list_admin_weekly_report_batch_runs,
+)
 from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
 
@@ -132,3 +138,32 @@ def seed_demo(
     db: Session = Depends(get_db),
 ) -> DemoSeedResponse:
     return DemoSeedResponse(**seed_demo_data(db))
+
+
+@router.get("/pro/weekly-report/batch-runs", response_model=AdminProWeeklyReportBatchRunMonitorRead)
+def list_weekly_report_batch_runs_for_admin(
+    status_filter: str | None = Query(default=None, alias="status"),
+    run_type: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    limit: int = 50,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProWeeklyReportBatchRunMonitorRead:
+    return list_admin_weekly_report_batch_runs(
+        db,
+        status_filter=status_filter,
+        run_type=run_type,
+        start_date=start_date,
+        end_date=end_date,
+        limit=limit,
+    )
+
+
+@router.get("/pro/weekly-report/batch-runs/{batch_run_id}", response_model=ProWeeklyReportBatchRunRead)
+def get_weekly_report_batch_run_for_admin(
+    batch_run_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportBatchRunRead:
+    return get_admin_weekly_report_batch_run(db, batch_run_id)

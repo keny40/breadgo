@@ -89,3 +89,66 @@ class ProWeeklyReportInsight(Base):
     )
 
     snapshot: Mapped["ProWeeklyReportSnapshot"] = relationship("ProWeeklyReportSnapshot", back_populates="insights")
+
+
+class ProWeeklyReportBatchRun(Base):
+    __tablename__ = "pro_weekly_report_batch_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_type: Mapped[str] = mapped_column(String(40), nullable=False, default="MANUAL_TEST")
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="STARTED")
+    start_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    target_merchant_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    skipped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    items: Mapped[list["ProWeeklyReportBatchRunItem"]] = relationship(
+        "ProWeeklyReportBatchRunItem",
+        back_populates="batch_run",
+        cascade="all, delete-orphan",
+        order_by="ProWeeklyReportBatchRunItem.created_at.asc()",
+    )
+
+
+class ProWeeklyReportBatchRunItem(Base):
+    __tablename__ = "pro_weekly_report_batch_run_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pro_weekly_report_batch_runs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("merchants.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pro_weekly_report_snapshots.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    batch_run: Mapped["ProWeeklyReportBatchRun"] = relationship("ProWeeklyReportBatchRun", back_populates="items")
+    merchant: Mapped["Merchant"] = relationship("Merchant")
+    snapshot: Mapped["ProWeeklyReportSnapshot | None"] = relationship("ProWeeklyReportSnapshot")

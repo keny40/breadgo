@@ -179,3 +179,51 @@ class ProWeeklyReportAutoSnapshotRunRead(BaseModel):
     start_date: date
     end_date: date
     message: str
+
+
+class ProWeeklyReportBatchRunItemRead(BaseModel):
+    id: UUID
+    batch_run_id: UUID
+    merchant_id: UUID
+    snapshot_id: UUID | None = None
+    status: str
+    message: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProWeeklyReportBatchRunRead(BaseModel):
+    id: UUID
+    run_type: str
+    status: str
+    start_date: date
+    end_date: date
+    target_merchant_count: int
+    success_count: int
+    failed_count: int
+    skipped_count: int
+    message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+    items: list[ProWeeklyReportBatchRunItemRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MerchantProWeeklyReportBatchRunHistoryRead(BaseModel):
+    batch_runs: list[ProWeeklyReportBatchRunRead]
+
+
+class AdminProWeeklyReportBatchRunSummaryRead(BaseModel):
+    total_runs: int
+    completed_count: int
+    failed_count: int
+    partial_count: int
+    latest_run_status: str | None = None
+    latest_run_at: datetime | None = None
+
+
+class AdminProWeeklyReportBatchRunMonitorRead(BaseModel):
+    summary: AdminProWeeklyReportBatchRunSummaryRead
+    batch_runs: list[ProWeeklyReportBatchRunRead]
