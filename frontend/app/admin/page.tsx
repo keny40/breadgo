@@ -4,6 +4,7 @@
 
 import { ChangeEvent, Fragment, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -205,6 +206,11 @@ export default function AdminPage() {
       <PageHeader
         title="Admin Dashboard"
         description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 모니터링합니다."
+        actions={
+          <Link className="button-link secondary" href="/admin/pro/weekly-report-batches">
+            Weekly Batch Monitor
+          </Link>
+        }
       />
       {process.env.NODE_ENV === "development" && (
         <p className="message">
