@@ -18,6 +18,8 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 
 - Current demo tag: `v0.1.1-demo-ready`
 - GitHub Release draft: [GitHub Release v0.1.1 Demo Ready](docs/github-release-v0.1.1-demo-ready.md)
+- GitHub Release publish guide: [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
+- Post-release verification: [Post-release Verification v0.1.1](docs/post-release-verification-v0.1.1.md)
 - Release notes: [BreadGo MVP Demo Ready Release](docs/release-notes-v0.1.1-demo-ready.md)
 - Demo handoff: [Demo Handoff Pack](docs/demo-handoff-pack.md)
 - Demo quickstart: [Pro Demo Quickstart](docs/pro-demo-quickstart.md)
@@ -414,6 +416,8 @@ Neon PostgreSQL:
 
 - [CHANGELOG](CHANGELOG.md)
 - [GitHub Release v0.1.1 Demo Ready](docs/github-release-v0.1.1-demo-ready.md)
+- [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
+- [Post-release Verification v0.1.1](docs/post-release-verification-v0.1.1.md)
 - [Release Notes v0.1.1 Demo Ready](docs/release-notes-v0.1.1-demo-ready.md)
 - [Demo Handoff Pack](docs/demo-handoff-pack.md)
 - [MVP 기능 요약](docs/mvp-feature-summary.md)
