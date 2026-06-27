@@ -1,7 +1,9 @@
+import csv
+from datetime import date, datetime
+from io import StringIO
 from uuid import UUID
-from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -216,6 +218,95 @@ def get_admin_pro_operations_audit_log_summary(
         date_from=date_from,
         date_to=date_to,
     )
+
+
+@router.get("/pro/operations/audit-logs/export.csv")
+def export_admin_pro_operations_audit_logs_csv(
+    action_type: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    target_type: str | None = None,
+    target_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        result = list_pro_operation_audit_logs(
+            db,
+            action_type=action_type,
+            status_filter=status_filter,
+            target_type=target_type,
+            target_id=target_id,
+            actor_user_id=actor_user_id,
+            date_from=date_from,
+            date_to=date_to,
+            limit=10000,
+            offset=0,
+            max_limit=10000,
+        )
+
+        output = StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "id",
+                "created_at",
+                "actor_user_id",
+                "actor_role",
+                "action_type",
+                "target_type",
+                "target_id",
+                "status",
+                "message",
+            ]
+        )
+        for log in result.audit_logs:
+            writer.writerow(
+                [
+                    str(log.id),
+                    log.created_at.isoformat(),
+                    str(log.actor_user_id) if log.actor_user_id else "",
+                    log.actor_role,
+                    log.action_type,
+                    log.target_type,
+                    str(log.target_id) if log.target_id else "",
+                    log.status,
+                    log.message or "",
+                ]
+            )
+
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="EXPORT_AUDIT_LOG_CSV",
+            target_type="AUDIT_LOG",
+            status_value="SUCCESS",
+            message="Pro Operations Audit Log CSV를 다운로드했습니다.",
+            metadata_json={
+                "filters": {
+                    "action_type": action_type,
+                    "status": status_filter,
+                    "target_type": target_type,
+                    "target_id": str(target_id) if target_id else None,
+                    "actor_user_id": str(actor_user_id) if actor_user_id else None,
+                    "date_from": date_from.isoformat() if date_from else None,
+                    "date_to": date_to.isoformat() if date_to else None,
+                },
+                "exported_count": len(result.audit_logs),
+            },
+        )
+
+        filename = f"pro-audit-logs-{datetime.now().strftime('%Y%m%d')}.csv"
+        return Response(
+            content="\ufeff" + output.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "EXPORT_AUDIT_LOG_CSV", "AUDIT_LOG", str(exc))
+        raise
 
 
 @router.get("/pro/operations/audit-logs/{audit_log_id}", response_model=ProOperationsAuditLogRead)

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
-import { apiFetch, friendlyErrorMessage } from "@/lib/api";
+import { apiFetch, buildApiUrl, friendlyErrorMessage, getToken } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type { ProOperationsAuditLogList, ProOperationsAuditLogSummary } from "@/lib/types";
 
@@ -14,9 +14,10 @@ const actionTypes = [
   "RUN_IN_APP_MOCK_DELIVERY",
   "RUN_UNREAD_REMINDER",
   "RETRY_FAILED_BATCH_ITEMS",
+  "EXPORT_AUDIT_LOG_CSV",
 ];
 
-const targetTypes = ["", "BATCH_RUN", "DELIVERY_RUN", "NOTIFICATION", "OPERATIONS", "WEEKLY_REPORT"];
+const targetTypes = ["", "BATCH_RUN", "DELIVERY_RUN", "NOTIFICATION", "OPERATIONS", "WEEKLY_REPORT", "AUDIT_LOG"];
 const statuses = ["", "SUCCESS", "FAILED"];
 
 function formatDateTime(value: string | null) {
@@ -37,12 +38,14 @@ function targetHref(targetType: string, targetId: string | null) {
   return targetId ? null : "/admin/pro/operations";
 }
 
-function buildQuery(filters: AuditLogFilters) {
+function buildQuery(filters: AuditLogFilters, includeLimit = true) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value) params.set(key, value);
   });
-  params.set("limit", "100");
+  if (includeLimit) {
+    params.set("limit", "100");
+  }
   return params.toString();
 }
 
@@ -73,6 +76,7 @@ export default function AdminProOperationsAuditLogsPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const loadAuditLogs = useCallback(async (nextFilters: AuditLogFilters) => {
     setLoading(true);
@@ -116,6 +120,48 @@ export default function AdminProOperationsAuditLogsPage() {
     setAppliedFilters(emptyFilters);
   }
 
+  async function downloadCsv() {
+    setExporting(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error("로그인이 필요합니다.");
+      }
+      const query = buildQuery(appliedFilters, false);
+      const response = await fetch(
+        buildApiUrl(`/api/v1/admin/pro/operations/audit-logs/export.csv${query ? `?${query}` : ""}`),
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(body || `CSV 다운로드에 실패했습니다. (${response.status})`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const yyyymmdd = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+      link.href = url;
+      link.download = `pro-audit-logs-${yyyymmdd}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setMessage("현재 필터 조건으로 CSV를 다운로드했습니다.");
+      await loadAuditLogs(appliedFilters);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -134,6 +180,9 @@ export default function AdminProOperationsAuditLogsPage() {
             <Link className="button-link secondary" href="/admin/pro/operations">
               Pro Operations
             </Link>
+            <button type="button" onClick={downloadCsv} disabled={loading || exporting}>
+              {exporting ? "다운로드 중" : "CSV 다운로드"}
+            </button>
             <button type="button" onClick={() => loadAuditLogs(appliedFilters)} disabled={loading}>
               {loading ? "불러오는 중" : "새로고침"}
             </button>

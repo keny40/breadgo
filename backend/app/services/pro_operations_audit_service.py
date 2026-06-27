@@ -90,8 +90,9 @@ def list_pro_operation_audit_logs(
     date_to: date | None = None,
     limit: int = 50,
     offset: int = 0,
+    max_limit: int = 200,
 ) -> ProOperationsAuditLogListRead:
-    bounded_limit = max(1, min(limit, 200))
+    bounded_limit = max(1, min(limit, max_limit))
     bounded_offset = max(0, offset)
     conditions = _audit_filters(
         action_type,
