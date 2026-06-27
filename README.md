@@ -22,6 +22,42 @@ merchant@breadgo.test / 12345678
 admin@breadgo.test / 12345678
 ```
 
+## 프로젝트 개요
+
+BreadGo는 한국판 Too Good To Go를 목표로 하는 마감할인 푸드 플랫폼 MVP입니다. 동네 빵집과 소규모 식품 매장이 당일 남는 상품을 할인 판매하고, 소비자는 지역 기반으로 상품을 예약한 뒤 Mock 결제와 픽업/배송 요청 흐름을 확인할 수 있습니다.
+
+역할은 세 가지입니다.
+
+- 소비자: 지역 상품 탐색, 예약, Mock 결제, 픽업 코드 확인, 예약/결제/알림 확인
+- 점주: 매장/상품/재고/주문/픽업/배송 상태/정산 확인
+- 관리자: 사용자/가맹점/상품/예약/결제/정산/운영 상태 확인
+
+BreadGo Pro는 점주용 수율 관리 엔진입니다. 단순 마감 할인앱을 넘어 수율 대시보드, 추천 재고/할인가, Weekly Report, Inventory Ledger, CSV/POS 준비 기능, 운영 알림, 관리자 Pro Operations 도구를 제공합니다.
+
+## 기술 스택
+
+- Backend: FastAPI, SQLAlchemy, Alembic, PostgreSQL, JWT
+- Frontend: Next.js, React, TypeScript, Vercel Blob 이미지 업로드
+- Mobile: Flutter 고객 앱 MVP
+- Operations: Python CLI scripts, smoke test, rule-based health/audit/reporting flow
+- External integrations: 실제 PG/배송/이메일/카카오/Push/Slack/Webhook은 아직 연결하지 않으며 Mock 또는 skeleton 구조만 포함
+
+## BreadGo Pro 운영 기능
+
+- 점주 Pro 대시보드와 Daily Brief
+- Weekly Pro Report 생성, 저장, export, archive
+- Weekly Report scheduler CLI
+- Weekly Report batch monitor, retry failed
+- Delivery preview와 BreadGo 내부 in-app mock delivery
+- Merchant Weekly Report notification 읽음/미확인 처리
+- Notification analytics와 unread reminder
+- Admin Pro Operations Dashboard와 Quick Actions
+- Pro Operations Audit Trail, Audit Log Explorer, CSV export, purge preview/execute
+- Pro Operations Health Check
+- Health Alert mock flow와 Health Alert CLI scheduler
+
+자세한 데모 준비 문서는 [Pro 운영 데모 준비 문서](docs/pro-operations-demo-readiness.md)와 [Pro Demo Quickstart](docs/pro-demo-quickstart.md)를 참고하세요.
+
 ## 현재 MVP 진행 상태
 
 ### 웹 MVP 완료 기능
@@ -188,6 +224,24 @@ cd backend
 python scripts/smoke_test.py
 ```
 
+### Pro 운영 CLI
+
+Weekly Report scheduler MVP:
+
+```powershell
+cd backend
+python scripts/run_weekly_report_batch.py
+```
+
+Health Alert scheduler MVP:
+
+```powershell
+cd backend
+python scripts/run_pro_health_alert_check.py
+```
+
+두 CLI 모두 실제 외부 발송을 수행하지 않습니다. 운영 서버 cron 등록 예시는 [Weekly Report batch runbook](docs/weekly-report-batch-runbook.md)과 [Health Alert scheduler runbook](docs/pro-health-alert-scheduler-runbook.md)을 참고하세요.
+
 ### 웹 프론트엔드
 
 ```powershell
@@ -225,7 +279,10 @@ flutter run --dart-define=BREADGO_API_BASE_URL=https://breadgo-api.onrender.com
 cd backend
 python -m compileall app scripts
 python -m alembic upgrade head
+python scripts/seed_demo.py
 python scripts/smoke_test.py
+python scripts/run_weekly_report_batch.py
+python scripts/run_pro_health_alert_check.py
 ```
 
 웹 프론트엔드:
@@ -315,6 +372,7 @@ Neon PostgreSQL:
 - Mock 결제/Mock 환불 상태만 지원
 - 실제 퀵배달/택배 API 연동 없음
 - 실제 SMS, 카카오톡, 이메일, push 알림 없음
+- 실제 Slack/Discord/Webhook 발송 없음
 - 인앱 알림만 지원
 - 실제 지도 SDK 없음
 - Flutter 앱은 고객 앱만 구현
@@ -326,6 +384,9 @@ Neon PostgreSQL:
 - 실제 송금 없음
 - Render 무료 인스턴스 sleep 가능
 - 데모 계정은 운영 환경에서 사용하면 안 됨
+- Weekly Report/Health Alert scheduler는 CLI와 runbook만 제공하며 실서버 cron 등록은 별도 작업 필요
+- 자동 복구, 자동 purge scheduler, 세부 관리자 권한 분리, 대량 비동기 큐는 아직 없음
+- 이메일, 전화번호, 주소, 외부 발송 토큰은 Pro 운영 로그/알림에 저장하거나 노출하지 않음
 
 ## 추천 다음 단계
 
@@ -344,6 +405,14 @@ Neon PostgreSQL:
 ## 관련 문서
 
 - [CHANGELOG](CHANGELOG.md)
+- [MVP 기능 요약](docs/mvp-feature-summary.md)
+- [데모 계정과 시나리오](docs/demo-accounts-and-scenarios.md)
+- [최종 릴리즈 체크리스트](docs/final-release-checklist.md)
+- [Pro 운영 데모 준비 문서](docs/pro-operations-demo-readiness.md)
+- [Pro Demo Quickstart](docs/pro-demo-quickstart.md)
+- [Weekly Report batch runbook](docs/weekly-report-batch-runbook.md)
+- [Health Alert scheduler runbook](docs/pro-health-alert-scheduler-runbook.md)
+- [Audit Log 보관 정책](docs/pro-audit-log-retention-policy.md)
 - [통합 데모 시나리오 v0.3.0](docs/demo-scenario-v0.3.0.md)
 - [통합 릴리즈 요약 v0.3.0](docs/release-summary-v0.3.0.md)
 - [릴리즈 노트 v0.3.0](docs/release-note-v0.3.0.md)
