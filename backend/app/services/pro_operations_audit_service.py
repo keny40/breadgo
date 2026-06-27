@@ -21,7 +21,7 @@ KST = ZoneInfo("Asia/Seoul")
 
 def create_pro_operation_audit_log(
     db: Session,
-    actor: User,
+    actor: User | None,
     action_type: str,
     target_type: str,
     status_value: str,
@@ -30,8 +30,8 @@ def create_pro_operation_audit_log(
     metadata_json: dict | None = None,
 ) -> ProOperationsAuditLog:
     audit_log = ProOperationsAuditLog(
-        actor_user_id=actor.id,
-        actor_role=str(actor.role.value if hasattr(actor.role, "value") else actor.role),
+        actor_user_id=actor.id if actor else None,
+        actor_role=str(actor.role.value if actor and hasattr(actor.role, "value") else actor.role if actor else "SYSTEM"),
         action_type=action_type,
         target_type=target_type,
         target_id=target_id,
