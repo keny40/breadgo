@@ -4,10 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { AdminProWeeklyReportBatchRunMonitor, ProWeeklyReportBatchRun } from "@/lib/types";
+import type {
+  AdminProWeeklyReportBatchRunMonitor,
+  AdminWeeklyReportBatchPreview,
+  ProWeeklyReportBatchRun,
+} from "@/lib/types";
 
-const statuses = ["", "STARTED", "COMPLETED", "FAILED", "PARTIAL"];
-const runTypes = ["", "MANUAL_TEST", "SCHEDULE_PREP"];
+const statuses = ["", "STARTED", "COMPLETED", "FAILED", "PARTIAL", "SKIPPED"];
+const runTypes = ["", "MANUAL_TEST", "SCHEDULE_PREP", "SCHEDULED", "RETRY"];
 
 function formatDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("ko-KR", {
@@ -25,10 +29,20 @@ function statusTone(status: string): "success" | "warning" | "danger" | "muted" 
   if (status === "COMPLETED" || status === "SUCCESS") return "success";
   if (status === "FAILED") return "danger";
   if (status === "PARTIAL" || status === "STARTED") return "warning";
+  if (status === "SKIPPED") return "muted";
   return "muted";
 }
 
-function BatchRunCard({ run }: { run: ProWeeklyReportBatchRun }) {
+function BatchRunCard({
+  run,
+  retryingId,
+  onRetryFailed,
+}: {
+  run: ProWeeklyReportBatchRun;
+  retryingId: string | null;
+  onRetryFailed: (batchRunId: string) => void;
+}) {
+  const failedItemCount = run.items.filter((item) => item.status === "FAILED").length;
   return (
     <article className="panel">
       <div className="card-title-row">
@@ -49,6 +63,16 @@ function BatchRunCard({ run }: { run: ProWeeklyReportBatchRun }) {
         <StatCard label="스킵" value={run.skipped_count} />
         <StatCard label="실행" value={formatDateTime(run.created_at)} />
         <StatCard label="완료" value={formatDateTime(run.completed_at)} />
+      </div>
+
+      <div className="actions">
+        {failedItemCount > 0 ? (
+          <button type="button" onClick={() => onRetryFailed(run.id)} disabled={retryingId === run.id}>
+            {retryingId === run.id ? "재실행 중" : `실패 건 재실행 (${failedItemCount})`}
+          </button>
+        ) : (
+          <span className="field-help">재실행할 실패 item이 없습니다.</span>
+        )}
       </div>
 
       <div className="table-wrap">
@@ -89,6 +113,10 @@ export default function AdminWeeklyReportBatchMonitorPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [batchActionLoading, setBatchActionLoading] = useState(false);
+  const [preview, setPreview] = useState<AdminWeeklyReportBatchPreview | null>(null);
+  const [lastRun, setLastRun] = useState<ProWeeklyReportBatchRun | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const loadBatchRuns = useCallback(async () => {
     setLoading(true);
@@ -121,6 +149,68 @@ export default function AdminWeeklyReportBatchMonitorPage() {
     });
   }, [guard.allowed, loadBatchRuns]);
 
+  async function previewFullBatch() {
+    setBatchActionLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<AdminWeeklyReportBatchPreview>(
+        "/api/v1/admin/pro/weekly-report/batch-runs/preview",
+        { method: "POST" },
+        true,
+      );
+      setPreview(result);
+      setMessage("전체 가맹점 Weekly Report 배치 미리보기를 확인했습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setBatchActionLoading(false);
+    }
+  }
+
+  async function runFullBatch() {
+    setBatchActionLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProWeeklyReportBatchRun>(
+        "/api/v1/admin/pro/weekly-report/batch-runs",
+        { method: "POST" },
+        true,
+      );
+      setLastRun(result);
+      setMessage(`전체 가맹점 리포트 생성 테스트가 완료되었습니다. Batch: ${result.id}`);
+      await loadBatchRuns();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setBatchActionLoading(false);
+    }
+  }
+
+  async function retryFailedItems(batchRunId: string) {
+    setRetryingId(batchRunId);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProWeeklyReportBatchRun>(
+        `/api/v1/admin/pro/weekly-report/batch-runs/${batchRunId}/retry-failed`,
+        { method: "POST" },
+        true,
+      );
+      setLastRun(result);
+      setMessage(`실패 item 재실행이 완료되었습니다. Retry batch: ${result.id}`);
+      await loadBatchRuns();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -146,6 +236,44 @@ export default function AdminWeeklyReportBatchMonitorPage() {
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
+
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">Admin Manual Batch</p>
+            <h2>전체 가맹점 리포트 생성 테스트</h2>
+            <p>
+              실행하면 각 가맹점의 동일 기간 Weekly Report snapshot이 생성 또는 업데이트됩니다.
+              실제 cron/scheduler와 외부 발송은 아직 연결하지 않습니다.
+            </p>
+          </div>
+          <Badge tone="warning">SCHEDULE_PREP</Badge>
+        </div>
+        <div className="actions">
+          <button type="button" onClick={previewFullBatch} disabled={batchActionLoading}>
+            {batchActionLoading ? "확인 중" : "전체 배치 미리보기"}
+          </button>
+          <button type="button" onClick={runFullBatch} disabled={batchActionLoading}>
+            {batchActionLoading ? "실행 중" : "전체 가맹점 리포트 생성 테스트"}
+          </button>
+        </div>
+        {preview && (
+          <div className="summary-grid compact">
+            <StatCard label="대상 기간" value={`${formatDate(preview.start_date)} - ${formatDate(preview.end_date)}`} />
+            <StatCard label="대상 가맹점" value={preview.target_merchant_count} />
+            <StatCard label="생성/업데이트 예정" value={preview.would_create_or_update_count} />
+            <StatCard label="안내" value={preview.message} />
+          </div>
+        )}
+        {lastRun && (
+          <div className="summary-grid compact">
+            <StatCard label="최근 실행 Batch" value={lastRun.id} />
+            <StatCard label="상태" value={lastRun.status} />
+            <StatCard label="성공" value={lastRun.success_count} />
+            <StatCard label="실패" value={lastRun.failed_count} />
+          </div>
+        )}
+      </section>
 
       <section className="panel">
         <div className="form-grid">
@@ -189,7 +317,7 @@ export default function AdminWeeklyReportBatchMonitorPage() {
       {data && data.batch_runs.length > 0 ? (
         <div className="stacked-list">
           {data.batch_runs.map((run) => (
-            <BatchRunCard key={run.id} run={run} />
+            <BatchRunCard key={run.id} run={run} retryingId={retryingId} onRetryFailed={retryFailedItems} />
           ))}
         </div>
       ) : (

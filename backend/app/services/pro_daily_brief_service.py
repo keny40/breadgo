@@ -29,6 +29,7 @@ from app.schemas.pro_daily_brief import (
     ProWeeklyReportAutoSnapshotRunRead,
     AdminProWeeklyReportBatchRunMonitorRead,
     AdminProWeeklyReportBatchRunSummaryRead,
+    AdminWeeklyReportBatchPreviewRead,
     MerchantProWeeklyReportBatchRunHistoryRead,
     ProDailyBriefHistoryDeltaRead,
     ProDailyBriefSnapshotRead,
@@ -981,6 +982,264 @@ def get_admin_weekly_report_batch_run(
     if batch_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
     return _batch_run_to_read(batch_run)
+
+
+def retry_failed_weekly_report_batch_items(
+    db: Session,
+    batch_run_id: UUID,
+) -> ProWeeklyReportBatchRunRead:
+    original = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.id == batch_run_id)
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if original is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+
+    failed_items = [item for item in original.items if item.status == "FAILED"]
+    if not failed_items:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="재실행할 실패 item이 없습니다.")
+
+    failed_merchant_ids = [item.merchant_id for item in failed_items]
+    merchants = list(
+        db.scalars(
+            select(Merchant)
+            .where(Merchant.id.in_(failed_merchant_ids))
+            .order_by(Merchant.created_at.asc())
+        )
+    )
+    merchant_by_id = {merchant.id: merchant for merchant in merchants}
+    batch_run = ProWeeklyReportBatchRun(
+        run_type="RETRY",
+        status="STARTED",
+        start_date=original.start_date,
+        end_date=original.end_date,
+        target_merchant_count=len(failed_items),
+        success_count=0,
+        failed_count=0,
+        skipped_count=0,
+        message=f"원본 batch run {batch_run_id}의 실패 item을 재실행합니다.",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(batch_run)
+    db.flush()
+
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+
+    for item in failed_items:
+        merchant = merchant_by_id.get(item.merchant_id)
+        if merchant is None:
+            db.add(
+                ProWeeklyReportBatchRunItem(
+                    batch_run_id=batch_run.id,
+                    merchant_id=item.merchant_id,
+                    status="FAILED",
+                    message="대상 가맹점을 찾을 수 없어 재실행하지 못했습니다.",
+                )
+            )
+            failed_count += 1
+            continue
+
+        try:
+            snapshot_result = create_current_week_snapshot(
+                db,
+                merchant,
+                start_date=original.start_date,
+                end_date=original.end_date,
+            )
+            db.add(
+                ProWeeklyReportBatchRunItem(
+                    batch_run_id=batch_run.id,
+                    merchant_id=merchant.id,
+                    snapshot_id=snapshot_result.snapshot_id,
+                    status="SUCCESS",
+                    message=snapshot_result.message,
+                )
+            )
+            success_count += 1
+        except Exception as exc:
+            db.add(
+                ProWeeklyReportBatchRunItem(
+                    batch_run_id=batch_run.id,
+                    merchant_id=merchant.id,
+                    status="FAILED",
+                    message=str(exc),
+                )
+            )
+            failed_count += 1
+
+    if failed_count and success_count:
+        batch_run.status = "PARTIAL"
+        batch_run.message = f"원본 batch run {batch_run_id}의 실패 item 일부 재실행이 실패했습니다."
+    elif failed_count and not success_count:
+        batch_run.status = "FAILED"
+        batch_run.message = f"원본 batch run {batch_run_id}의 실패 item 재실행이 모두 실패했습니다."
+    else:
+        batch_run.status = "COMPLETED"
+        batch_run.message = f"원본 batch run {batch_run_id}의 실패 item 재실행이 완료되었습니다."
+
+    batch_run.success_count = success_count
+    batch_run.failed_count = failed_count
+    batch_run.skipped_count = skipped_count
+    batch_run.completed_at = datetime.now(timezone.utc)
+    db.commit()
+
+    refreshed = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.id == batch_run.id)
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+    return _batch_run_to_read(refreshed)
+
+
+def preview_admin_weekly_report_batch_run(
+    db: Session,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> AdminWeeklyReportBatchPreviewRead:
+    default_start, default_end = _default_report_range()
+    resolved_start = start_date or default_start
+    resolved_end = end_date or default_end
+    target_merchant_count = db.scalar(select(func.count()).select_from(Merchant)) or 0
+    return AdminWeeklyReportBatchPreviewRead(
+        start_date=resolved_start,
+        end_date=resolved_end,
+        target_merchant_count=target_merchant_count,
+        would_create_or_update_count=target_merchant_count,
+        message=(
+            f"{target_merchant_count}개 가맹점의 Weekly Report snapshot을 "
+            "생성하거나 기존 동일 기간 snapshot을 업데이트할 예정입니다."
+        ),
+    )
+
+
+def create_admin_weekly_report_batch_run(
+    db: Session,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    run_type: str = "SCHEDULE_PREP",
+    skip_if_completed: bool = False,
+) -> ProWeeklyReportBatchRunRead:
+    preview = preview_admin_weekly_report_batch_run(db, start_date=start_date, end_date=end_date)
+    merchants = list(db.scalars(select(Merchant).order_by(Merchant.created_at.asc())))
+    if skip_if_completed:
+        existing_completed = db.scalar(
+            select(ProWeeklyReportBatchRun)
+            .where(
+                ProWeeklyReportBatchRun.run_type == run_type,
+                ProWeeklyReportBatchRun.status == "COMPLETED",
+                ProWeeklyReportBatchRun.start_date == preview.start_date,
+                ProWeeklyReportBatchRun.end_date == preview.end_date,
+            )
+            .order_by(ProWeeklyReportBatchRun.created_at.desc())
+        )
+        if existing_completed is not None:
+            skipped_run = ProWeeklyReportBatchRun(
+                run_type=run_type,
+                status="SKIPPED",
+                start_date=preview.start_date,
+                end_date=preview.end_date,
+                target_merchant_count=len(merchants),
+                success_count=0,
+                failed_count=0,
+                skipped_count=len(merchants),
+                message="동일 기간에 이미 완료된 SCHEDULED batch run이 있어 중복 실행하지 않았습니다.",
+                created_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+            )
+            db.add(skipped_run)
+            db.commit()
+            refreshed_skipped = db.scalar(
+                select(ProWeeklyReportBatchRun)
+                .where(ProWeeklyReportBatchRun.id == skipped_run.id)
+                .options(selectinload(ProWeeklyReportBatchRun.items))
+            )
+            if refreshed_skipped is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+            return _batch_run_to_read(refreshed_skipped)
+
+    batch_run = ProWeeklyReportBatchRun(
+        run_type=run_type,
+        status="STARTED",
+        start_date=preview.start_date,
+        end_date=preview.end_date,
+        target_merchant_count=len(merchants),
+        success_count=0,
+        failed_count=0,
+        skipped_count=0,
+        message="전체 가맹점 Weekly Report 배치 실행을 시작했습니다.",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(batch_run)
+    db.flush()
+
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+
+    if not merchants:
+        batch_run.status = "COMPLETED"
+        batch_run.message = "대상 가맹점이 없어 실행할 Weekly Report 배치가 없습니다."
+        batch_run.completed_at = datetime.now(timezone.utc)
+        db.commit()
+    else:
+        for merchant in merchants:
+            try:
+                snapshot_result = create_current_week_snapshot(
+                    db,
+                    merchant,
+                    start_date=preview.start_date,
+                    end_date=preview.end_date,
+                )
+                db.add(
+                    ProWeeklyReportBatchRunItem(
+                        batch_run_id=batch_run.id,
+                        merchant_id=merchant.id,
+                        snapshot_id=snapshot_result.snapshot_id,
+                        status="SUCCESS",
+                        message=snapshot_result.message,
+                    )
+                )
+                success_count += 1
+            except Exception as exc:
+                db.add(
+                    ProWeeklyReportBatchRunItem(
+                        batch_run_id=batch_run.id,
+                        merchant_id=merchant.id,
+                        status="FAILED",
+                        message=str(exc),
+                    )
+                )
+                failed_count += 1
+
+        if failed_count and success_count:
+            batch_run.status = "PARTIAL"
+            batch_run.message = "일부 가맹점 Weekly Report 배치가 실패했습니다."
+        elif failed_count and not success_count:
+            batch_run.status = "FAILED"
+            batch_run.message = "전체 가맹점 Weekly Report 배치가 실패했습니다."
+        else:
+            batch_run.status = "COMPLETED"
+            batch_run.message = "전체 가맹점 Weekly Report 배치가 완료되었습니다."
+
+        batch_run.success_count = success_count
+        batch_run.failed_count = failed_count
+        batch_run.skipped_count = skipped_count
+        batch_run.completed_at = datetime.now(timezone.utc)
+        db.commit()
+
+    refreshed = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.id == batch_run.id)
+        .options(selectinload(ProWeeklyReportBatchRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
+    return _batch_run_to_read(refreshed)
 
 
 def list_weekly_report_history(

@@ -713,6 +713,14 @@ export type AdminProWeeklyReportBatchRunMonitor = {
   batch_runs: ProWeeklyReportBatchRun[];
 };
 
+export type AdminWeeklyReportBatchPreview = {
+  start_date: string;
+  end_date: string;
+  target_merchant_count: number;
+  would_create_or_update_count: number;
+  message: string;
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

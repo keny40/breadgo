@@ -11,7 +11,11 @@ from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantStatusUpda
 from app.schemas.auth import UserResponse
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
-from app.schemas.pro_daily_brief import AdminProWeeklyReportBatchRunMonitorRead, ProWeeklyReportBatchRunRead
+from app.schemas.pro_daily_brief import (
+    AdminProWeeklyReportBatchRunMonitorRead,
+    AdminWeeklyReportBatchPreviewRead,
+    ProWeeklyReportBatchRunRead,
+)
 from app.schemas.product import ProductRead
 from app.schemas.reservation import DeliveryStatusUpdate, ReservationRead
 from app.schemas.reservation_history import ReservationHistoryRead
@@ -30,8 +34,11 @@ from app.services.admin_service import (
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
+    create_admin_weekly_report_batch_run,
     get_admin_weekly_report_batch_run,
     list_admin_weekly_report_batch_runs,
+    preview_admin_weekly_report_batch_run,
+    retry_failed_weekly_report_batch_items,
 )
 from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
@@ -158,6 +165,35 @@ def list_weekly_report_batch_runs_for_admin(
         end_date=end_date,
         limit=limit,
     )
+
+
+@router.post("/pro/weekly-report/batch-runs/preview", response_model=AdminWeeklyReportBatchPreviewRead)
+def preview_weekly_report_batch_run_for_admin(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminWeeklyReportBatchPreviewRead:
+    return preview_admin_weekly_report_batch_run(db, start_date=start_date, end_date=end_date)
+
+
+@router.post("/pro/weekly-report/batch-runs", response_model=ProWeeklyReportBatchRunRead)
+def create_weekly_report_batch_run_for_admin(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportBatchRunRead:
+    return create_admin_weekly_report_batch_run(db, start_date=start_date, end_date=end_date)
+
+
+@router.post("/pro/weekly-report/batch-runs/{batch_run_id}/retry-failed", response_model=ProWeeklyReportBatchRunRead)
+def retry_failed_weekly_report_batch_items_for_admin(
+    batch_run_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportBatchRunRead:
+    return retry_failed_weekly_report_batch_items(db, batch_run_id)
 
 
 @router.get("/pro/weekly-report/batch-runs/{batch_run_id}", response_model=ProWeeklyReportBatchRunRead)

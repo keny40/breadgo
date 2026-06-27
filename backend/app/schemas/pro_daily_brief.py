@@ -227,3 +227,11 @@ class AdminProWeeklyReportBatchRunSummaryRead(BaseModel):
 class AdminProWeeklyReportBatchRunMonitorRead(BaseModel):
     summary: AdminProWeeklyReportBatchRunSummaryRead
     batch_runs: list[ProWeeklyReportBatchRunRead]
+
+
+class AdminWeeklyReportBatchPreviewRead(BaseModel):
+    start_date: date
+    end_date: date
+    target_merchant_count: int
+    would_create_or_update_count: int
+    message: str
