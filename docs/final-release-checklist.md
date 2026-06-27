@@ -36,6 +36,18 @@
 - [ ] `/admin/pro/operations/audit-logs`
 - [ ] `/admin/pro/operations/health-alerts`
 
+## 데모 리허설 체크
+
+- [ ] 관리자 로그인 후 `/admin` 진입
+- [ ] `/admin/pro/operations`에서 Health Check와 Quick Actions 확인
+- [ ] `/admin/pro/weekly-report-batches`에서 SCHEDULED/RETRY/status 설명 가능
+- [ ] `/admin/pro/weekly-report-deliveries`에서 READY/SENT/SKIPPED 설명 가능
+- [ ] `/admin/pro/operations/audit-logs`에서 CSV export와 purge preview 설명 가능
+- [ ] `/admin/pro/operations/health-alerts`에서 OPEN/ACKNOWLEDGED/RESOLVED 설명 가능
+- [ ] 점주 로그인 후 `/merchant/pro` 진입
+- [ ] `/merchant/pro/weekly-report-notifications`에서 미확인 알림과 읽음 처리 확인
+- [ ] WARNING/SKIPPED 상태가 나왔을 때 정상적인 운영 신호로 설명 가능
+
 ## 개인정보/토큰 확인
 
 - [ ] Pro delivery/audit/health log에 이메일, 전화번호, 주소, 외부 발송 토큰 미저장 확인

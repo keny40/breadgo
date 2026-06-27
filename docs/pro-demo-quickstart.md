@@ -85,6 +85,15 @@ npm run dev
 15. `/admin/pro/operations/health-alerts`에서 alert 확인/해결 처리
 16. CLI scheduler 명령을 설명하고 운영 cron 연결은 아직 수동 준비 단계임을 안내
 
+## 리허설 설명 팁
+
+- Health Check가 `WARNING`으로 표시되면 장애가 아니라 "운영자가 확인할 항목이 남아 있는 상태"로 설명한다.
+- `SCHEDULED` batch가 `SKIPPED`이면 동일 기간 중복 실행 방지 로직이 작동한 것으로 설명한다.
+- Delivery 화면의 `READY`는 내부 알림 생성 가능, `SENT`는 BreadGo 내부 알림 Mock 생성 완료, `SKIPPED`는 snapshot 없음 또는 중복 등으로 제외된 상태다.
+- `내부 알림 Mock 발송`은 실제 이메일/카카오/Push가 아니라 BreadGo 내부 notification 생성만 수행한다.
+- Audit Log purge는 데모 중 `삭제 대상 미리보기`까지만 보여주는 것을 권장한다. 실제 삭제 실행은 제출/시연 중에는 피한다.
+- Health Alert는 같은 원인의 OPEN/ACKNOWLEDGED alert가 있으면 중복 생성되지 않는다.
+
 ## 검증 명령
 
 ```bash

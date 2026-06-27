@@ -68,6 +68,15 @@ customer@breadgo.test / 12345678
 15. Audit Log purge preview 확인
 16. `/admin/pro/operations/health-alerts`에서 alert 확인/해결 처리
 
+## 리허설 결과 기준 설명 포인트
+
+- Pro Operations의 `needs_attention=true` 또는 Health `WARNING`은 데모 실패가 아니라 운영 주의 신호가 있는 상태다.
+- Weekly Report scheduler CLI가 `SKIPPED`를 반환하면 동일 기간에 이미 완료된 SCHEDULED run이 있어 중복 실행을 막은 것이다.
+- Delivery preview에서 READY 대상이 있으면 내부 알림 Mock 발송을 실행할 수 있다.
+- 점주 알림 화면에서 UNREAD 알림은 개별 읽음 또는 모두 읽음 처리가 가능하다.
+- Audit Log CSV export는 운영 액션 보고용이며 개인정보, 연락처, 주소, 토큰은 포함하지 않는다.
+- Audit Log purge는 반드시 preview로 대상 범위를 설명한 뒤, 실제 삭제는 데모 상황에서는 실행하지 않는 편이 안전하다.
+
 ## CLI 데모
 
 ```bash
