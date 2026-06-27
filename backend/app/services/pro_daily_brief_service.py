@@ -2,6 +2,7 @@ import csv
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from uuid import UUID
@@ -21,6 +22,7 @@ from app.models.pro_weekly_report import (
     ProWeeklyReportInsight,
     ProWeeklyReportSnapshot,
 )
+from app.models.pro_operations_audit import ProOperationsAuditLog
 from app.models.product_import import ProductImportBatch
 from app.models.product_inventory_event import ProductInventoryEvent
 from app.schemas.pro_daily_brief import (
@@ -38,6 +40,8 @@ from app.schemas.pro_daily_brief import (
     AdminProOperationsAttentionSummaryRead,
     AdminProOperationsBatchSummaryRead,
     AdminProOperationsDeliverySummaryRead,
+    AdminProOperationsHealthItemRead,
+    AdminProOperationsHealthRead,
     AdminProOperationsNotificationSummaryRead,
     AdminProOperationsSummaryRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
@@ -1797,6 +1801,236 @@ def build_admin_pro_operations_summary(db: Session) -> AdminProOperationsSummary
         can_run_mock_delivery=can_run_mock_delivery,
         can_run_unread_reminder=can_run_unread_reminder,
         quick_action_messages=quick_action_messages,
+    )
+
+
+def _health_item(status_value: str, message: str, checked_at: datetime, details: dict) -> AdminProOperationsHealthItemRead:
+    return AdminProOperationsHealthItemRead(
+        status=status_value,
+        message=message,
+        last_checked_at=checked_at,
+        details=details,
+    )
+
+
+def _overall_health_status(items: list[AdminProOperationsHealthItemRead]) -> str:
+    if any(item.status == "CRITICAL" for item in items):
+        return "CRITICAL"
+    if any(item.status == "WARNING" for item in items):
+        return "WARNING"
+    return "OK"
+
+
+def build_admin_pro_operations_health(db: Session) -> AdminProOperationsHealthRead:
+    checked_at = datetime.now(timezone.utc)
+    recent_start = checked_at - timedelta(days=7)
+
+    latest_scheduled_batch = db.scalar(
+        select(ProWeeklyReportBatchRun)
+        .where(ProWeeklyReportBatchRun.run_type == "SCHEDULED")
+        .order_by(ProWeeklyReportBatchRun.created_at.desc())
+    )
+    if latest_scheduled_batch is None:
+        scheduler_health = _health_item(
+            "WARNING",
+            "최근 SCHEDULED Weekly Report batch run이 없습니다.",
+            checked_at,
+            {"latest_scheduled_batch_run_id": None},
+        )
+    elif latest_scheduled_batch.status == "FAILED":
+        scheduler_health = _health_item(
+            "CRITICAL",
+            "최근 SCHEDULED Weekly Report batch run이 실패했습니다.",
+            checked_at,
+            {
+                "latest_scheduled_batch_run_id": str(latest_scheduled_batch.id),
+                "status": latest_scheduled_batch.status,
+                "created_at": latest_scheduled_batch.created_at.isoformat(),
+            },
+        )
+    elif latest_scheduled_batch.status == "SKIPPED":
+        scheduler_health = _health_item(
+            "OK",
+            "최근 SCHEDULED run은 중복 실행 방지로 SKIPPED 처리되었습니다.",
+            checked_at,
+            {
+                "latest_scheduled_batch_run_id": str(latest_scheduled_batch.id),
+                "status": latest_scheduled_batch.status,
+                "message": latest_scheduled_batch.message,
+            },
+        )
+    else:
+        scheduler_health = _health_item(
+            "OK",
+            "최근 SCHEDULED Weekly Report batch run이 확인되었습니다.",
+            checked_at,
+            {
+                "latest_scheduled_batch_run_id": str(latest_scheduled_batch.id),
+                "status": latest_scheduled_batch.status,
+                "created_at": latest_scheduled_batch.created_at.isoformat(),
+            },
+        )
+
+    latest_batch = db.scalar(select(ProWeeklyReportBatchRun).order_by(ProWeeklyReportBatchRun.created_at.desc()))
+    recent_batch_runs = list(
+        db.scalars(select(ProWeeklyReportBatchRun).where(ProWeeklyReportBatchRun.created_at >= recent_start))
+    )
+    recent_failed_or_partial = sum(1 for run in recent_batch_runs if run.status in {"FAILED", "PARTIAL"})
+    if latest_batch is None:
+        batch_health = _health_item("WARNING", "Weekly Report batch run 이력이 없습니다.", checked_at, {})
+    elif latest_batch.status == "FAILED":
+        batch_health = _health_item(
+            "CRITICAL",
+            "최근 Weekly Report batch run이 실패했습니다.",
+            checked_at,
+            {"latest_batch_run_id": str(latest_batch.id), "status": latest_batch.status},
+        )
+    elif latest_batch.status == "PARTIAL" or recent_failed_or_partial > 0:
+        batch_health = _health_item(
+            "WARNING",
+            "최근 7일 내 실패 또는 부분 실패 batch run이 있습니다.",
+            checked_at,
+            {
+                "latest_batch_run_id": str(latest_batch.id),
+                "latest_status": latest_batch.status,
+                "recent_failed_or_partial_count": recent_failed_or_partial,
+            },
+        )
+    else:
+        batch_health = _health_item(
+            "OK",
+            "최근 Weekly Report batch 상태가 정상입니다.",
+            checked_at,
+            {"latest_batch_run_id": str(latest_batch.id), "status": latest_batch.status},
+        )
+
+    latest_delivery = db.scalar(select(ProWeeklyReportDeliveryRun).order_by(ProWeeklyReportDeliveryRun.created_at.desc()))
+    if latest_delivery is None:
+        delivery_health = _health_item("WARNING", "Weekly Report delivery run 이력이 없습니다.", checked_at, {})
+    elif latest_delivery.status == "FAILED":
+        delivery_health = _health_item(
+            "CRITICAL",
+            "최근 delivery run이 실패했습니다.",
+            checked_at,
+            {"latest_delivery_run_id": str(latest_delivery.id), "status": latest_delivery.status},
+        )
+    elif latest_delivery.status == "PARTIAL":
+        delivery_health = _health_item(
+            "WARNING",
+            "최근 delivery run에 일부 실패 항목이 있습니다.",
+            checked_at,
+            {"latest_delivery_run_id": str(latest_delivery.id), "status": latest_delivery.status},
+        )
+    else:
+        delivery_health = _health_item(
+            "OK",
+            "최근 delivery run 상태가 정상입니다.",
+            checked_at,
+            {"latest_delivery_run_id": str(latest_delivery.id), "status": latest_delivery.status},
+        )
+
+    notifications = list(db.scalars(select(ProWeeklyReportInAppNotification)))
+    unread_count = sum(1 for notification in notifications if notification.status == "UNREAD")
+    reminder_notifications = [notification for notification in notifications if "리마인드" in notification.title]
+    latest_reminder_at = max((notification.created_at for notification in reminder_notifications), default=None)
+    if unread_count >= 20:
+        notification_status = "CRITICAL"
+        notification_message = "미확인 Weekly Report 알림이 많이 남아 있습니다."
+    elif unread_count > 0:
+        notification_status = "WARNING"
+        notification_message = "미확인 Weekly Report 알림이 남아 있습니다."
+    else:
+        notification_status = "OK"
+        notification_message = "미확인 Weekly Report 알림이 없습니다."
+    if latest_reminder_at is not None and unread_count > 0 and notification_status != "CRITICAL":
+        notification_message = "최근 리마인드 이후에도 미확인 Weekly Report 알림이 남아 있습니다."
+    notification_health = _health_item(
+        notification_status,
+        notification_message,
+        checked_at,
+        {
+            "total_notification_count": len(notifications),
+            "unread_count": unread_count,
+            "latest_reminder_at": latest_reminder_at.isoformat() if latest_reminder_at else None,
+        },
+    )
+
+    latest_audit_log = db.scalar(select(ProOperationsAuditLog).order_by(ProOperationsAuditLog.created_at.desc()))
+    recent_audit_count = db.scalar(
+        select(func.count()).select_from(ProOperationsAuditLog).where(ProOperationsAuditLog.created_at >= recent_start)
+    ) or 0
+    if latest_audit_log is None:
+        audit_log_health = _health_item("WARNING", "Pro Operations Audit Log가 아직 없습니다.", checked_at, {})
+    elif recent_audit_count == 0:
+        audit_log_health = _health_item(
+            "WARNING",
+            "최근 7일 내 Pro Operations Audit Log가 없습니다.",
+            checked_at,
+            {"latest_audit_log_id": str(latest_audit_log.id), "latest_action_at": latest_audit_log.created_at.isoformat()},
+        )
+    else:
+        audit_log_health = _health_item(
+            "OK",
+            "최근 Pro Operations Audit Log가 정상적으로 기록되고 있습니다.",
+            checked_at,
+            {
+                "latest_audit_log_id": str(latest_audit_log.id),
+                "recent_7_days_audit_count": recent_audit_count,
+                "latest_action_at": latest_audit_log.created_at.isoformat(),
+            },
+        )
+
+    retention_days = 180
+    old_audit_cutoff = checked_at - timedelta(days=retention_days)
+    old_audit_count = db.scalar(
+        select(func.count()).select_from(ProOperationsAuditLog).where(ProOperationsAuditLog.created_at < old_audit_cutoff)
+    ) or 0
+    docs_path = Path(__file__).resolve().parents[3] / "docs" / "pro-audit-log-retention-policy.md"
+    if old_audit_count > 1000:
+        purge_status = "WARNING"
+        purge_message = "보관 기준보다 오래된 감사 로그가 많이 쌓여 있습니다."
+    else:
+        purge_status = "OK"
+        purge_message = "Audit Log purge 정책과 수동 정리 기능이 준비되어 있습니다."
+    purge_policy_health = _health_item(
+        purge_status,
+        purge_message,
+        checked_at,
+        {
+            "default_retention_days": retention_days,
+            "minimum_retention_days": 30,
+            "old_audit_log_count": old_audit_count,
+            "policy_document_exists": docs_path.exists(),
+            "automatic_purge_enabled": False,
+        },
+    )
+
+    health_items = [
+        scheduler_health,
+        batch_health,
+        delivery_health,
+        notification_health,
+        audit_log_health,
+        purge_policy_health,
+    ]
+    overall_status = _overall_health_status(health_items)
+    health_messages = [item.message for item in health_items if item.status != "OK"]
+    summary_message = (
+        "BreadGo Pro 운영 상태가 정상입니다."
+        if overall_status == "OK"
+        else "BreadGo Pro 운영 상태에 확인이 필요한 항목이 있습니다."
+    )
+    return AdminProOperationsHealthRead(
+        overall_status=overall_status,
+        checked_at=checked_at,
+        summary_message=summary_message,
+        health_messages=health_messages,
+        scheduler_health=scheduler_health,
+        batch_health=batch_health,
+        delivery_health=delivery_health,
+        notification_health=notification_health,
+        audit_log_health=audit_log_health,
+        purge_policy_health=purge_policy_health,
     )
 
 

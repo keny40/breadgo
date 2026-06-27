@@ -6,6 +6,7 @@ import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type {
+  AdminProOperationsHealth,
   AdminProOperationsSummary,
   ProOperationsAuditLogList,
   ProOperationsAuditLogSummary,
@@ -18,15 +19,33 @@ function formatDateTime(value: string | null) {
 
 function statusTone(status: string | null): "success" | "warning" | "danger" | "muted" {
   if (!status) return "muted";
-  if (status === "COMPLETED" || status === "SUCCESS") return "success";
-  if (status === "FAILED") return "danger";
-  if (status === "PARTIAL" || status === "STARTED" || status === "PENDING") return "warning";
+  if (status === "COMPLETED" || status === "SUCCESS" || status === "OK") return "success";
+  if (status === "FAILED" || status === "CRITICAL") return "danger";
+  if (status === "PARTIAL" || status === "STARTED" || status === "PENDING" || status === "WARNING") return "warning";
   return "muted";
 }
+
+const healthCards: Array<{ key: keyof Pick<
+  AdminProOperationsHealth,
+  | "scheduler_health"
+  | "batch_health"
+  | "delivery_health"
+  | "notification_health"
+  | "audit_log_health"
+  | "purge_policy_health"
+>; label: string }> = [
+  { key: "scheduler_health", label: "Scheduler" },
+  { key: "batch_health", label: "Batch" },
+  { key: "delivery_health", label: "Delivery" },
+  { key: "notification_health", label: "Notification" },
+  { key: "audit_log_health", label: "Audit Log" },
+  { key: "purge_policy_health", label: "Purge Policy" },
+];
 
 export default function AdminProOperationsPage() {
   const guard = useRoleGuard("ADMIN");
   const [summary, setSummary] = useState<AdminProOperationsSummary | null>(null);
+  const [health, setHealth] = useState<AdminProOperationsHealth | null>(null);
   const [auditSummary, setAuditSummary] = useState<ProOperationsAuditLogSummary | null>(null);
   const [auditLogs, setAuditLogs] = useState<ProOperationsAuditLogList>({ audit_logs: [], total_count: 0 });
   const [message, setMessage] = useState("");
@@ -39,12 +58,14 @@ export default function AdminProOperationsPage() {
     setMessage("");
     setIsError(false);
     try {
-      const [result, auditSummaryResult, auditLogsResult] = await Promise.all([
+      const [result, healthResult, auditSummaryResult, auditLogsResult] = await Promise.all([
         apiFetch<AdminProOperationsSummary>("/api/v1/admin/pro/operations/summary", {}, true),
+        apiFetch<AdminProOperationsHealth>("/api/v1/admin/pro/operations/health", {}, true),
         apiFetch<ProOperationsAuditLogSummary>("/api/v1/admin/pro/operations/audit-logs/summary", {}, true),
         apiFetch<ProOperationsAuditLogList>("/api/v1/admin/pro/operations/audit-logs?limit=10", {}, true),
       ]);
       setSummary(result);
+      setHealth(healthResult);
       setAuditSummary(auditSummaryResult);
       setAuditLogs(auditLogsResult);
       setMessage(nextMessage);
@@ -146,6 +167,49 @@ export default function AdminProOperationsPage() {
 
       {summary ? (
         <>
+          {health && (
+            <section className="panel">
+              <div className="card-title-row">
+                <div>
+                  <p className="eyebrow">Pro Health Check</p>
+                  <h2>운영 상태 점검</h2>
+                  <p>{health.summary_message}</p>
+                </div>
+                <div className="actions">
+                  <Badge tone={statusTone(health.overall_status)}>{health.overall_status}</Badge>
+                  <button type="button" onClick={() => loadSummary("Pro Health Check를 다시 점검했습니다.")} disabled={loading}>
+                    {loading ? "점검 중" : "상태 다시 점검"}
+                  </button>
+                </div>
+              </div>
+              <div className="summary-grid compact">
+                <StatCard label="전체 상태" value={health.overall_status} helper={formatDateTime(health.checked_at)} />
+                {healthCards.map(({ key, label }) => {
+                  const item = health[key];
+                  return (
+                    <StatCard
+                      key={key}
+                      label={label}
+                      value={item.status}
+                      helper={item.message}
+                    />
+                  );
+                })}
+              </div>
+              {health.health_messages.length > 0 ? (
+                <div className="stacked-list">
+                  {health.health_messages.map((healthMessage) => (
+                    <article className="item compact-card highlight-card" key={healthMessage}>
+                      <strong>{healthMessage}</strong>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="현재 Health Check 경고가 없습니다." />
+              )}
+            </section>
+          )}
+
           <div className="summary-grid">
             <StatCard label="최근 Batch" value={summary.batch.latest_status || "-"} helper={summary.batch.latest_run_type || "-"} />
             <StatCard label="최근 Delivery" value={summary.delivery.latest_status || "-"} helper={summary.delivery.latest_run_type || "-"} />

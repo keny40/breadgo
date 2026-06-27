@@ -14,6 +14,7 @@ from app.schemas.auth import UserResponse
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
+    AdminProOperationsHealthRead,
     AdminProOperationsSummaryRead,
     AdminProWeeklyReportBatchRunMonitorRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
@@ -50,6 +51,7 @@ from app.services.admin_service import (
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
+    build_admin_pro_operations_health,
     build_admin_pro_operations_summary,
     create_admin_weekly_report_batch_run,
     create_weekly_report_in_app_mock_delivery,
@@ -200,6 +202,14 @@ def get_admin_pro_operations_summary(
     db: Session = Depends(get_db),
 ) -> AdminProOperationsSummaryRead:
     return build_admin_pro_operations_summary(db)
+
+
+@router.get("/pro/operations/health", response_model=AdminProOperationsHealthRead)
+def get_admin_pro_operations_health(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProOperationsHealthRead:
+    return build_admin_pro_operations_health(db)
 
 
 @router.get("/pro/operations/audit-logs/summary", response_model=ProOperationsAuditLogSummaryRead)

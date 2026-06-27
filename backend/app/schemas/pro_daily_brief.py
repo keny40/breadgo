@@ -375,3 +375,23 @@ class AdminProOperationsSummaryRead(BaseModel):
     can_run_mock_delivery: bool
     can_run_unread_reminder: bool
     quick_action_messages: list[str]
+
+
+class AdminProOperationsHealthItemRead(BaseModel):
+    status: str
+    message: str
+    last_checked_at: datetime
+    details: dict
+
+
+class AdminProOperationsHealthRead(BaseModel):
+    overall_status: str
+    checked_at: datetime
+    summary_message: str
+    health_messages: list[str]
+    scheduler_health: AdminProOperationsHealthItemRead
+    batch_health: AdminProOperationsHealthItemRead
+    delivery_health: AdminProOperationsHealthItemRead
+    notification_health: AdminProOperationsHealthItemRead
+    audit_log_health: AdminProOperationsHealthItemRead
+    purge_policy_health: AdminProOperationsHealthItemRead

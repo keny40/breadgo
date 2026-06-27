@@ -849,6 +849,26 @@ export type AdminProOperationsSummary = {
   quick_action_messages: string[];
 };
 
+export type AdminProOperationsHealthItem = {
+  status: "OK" | "WARNING" | "CRITICAL";
+  message: string;
+  last_checked_at: string;
+  details: Record<string, unknown>;
+};
+
+export type AdminProOperationsHealth = {
+  overall_status: "OK" | "WARNING" | "CRITICAL";
+  checked_at: string;
+  summary_message: string;
+  health_messages: string[];
+  scheduler_health: AdminProOperationsHealthItem;
+  batch_health: AdminProOperationsHealthItem;
+  delivery_health: AdminProOperationsHealthItem;
+  notification_health: AdminProOperationsHealthItem;
+  audit_log_health: AdminProOperationsHealthItem;
+  purge_policy_health: AdminProOperationsHealthItem;
+};
+
 export type ProOperationsAuditLog = {
   id: string;
   actor_user_id: string | null;
