@@ -21,6 +21,7 @@ export default function NavBar() {
           { href: "/merchant/pro", label: "Pro 대시보드" },
           { href: "/merchant/pro/daily-brief", label: "오늘 브리프" },
           { href: "/merchant/pro/weekly-report", label: "주간 리포트" },
+          { href: "/merchant/pro/weekly-report-notifications", label: "리포트 알림" },
           { href: "/merchant/pro/plan", label: "Pro 플랜" },
           { href: "/merchant/pro/stores", label: "매장 통합" },
           { href: "/merchant/pro/recommendations", label: "Pro 추천" },

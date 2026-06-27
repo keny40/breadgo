@@ -752,6 +752,20 @@ export type AdminProWeeklyReportDeliveryRunHistory = {
   delivery_runs: ProWeeklyReportDeliveryRun[];
 };
 
+export type ProWeeklyReportInAppNotification = {
+  notification_id: string;
+  snapshot_id: string;
+  title: string;
+  message: string;
+  status: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export type MerchantProWeeklyReportNotificationList = {
+  notifications: ProWeeklyReportInAppNotification[];
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

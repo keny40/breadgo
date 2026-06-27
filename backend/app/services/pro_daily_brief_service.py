@@ -17,6 +17,7 @@ from app.models.pro_weekly_report import (
     ProWeeklyReportBatchRunItem,
     ProWeeklyReportDeliveryRun,
     ProWeeklyReportDeliveryRunItem,
+    ProWeeklyReportInAppNotification,
     ProWeeklyReportInsight,
     ProWeeklyReportSnapshot,
 )
@@ -27,6 +28,7 @@ from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefRead,
     MerchantProWeeklyReportRead,
     MerchantProWeeklyReportHistoryRead,
+    MerchantProWeeklyReportNotificationListRead,
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
     AdminProWeeklyReportBatchRunMonitorRead,
@@ -39,6 +41,7 @@ from app.schemas.pro_daily_brief import (
     ProDailyBriefTaskRead,
     ProWeeklyReportBatchRunRead,
     ProWeeklyReportDeliveryRunRead,
+    ProWeeklyReportInAppNotificationRead,
     ProWeeklyReportSnapshotRead,
     ProWeeklyReportDailyTrendRead,
     ProWeeklyReportInsightRead,
@@ -1231,6 +1234,168 @@ def get_weekly_report_delivery_run(
     if delivery_run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
     return _delivery_run_to_read(delivery_run)
+
+
+def create_weekly_report_in_app_mock_delivery(
+    db: Session,
+    delivery_run_id: UUID,
+) -> ProWeeklyReportDeliveryRunRead:
+    source_run = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .where(ProWeeklyReportDeliveryRun.id == delivery_run_id)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+    )
+    if source_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
+
+    ready_items = [item for item in source_run.items if item.status == "READY"]
+    if not ready_items:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="mock delivery 대상 READY item이 없습니다.")
+
+    mock_run = ProWeeklyReportDeliveryRun(
+        run_type="IN_APP_MOCK",
+        channel="IN_APP",
+        status="PENDING",
+        period_start=source_run.period_start,
+        period_end=source_run.period_end,
+        total_count=len(ready_items),
+        ready_count=0,
+        skipped_count=0,
+        failed_count=0,
+        message=f"delivery run {delivery_run_id}의 READY item을 BreadGo 내부 알림으로 mock delivery 처리합니다.",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(mock_run)
+    db.flush()
+
+    sent_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for source_item in ready_items:
+        try:
+            if source_item.snapshot_id is None:
+                db.add(
+                    ProWeeklyReportDeliveryRunItem(
+                        delivery_run_id=mock_run.id,
+                        merchant_id=source_item.merchant_id,
+                        status="SKIPPED",
+                        reason="snapshot_id가 없어 내부 알림 mock delivery 대상에서 제외했습니다.",
+                    )
+                )
+                skipped_count += 1
+                continue
+
+            result_item = ProWeeklyReportDeliveryRunItem(
+                delivery_run_id=mock_run.id,
+                merchant_id=source_item.merchant_id,
+                snapshot_id=source_item.snapshot_id,
+                status="SENT",
+                reason="Weekly Report 내부 알림 mock delivery를 생성했습니다.",
+            )
+            db.add(result_item)
+            db.flush()
+            db.add(
+                ProWeeklyReportInAppNotification(
+                    merchant_id=source_item.merchant_id,
+                    snapshot_id=source_item.snapshot_id,
+                    delivery_run_id=mock_run.id,
+                    delivery_run_item_id=result_item.id,
+                    title="Weekly Report가 준비되었습니다",
+                    message="이번 주 Weekly Report가 준비되었습니다. BreadGo Pro에서 최근 7일 리포트를 확인할 수 있습니다.",
+                    status="UNREAD",
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            sent_count += 1
+        except Exception as exc:
+            db.add(
+                ProWeeklyReportDeliveryRunItem(
+                    delivery_run_id=mock_run.id,
+                    merchant_id=source_item.merchant_id,
+                    snapshot_id=source_item.snapshot_id,
+                    status="FAILED",
+                    reason=str(exc),
+                )
+            )
+            failed_count += 1
+
+    mock_run.ready_count = sent_count
+    mock_run.skipped_count = skipped_count
+    mock_run.failed_count = failed_count
+    if failed_count and sent_count:
+        mock_run.status = "PARTIAL"
+        mock_run.message = "일부 Weekly Report 내부 알림 mock delivery가 실패했습니다."
+    elif failed_count and not sent_count:
+        mock_run.status = "FAILED"
+        mock_run.message = "Weekly Report 내부 알림 mock delivery가 실패했습니다."
+    else:
+        mock_run.status = "COMPLETED"
+        mock_run.message = "Weekly Report 내부 알림 mock delivery가 완료되었습니다. 실제 외부 발송은 하지 않았습니다."
+    mock_run.completed_at = datetime.now(timezone.utc)
+    db.commit()
+
+    refreshed = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .where(ProWeeklyReportDeliveryRun.id == mock_run.id)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
+    return _delivery_run_to_read(refreshed)
+
+
+def _weekly_report_notification_to_read(
+    notification: ProWeeklyReportInAppNotification,
+) -> ProWeeklyReportInAppNotificationRead:
+    return ProWeeklyReportInAppNotificationRead(
+        notification_id=notification.id,
+        snapshot_id=notification.snapshot_id,
+        title=notification.title,
+        message=notification.message,
+        status=notification.status,
+        created_at=notification.created_at,
+        read_at=notification.read_at,
+    )
+
+
+def list_merchant_weekly_report_notifications(
+    db: Session,
+    merchant: Merchant,
+    limit: int = 50,
+) -> MerchantProWeeklyReportNotificationListRead:
+    bounded_limit = max(1, min(limit, 100))
+    notifications = list(
+        db.scalars(
+            select(ProWeeklyReportInAppNotification)
+            .where(ProWeeklyReportInAppNotification.merchant_id == merchant.id)
+            .order_by(ProWeeklyReportInAppNotification.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+    return MerchantProWeeklyReportNotificationListRead(
+        notifications=[_weekly_report_notification_to_read(notification) for notification in notifications]
+    )
+
+
+def mark_merchant_weekly_report_notification_read(
+    db: Session,
+    merchant: Merchant,
+    notification_id: UUID,
+) -> ProWeeklyReportInAppNotificationRead:
+    notification = db.scalar(
+        select(ProWeeklyReportInAppNotification).where(
+            ProWeeklyReportInAppNotification.id == notification_id,
+            ProWeeklyReportInAppNotification.merchant_id == merchant.id,
+        )
+    )
+    if notification is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report notification not found.")
+    notification.status = "READ"
+    notification.read_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(notification)
+    return _weekly_report_notification_to_read(notification)
 
 
 def preview_admin_weekly_report_batch_run(

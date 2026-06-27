@@ -14,6 +14,7 @@ from app.models.pro_weekly_report import (
     ProWeeklyReportBatchRunItem,
     ProWeeklyReportDeliveryRun,
     ProWeeklyReportDeliveryRunItem,
+    ProWeeklyReportInAppNotification,
     ProWeeklyReportInsight,
     ProWeeklyReportSnapshot,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "ProWeeklyReportBatchRunItem",
     "ProWeeklyReportDeliveryRun",
     "ProWeeklyReportDeliveryRunItem",
+    "ProWeeklyReportInAppNotification",
     "RecommendationActionEvent",
     "RecommendationUsage",
     "Reservation",

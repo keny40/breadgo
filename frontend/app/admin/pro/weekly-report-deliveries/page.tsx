@@ -19,13 +19,25 @@ function formatDateTime(value: string | null) {
 }
 
 function statusTone(status: string): "success" | "warning" | "danger" | "muted" {
-  if (status === "COMPLETED" || status === "READY") return "success";
+  if (status === "COMPLETED" || status === "READY" || status === "SENT") return "success";
   if (status === "FAILED") return "danger";
   if (status === "PARTIAL" || status === "PENDING") return "warning";
   return "muted";
 }
 
-function DeliveryRunCard({ run }: { run: ProWeeklyReportDeliveryRun }) {
+function DeliveryRunCard({
+  run,
+  onMockSend,
+  sending,
+}: {
+  run: ProWeeklyReportDeliveryRun;
+  onMockSend: (runId: string) => void;
+  sending: boolean;
+}) {
+  const readyItemCount = run.items.filter((item) => item.status === "READY").length;
+  const canMockSend = readyItemCount > 0;
+  const successLabel = run.run_type === "IN_APP_MOCK" ? "SENT" : "READY";
+
   return (
     <article className="panel">
       <div className="card-title-row">
@@ -38,12 +50,22 @@ function DeliveryRunCard({ run }: { run: ProWeeklyReportDeliveryRun }) {
           </h2>
           <p>{run.message || "Weekly Report delivery preview"}</p>
         </div>
-        <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+        <div className="button-row">
+          <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+          <button
+            type="button"
+            className="secondary"
+            disabled={!canMockSend || sending}
+            onClick={() => onMockSend(run.id)}
+          >
+            {sending ? "처리 중" : "In-app mock delivery 실행"}
+          </button>
+        </div>
       </div>
 
       <div className="summary-grid compact">
         <StatCard label="전체" value={run.total_count} />
-        <StatCard label="READY" value={run.ready_count} />
+        <StatCard label={successLabel} value={run.ready_count} />
         <StatCard label="SKIPPED" value={run.skipped_count} />
         <StatCard label="FAILED" value={run.failed_count} />
         <StatCard label="생성" value={formatDateTime(run.created_at)} />
@@ -88,6 +110,7 @@ export default function AdminWeeklyReportDeliveriesPage() {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [sendingRunId, setSendingRunId] = useState<string | null>(null);
 
   const loadDeliveryRuns = useCallback(async () => {
     setLoading(true);
@@ -137,6 +160,27 @@ export default function AdminWeeklyReportDeliveriesPage() {
     }
   }
 
+  async function createMockDelivery(runId: string) {
+    setSendingRunId(runId);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProWeeklyReportDeliveryRun>(
+        `/api/v1/admin/pro/weekly-report/delivery-runs/${runId}/mock-send`,
+        { method: "POST" },
+        true,
+      );
+      setLastPreview(result);
+      setMessage("BreadGo 내부 알림 mock delivery를 생성했습니다. 실제 외부 발송은 수행하지 않았습니다.");
+      await loadDeliveryRuns();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setSendingRunId(null);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -181,7 +225,7 @@ export default function AdminWeeklyReportDeliveriesPage() {
             <Badge tone={statusTone(lastPreview.status)}>{lastPreview.status}</Badge>
           </div>
           <div className="summary-grid compact">
-            <StatCard label="READY" value={lastPreview.ready_count} />
+            <StatCard label={lastPreview.run_type === "IN_APP_MOCK" ? "SENT" : "READY"} value={lastPreview.ready_count} />
             <StatCard label="SKIPPED" value={lastPreview.skipped_count} />
             <StatCard label="FAILED" value={lastPreview.failed_count} />
             <StatCard label="Channel" value={lastPreview.channel} />
@@ -192,7 +236,12 @@ export default function AdminWeeklyReportDeliveriesPage() {
       {history && history.delivery_runs.length > 0 ? (
         <div className="stacked-list">
           {history.delivery_runs.map((run) => (
-            <DeliveryRunCard key={run.id} run={run} />
+            <DeliveryRunCard
+              key={run.id}
+              run={run}
+              onMockSend={createMockDelivery}
+              sending={sendingRunId === run.id}
+            />
           ))}
         </div>
       ) : (

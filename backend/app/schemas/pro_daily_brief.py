@@ -270,3 +270,17 @@ class ProWeeklyReportDeliveryRunRead(BaseModel):
 
 class AdminProWeeklyReportDeliveryRunHistoryRead(BaseModel):
     delivery_runs: list[ProWeeklyReportDeliveryRunRead]
+
+
+class ProWeeklyReportInAppNotificationRead(BaseModel):
+    notification_id: UUID
+    snapshot_id: UUID
+    title: str
+    message: str
+    status: str
+    created_at: datetime
+    read_at: datetime | None = None
+
+
+class MerchantProWeeklyReportNotificationListRead(BaseModel):
+    notifications: list[ProWeeklyReportInAppNotificationRead]

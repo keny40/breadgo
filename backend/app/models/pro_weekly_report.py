@@ -219,3 +219,47 @@ class ProWeeklyReportDeliveryRunItem(Base):
     )
     merchant: Mapped["Merchant"] = relationship("Merchant")
     snapshot: Mapped["ProWeeklyReportSnapshot | None"] = relationship("ProWeeklyReportSnapshot")
+
+
+class ProWeeklyReportInAppNotification(Base):
+    __tablename__ = "pro_weekly_report_in_app_notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("merchants.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pro_weekly_report_snapshots.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    delivery_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pro_weekly_report_delivery_runs.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    delivery_run_item_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pro_weekly_report_delivery_run_items.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="UNREAD", index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    merchant: Mapped["Merchant"] = relationship("Merchant")
+    snapshot: Mapped["ProWeeklyReportSnapshot"] = relationship("ProWeeklyReportSnapshot")
+    delivery_run: Mapped["ProWeeklyReportDeliveryRun"] = relationship("ProWeeklyReportDeliveryRun")
+    delivery_run_item: Mapped["ProWeeklyReportDeliveryRunItem"] = relationship("ProWeeklyReportDeliveryRunItem")

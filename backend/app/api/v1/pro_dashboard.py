@@ -15,11 +15,13 @@ from app.schemas.pro_daily_brief import (
     MerchantProDailyBriefRead,
     MerchantProWeeklyReportBatchRunHistoryRead,
     MerchantProWeeklyReportHistoryRead,
+    MerchantProWeeklyReportNotificationListRead,
     MerchantProWeeklyReportRead,
     ProDailyBriefSnapshotRead,
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
     ProWeeklyReportBatchRunRead,
+    ProWeeklyReportInAppNotificationRead,
     ProWeeklyReportSnapshotRead,
 )
 from app.schemas.pro_esg import MerchantProEsgReportRead
@@ -62,9 +64,11 @@ from app.services.pro_daily_brief_service import (
     get_daily_brief_snapshot,
     get_weekly_report_batch_run,
     get_weekly_report_snapshot,
+    list_merchant_weekly_report_notifications,
     list_daily_brief_history,
     list_weekly_report_batch_runs,
     list_weekly_report_history,
+    mark_merchant_weekly_report_notification_read,
     preview_auto_weekly_snapshot,
     weekly_report_to_csv,
     weekly_report_snapshot_to_csv,
@@ -229,6 +233,29 @@ def get_merchant_pro_weekly_report_batch_run_detail(
 ) -> ProWeeklyReportBatchRunRead:
     merchant = require_merchant_for_user(db, current_user)
     return get_weekly_report_batch_run(db, merchant, batch_run_id)
+
+
+@router.get("/weekly-report/notifications", response_model=MerchantProWeeklyReportNotificationListRead)
+def get_merchant_pro_weekly_report_notifications(
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportNotificationListRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return list_merchant_weekly_report_notifications(db, merchant, limit=limit)
+
+
+@router.post(
+    "/weekly-report/notifications/{notification_id}/read",
+    response_model=ProWeeklyReportInAppNotificationRead,
+)
+def mark_merchant_pro_weekly_report_notification_read(
+    notification_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportInAppNotificationRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return mark_merchant_weekly_report_notification_read(db, merchant, notification_id)
 
 
 @router.get("/weekly-report/history", response_model=MerchantProWeeklyReportHistoryRead)

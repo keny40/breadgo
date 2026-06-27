@@ -37,6 +37,7 @@ from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
     create_admin_weekly_report_batch_run,
+    create_weekly_report_in_app_mock_delivery,
     create_weekly_report_delivery_preview,
     get_admin_weekly_report_batch_run,
     get_weekly_report_delivery_run,
@@ -178,6 +179,18 @@ def get_weekly_report_delivery_run_for_admin(
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
     return get_weekly_report_delivery_run(db, delivery_run_id)
+
+
+@router.post(
+    "/pro/weekly-report/delivery-runs/{delivery_run_id}/mock-send",
+    response_model=ProWeeklyReportDeliveryRunRead,
+)
+def create_weekly_report_in_app_mock_delivery_for_admin(
+    delivery_run_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportDeliveryRunRead:
+    return create_weekly_report_in_app_mock_delivery(db, delivery_run_id)
 
 
 @router.get("/pro/weekly-report/batch-runs", response_model=AdminProWeeklyReportBatchRunMonitorRead)
