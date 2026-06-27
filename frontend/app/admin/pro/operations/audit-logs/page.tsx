@@ -263,7 +263,7 @@ export default function AdminProOperationsAuditLogsPage() {
               Pro Operations
             </Link>
             <button type="button" onClick={downloadCsv} disabled={loading || exporting}>
-              {exporting ? "다운로드 중" : "CSV 다운로드"}
+              {exporting ? "다운로드 중" : "감사 로그 CSV 다운로드"}
             </button>
             <button type="button" onClick={() => loadAuditLogs(appliedFilters)} disabled={loading}>
               {loading ? "불러오는 중" : "새로고침"}
@@ -273,7 +273,7 @@ export default function AdminProOperationsAuditLogsPage() {
       />
 
       <p className="message">
-        감사 로그는 운영 액션, 상태, 대상 id, count 중심으로만 표시합니다. 이메일, 전화번호, 주소, 외부 발송 토큰은 저장하거나 표시하지 않습니다.
+        감사 로그는 운영 액션, 상태, 대상 id, count 중심으로만 표시합니다. CSV에는 개인정보, 연락처, 주소, 토큰이 포함되지 않습니다.
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
@@ -289,7 +289,7 @@ export default function AdminProOperationsAuditLogsPage() {
       <section className="panel">
         <div className="card-title-row">
           <div>
-            <p className="eyebrow">Filters</p>
+            <p className="eyebrow">필터</p>
             <h2>감사 로그 필터</h2>
           </div>
           <Badge tone={(summary?.failed_count || 0) > 0 ? "warning" : "success"}>
@@ -298,7 +298,7 @@ export default function AdminProOperationsAuditLogsPage() {
         </div>
         <form className="form-grid" onSubmit={applyFilters}>
           <label>
-            Action Type
+            액션 유형
             <select
               value={filters.action_type}
               onChange={(event) => setFilters((current) => ({ ...current, action_type: event.target.value }))}
@@ -311,7 +311,7 @@ export default function AdminProOperationsAuditLogsPage() {
             </select>
           </label>
           <label>
-            Status
+            실행 상태
             <select
               value={filters.status}
               onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
@@ -324,7 +324,7 @@ export default function AdminProOperationsAuditLogsPage() {
             </select>
           </label>
           <label>
-            Target Type
+            대상 유형
             <select
               value={filters.target_type}
               onChange={(event) => setFilters((current) => ({ ...current, target_type: event.target.value }))}
@@ -337,7 +337,7 @@ export default function AdminProOperationsAuditLogsPage() {
             </select>
           </label>
           <label>
-            Target ID
+            대상 ID
             <input
               value={filters.target_id}
               onChange={(event) => setFilters((current) => ({ ...current, target_id: event.target.value }))}
@@ -345,7 +345,7 @@ export default function AdminProOperationsAuditLogsPage() {
             />
           </label>
           <label>
-            Date From
+            시작일
             <input
               type="date"
               value={filters.date_from}
@@ -353,7 +353,7 @@ export default function AdminProOperationsAuditLogsPage() {
             />
           </label>
           <label>
-            Date To
+            종료일
             <input
               type="date"
               value={filters.date_to}
@@ -374,15 +374,15 @@ export default function AdminProOperationsAuditLogsPage() {
       <section className="panel">
         <div className="card-title-row">
           <div>
-            <p className="eyebrow">Retention</p>
+            <p className="eyebrow">오래된 감사 로그 정리</p>
             <h2>오래된 감사 로그 정리</h2>
-            <p>먼저 삭제 대상 미리보기를 확인한 뒤에만 실제 삭제를 실행할 수 있습니다.</p>
+            <p>삭제 전 반드시 Preview로 대상 범위를 확인하세요. 삭제 실행은 되돌릴 수 없습니다.</p>
           </div>
           <Badge tone="warning">ADMIN only</Badge>
         </div>
         <div className="form-grid">
           <label>
-            Retention Days
+            보관 기간(일)
             <input
               type="number"
               min={30}
@@ -428,6 +428,9 @@ export default function AdminProOperationsAuditLogsPage() {
           <div className="stacked-list">
             <article className="item compact-card">
               <strong>{purgePreview.message}</strong>
+              <p className="field-help">
+                삭제 실행 전 대상 수, cutoff, 필터 조건을 다시 확인하세요. 30일 미만 보관 기간은 허용되지 않습니다.
+              </p>
               <p>
                 Status별: {Object.entries(purgePreview.status_counts).map(([key, count]) => `${key} ${count}`).join(", ") || "-"}
               </p>
@@ -495,7 +498,10 @@ export default function AdminProOperationsAuditLogsPage() {
             </table>
           </div>
         ) : (
-          <EmptyState title="조건에 맞는 감사 로그가 없습니다." />
+          <EmptyState
+            title="조건에 맞는 감사 로그가 없습니다."
+            description="필터를 초기화하거나 Quick Action을 실행하면 새 감사 로그가 표시됩니다."
+          />
         )}
       </section>
     </section>

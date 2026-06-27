@@ -22,6 +22,19 @@ function tone(value: string): "success" | "warning" | "danger" | "muted" {
   return "muted";
 }
 
+function severityLabel(value: string) {
+  if (value === "WARNING") return "주의 · WARNING";
+  if (value === "CRITICAL") return "긴급 · CRITICAL";
+  return value;
+}
+
+function statusLabel(value: string) {
+  if (value === "OPEN") return "미확인 · OPEN";
+  if (value === "ACKNOWLEDGED") return "확인됨 · ACKNOWLEDGED";
+  if (value === "RESOLVED") return "해결됨 · RESOLVED";
+  return value;
+}
+
 function buildQuery(filters: { severity: string; status: string }) {
   const params = new URLSearchParams();
   if (filters.severity) params.set("severity", filters.severity);
@@ -113,29 +126,30 @@ export default function AdminProHealthAlertsPage() {
       />
       <p className="message">
         운영 서버에서는 <code>scripts/run_pro_health_alert_check.py</code>를 cron으로 실행할 수 있습니다. 현재는 외부 발송 없이 BreadGo 내부 alert만 생성합니다.
+        동일 원인의 미해결 알림은 중복 생성되지 않습니다.
       </p>
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
       <section className="panel">
         <form className="form-grid" onSubmit={applyFilters}>
           <label>
-            Severity
+            심각도
             <select
               value={filters.severity}
               onChange={(event) => setFilters((current) => ({ ...current, severity: event.target.value }))}
             >
               {severities.map((severity) => (
-                <option key={severity || "ALL"} value={severity}>{severity || "전체"}</option>
+                  <option key={severity || "ALL"} value={severity}>{severity ? severityLabel(severity) : "전체"}</option>
               ))}
             </select>
           </label>
           <label>
-            Status
+            처리 상태
             <select
               value={filters.status}
               onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
             >
               {statuses.map((status) => (
-                <option key={status || "ALL"} value={status}>{status || "전체"}</option>
+                  <option key={status || "ALL"} value={status}>{status ? statusLabel(status) : "전체"}</option>
               ))}
             </select>
           </label>
@@ -169,8 +183,8 @@ export default function AdminProHealthAlertsPage() {
                     <small>{alert.source_key} · {formatDateTime(alert.created_at)}</small>
                   </div>
                   <div className="actions">
-                    <Badge tone={tone(alert.severity)}>{alert.severity}</Badge>
-                    <Badge tone={tone(alert.status)}>{alert.status}</Badge>
+                    <Badge tone={tone(alert.severity)}>{severityLabel(alert.severity)}</Badge>
+                    <Badge tone={tone(alert.status)}>{statusLabel(alert.status)}</Badge>
                   </div>
                 </div>
                 <div className="actions">
@@ -180,7 +194,7 @@ export default function AdminProHealthAlertsPage() {
                     onClick={() => updateAlert(alert.id, "acknowledge")}
                     disabled={actionLoading !== null || alert.status !== "OPEN"}
                   >
-                    확인
+                    확인 처리
                   </button>
                   <button
                     type="button"
@@ -194,7 +208,10 @@ export default function AdminProHealthAlertsPage() {
             ))}
           </div>
         ) : (
-          <EmptyState title="조건에 맞는 Health Alert가 없습니다." />
+          <EmptyState
+            title="조건에 맞는 Health Alert가 없습니다."
+            description="Health Check가 WARNING 또는 CRITICAL일 때 내부 alert를 생성하면 이곳에 표시됩니다."
+          />
         )}
       </section>
     </section>

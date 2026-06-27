@@ -30,6 +30,30 @@ function statusTone(status: string): "success" | "warning" | "danger" | "muted" 
   return "muted";
 }
 
+const runTypeLabels: Record<string, string> = {
+  PREVIEW: "발송 미리보기",
+  DRY_RUN: "Dry-run",
+  IN_APP_MOCK: "내부 알림 Mock 발송",
+  IN_APP_REMINDER: "미확인 리마인드",
+};
+
+const itemStatusLabels: Record<string, string> = {
+  READY: "발송 가능",
+  SENT: "내부 알림 생성",
+  SKIPPED: "제외",
+  FAILED: "실패",
+  COMPLETED: "완료",
+  PARTIAL: "부분 성공",
+};
+
+function displayRunType(runType: string) {
+  return runTypeLabels[runType] ? `${runTypeLabels[runType]} · ${runType}` : runType;
+}
+
+function displayStatus(status: string) {
+  return itemStatusLabels[status] ? `${itemStatusLabels[status]} · ${status}` : status;
+}
+
 function DeliveryRunCard({
   run,
   onMockSend,
@@ -48,7 +72,7 @@ function DeliveryRunCard({
       <div className="card-title-row">
         <div>
           <p className="eyebrow">
-            {run.run_type} · {run.channel}
+            {displayRunType(run.run_type)} · {run.channel}
           </p>
           <h2>
             {formatDate(run.period_start)} - {formatDate(run.period_end)}
@@ -56,23 +80,23 @@ function DeliveryRunCard({
           <p>{run.message || "Weekly Report delivery preview"}</p>
         </div>
         <div className="button-row">
-          <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+          <Badge tone={statusTone(run.status)}>{displayStatus(run.status)}</Badge>
           <button
             type="button"
             className="secondary"
             disabled={!canMockSend || sending}
             onClick={() => onMockSend(run.id)}
           >
-            {sending ? "처리 중" : "In-app mock delivery 실행"}
+            {sending ? "처리 중" : "내부 알림 Mock 발송"}
           </button>
         </div>
       </div>
 
       <div className="summary-grid compact">
         <StatCard label="전체" value={run.total_count} />
-        <StatCard label={successLabel} value={run.ready_count} />
-        <StatCard label="SKIPPED" value={run.skipped_count} />
-        <StatCard label="FAILED" value={run.failed_count} />
+        <StatCard label={displayStatus(successLabel)} value={run.ready_count} />
+        <StatCard label="제외 · SKIPPED" value={run.skipped_count} />
+        <StatCard label="실패 · FAILED" value={run.failed_count} />
         <StatCard label="생성" value={formatDateTime(run.created_at)} />
         <StatCard label="완료" value={formatDateTime(run.completed_at)} />
       </div>
@@ -94,7 +118,7 @@ function DeliveryRunCard({
                 <td>{item.merchant_id}</td>
                 <td>{item.snapshot_id || "-"}</td>
                 <td>
-                  <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                  <Badge tone={statusTone(item.status)}>{displayStatus(item.status)}</Badge>
                 </td>
                 <td>{item.reason || "-"}</td>
                 <td>{formatDateTime(item.created_at)}</td>
@@ -236,14 +260,14 @@ export default function AdminWeeklyReportDeliveriesPage() {
     <section className="section">
       <PageHeader
         title="Weekly Report Delivery Preview"
-        description="실제 이메일/카카오/Push 발송 전, 발송 가능한 Weekly Report snapshot과 제외 대상을 확인합니다."
+        description="실제 이메일/카카오/Push 발송 없이, BreadGo 내부 알림으로 처리할 Weekly Report 대상을 점검합니다."
         actions={
           <>
             <button type="button" onClick={createPreview} disabled={creating}>
-              {creating ? "생성 중" : "발송 미리보기 생성"}
+              {creating ? "생성 중" : "Delivery 미리보기 생성"}
             </button>
             <button type="button" onClick={createUnreadReminder} disabled={reminding}>
-              {reminding ? "생성 중" : "미확인 리마인드 생성"}
+              {reminding ? "생성 중" : "미확인 알림 리마인드 생성"}
             </button>
             <button type="button" onClick={loadDeliveryRuns} disabled={loading}>
               {loading ? "불러오는 중" : "이력 새로고침"}
@@ -253,8 +277,8 @@ export default function AdminWeeklyReportDeliveriesPage() {
       />
 
       <p className="message">
-        이번 Phase는 preview/dry-run 단계입니다. 이메일, 카카오, Push, 외부 발송 API를 호출하지 않으며
-        수신자 이메일/전화번호/주소/token을 저장하지 않습니다.
+        현재 단계에서는 실제 이메일/카카오/Push를 발송하지 않고 BreadGo 내부 알림만 생성합니다.
+        READY는 내부 알림 생성 가능, SENT는 Mock 발송 완료, SKIPPED는 제외 대상을 의미합니다.
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
@@ -301,7 +325,7 @@ export default function AdminWeeklyReportDeliveriesPage() {
                       <td>{notification.delivery_run_id}</td>
                       <td>
                         <Badge tone={notification.status === "READ" ? "success" : "warning"}>
-                          {notification.status}
+                          {notification.status === "READ" ? "읽음 · READ" : "미확인 · UNREAD"}
                         </Badge>
                       </td>
                       <td>{formatDateTime(notification.created_at)}</td>
@@ -324,15 +348,15 @@ export default function AdminWeeklyReportDeliveriesPage() {
                 {formatDate(lastPreview.period_start)} - {formatDate(lastPreview.period_end)}
               </h2>
             </div>
-            <Badge tone={statusTone(lastPreview.status)}>{lastPreview.status}</Badge>
+            <Badge tone={statusTone(lastPreview.status)}>{displayStatus(lastPreview.status)}</Badge>
           </div>
           <div className="summary-grid compact">
             <StatCard
-              label={lastPreview.run_type === "IN_APP_MOCK" || lastPreview.run_type === "IN_APP_REMINDER" ? "SENT" : "READY"}
+              label={lastPreview.run_type === "IN_APP_MOCK" || lastPreview.run_type === "IN_APP_REMINDER" ? "내부 알림 생성 · SENT" : "발송 가능 · READY"}
               value={lastPreview.ready_count}
             />
-            <StatCard label="SKIPPED" value={lastPreview.skipped_count} />
-            <StatCard label="FAILED" value={lastPreview.failed_count} />
+            <StatCard label="제외 · SKIPPED" value={lastPreview.skipped_count} />
+            <StatCard label="실패 · FAILED" value={lastPreview.failed_count} />
             <StatCard label="Channel" value={lastPreview.channel} />
           </div>
         </section>
@@ -352,7 +376,7 @@ export default function AdminWeeklyReportDeliveriesPage() {
       ) : (
         <EmptyState
           title="발송 미리보기 이력이 없습니다."
-          description="발송 미리보기 생성을 누르면 READY/SKIPPED 대상이 기록됩니다."
+          description="Delivery 미리보기를 생성하면 READY/SKIPPED 대상과 이후 내부 알림 Mock 발송 결과가 이곳에 표시됩니다."
         />
       )}
     </section>

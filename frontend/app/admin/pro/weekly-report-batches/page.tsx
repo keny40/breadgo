@@ -12,6 +12,20 @@ import type {
 
 const statuses = ["", "STARTED", "COMPLETED", "FAILED", "PARTIAL", "SKIPPED"];
 const runTypes = ["", "MANUAL_TEST", "SCHEDULE_PREP", "SCHEDULED", "RETRY"];
+const runTypeLabels: Record<string, string> = {
+  MANUAL_TEST: "관리자 수동 테스트",
+  SCHEDULE_PREP: "자동 생성 준비",
+  SCHEDULED: "Scheduler 자동 실행",
+  RETRY: "실패 건 재실행",
+};
+const statusLabels: Record<string, string> = {
+  STARTED: "실행 중",
+  COMPLETED: "완료",
+  FAILED: "실패",
+  PARTIAL: "부분 성공",
+  SKIPPED: "건너뜀",
+  SUCCESS: "성공",
+};
 
 function formatDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("ko-KR", {
@@ -33,6 +47,14 @@ function statusTone(status: string): "success" | "warning" | "danger" | "muted" 
   return "muted";
 }
 
+function displayRunType(runType: string) {
+  return runTypeLabels[runType] ? `${runTypeLabels[runType]} · ${runType}` : runType;
+}
+
+function displayStatus(status: string) {
+  return statusLabels[status] ? `${statusLabels[status]} · ${status}` : status;
+}
+
 function BatchRunCard({
   run,
   retryingId,
@@ -47,13 +69,13 @@ function BatchRunCard({
     <article className="panel">
       <div className="card-title-row">
         <div>
-          <p className="eyebrow">{run.run_type}</p>
+          <p className="eyebrow">{displayRunType(run.run_type)}</p>
           <h2>
             {formatDate(run.start_date)} - {formatDate(run.end_date)}
           </h2>
           <p>{run.message || "Weekly Report batch run"}</p>
         </div>
-        <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+        <Badge tone={statusTone(run.status)}>{displayStatus(run.status)}</Badge>
       </div>
 
       <div className="summary-grid compact">
@@ -68,10 +90,10 @@ function BatchRunCard({
       <div className="actions">
         {failedItemCount > 0 ? (
           <button type="button" onClick={() => onRetryFailed(run.id)} disabled={retryingId === run.id}>
-            {retryingId === run.id ? "재실행 중" : `실패 건 재실행 (${failedItemCount})`}
+            {retryingId === run.id ? "재실행 중" : `실패 merchant만 재실행 (${failedItemCount})`}
           </button>
         ) : (
-          <span className="field-help">재실행할 실패 item이 없습니다.</span>
+          <span className="field-help">실패 item이 없어 재실행할 대상이 없습니다.</span>
         )}
       </div>
 
@@ -92,7 +114,7 @@ function BatchRunCard({
                 <td>{item.merchant_id}</td>
                 <td>{item.snapshot_id || "-"}</td>
                 <td>
-                  <Badge tone={statusTone(item.status)}>{item.status}</Badge>
+                  <Badge tone={statusTone(item.status)}>{displayStatus(item.status)}</Badge>
                 </td>
                 <td>{item.message || "-"}</td>
                 <td>{formatDateTime(item.created_at)}</td>
@@ -276,6 +298,19 @@ export default function AdminWeeklyReportBatchMonitorPage() {
       </section>
 
       <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">상태 안내</p>
+            <h2>Batch run_type / status 의미</h2>
+            <p>
+              SCHEDULED는 운영 scheduler 실행, RETRY는 실패 merchant만 재실행, SCHEDULE_PREP는 자동 생성 준비 흐름입니다.
+              COMPLETED는 전체 성공, PARTIAL은 일부 실패, SKIPPED는 중복 실행 방지 또는 대상 없음입니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
         <div className="form-grid">
           <label>
             상태
@@ -309,7 +344,7 @@ export default function AdminWeeklyReportBatchMonitorPage() {
           <StatCard label="완료" value={data.summary.completed_count} />
           <StatCard label="실패" value={data.summary.failed_count} />
           <StatCard label="부분 성공" value={data.summary.partial_count} />
-          <StatCard label="최근 상태" value={data.summary.latest_run_status || "-"} />
+          <StatCard label="최근 상태" value={data.summary.latest_run_status ? displayStatus(data.summary.latest_run_status) : "-"} />
           <StatCard label="최근 실행" value={formatDateTime(data.summary.latest_run_at)} />
         </div>
       )}
@@ -321,7 +356,10 @@ export default function AdminWeeklyReportBatchMonitorPage() {
           ))}
         </div>
       ) : (
-        <EmptyState title="표시할 batch run 이력이 없습니다." />
+        <EmptyState
+          title="표시할 batch run 이력이 없습니다."
+          description="전체 가맹점 리포트 생성 테스트 또는 scheduler CLI를 실행하면 이곳에 기록됩니다."
+        />
       )}
     </section>
   );

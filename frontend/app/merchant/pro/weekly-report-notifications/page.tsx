@@ -41,7 +41,7 @@ function NotificationCard({
           <p>{notification.message}</p>
         </div>
         <Badge tone={statusTone(notification.status)}>
-          {notification.status === "READ" ? "읽음" : "읽지 않음"}
+          {notification.status === "READ" ? "읽음 · READ" : "미확인 · UNREAD"}
         </Badge>
       </div>
       <dl className="metadata-grid">
@@ -60,7 +60,7 @@ function NotificationCard({
       </dl>
       <div className="button-row">
         <Link className="button-link secondary" href="/merchant/pro/weekly-report/history">
-          저장 리포트 확인
+          리포트 확인하기
         </Link>
         <button
           type="button"
@@ -179,7 +179,7 @@ export default function MerchantProWeeklyReportNotificationsPage() {
         description="외부 이메일/카카오/Push가 아니라 BreadGo 내부 알림으로 생성된 Weekly Report 안내를 확인합니다."
         actions={
           <>
-            <Badge tone={unreadCount > 0 ? "warning" : "success"}>미확인 {unreadCount}건</Badge>
+            <Badge tone={unreadCount > 0 ? "warning" : "success"}>미확인 리포트 알림 {unreadCount}건</Badge>
             <button type="button" onClick={markAllAsRead} disabled={readingId === "ALL" || unreadCount === 0}>
               {readingId === "ALL" ? "처리 중" : "모두 읽음 처리"}
             </button>
@@ -222,8 +222,8 @@ export default function MerchantProWeeklyReportNotificationsPage() {
         </div>
       ) : (
         <EmptyState
-          title="Weekly Report 알림이 없습니다."
-          description="관리자가 in-app mock delivery를 실행하면 내부 알림이 표시됩니다."
+          title="아직 Weekly Report 알림이 없습니다."
+          description="관리자가 내부 알림 Mock 발송을 실행하면 Weekly Report 알림이 이곳에 표시됩니다."
         />
       )}
     </section>

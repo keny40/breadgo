@@ -27,6 +27,13 @@ function statusTone(status: string | null): "success" | "warning" | "danger" | "
   return "muted";
 }
 
+function healthStatusLabel(status: string | null) {
+  if (status === "OK") return "정상";
+  if (status === "WARNING") return "주의 필요";
+  if (status === "CRITICAL") return "즉시 확인";
+  return status || "확인 전";
+}
+
 const healthCards: Array<{ key: keyof Pick<
   AdminProOperationsHealth,
   | "scheduler_health"
@@ -36,12 +43,12 @@ const healthCards: Array<{ key: keyof Pick<
   | "audit_log_health"
   | "purge_policy_health"
 >; label: string }> = [
-  { key: "scheduler_health", label: "Scheduler" },
-  { key: "batch_health", label: "Batch" },
-  { key: "delivery_health", label: "Delivery" },
-  { key: "notification_health", label: "Notification" },
+  { key: "scheduler_health", label: "Scheduler 실행" },
+  { key: "batch_health", label: "Batch 생성" },
+  { key: "delivery_health", label: "Delivery 준비" },
+  { key: "notification_health", label: "내부 알림" },
   { key: "audit_log_health", label: "Audit Log" },
-  { key: "purge_policy_health", label: "Purge Policy" },
+  { key: "purge_policy_health", label: "Purge 정책" },
 ];
 
 export default function AdminProOperationsPage() {
@@ -182,14 +189,14 @@ export default function AdminProOperationsPage() {
     <section className="section">
       <PageHeader
         title="Pro 운영 대시보드"
-        description="Weekly Report batch, delivery, 내부 알림 상태를 한눈에 확인합니다."
+        description="Weekly Report batch, delivery, 내부 알림, audit trail, health alert 상태를 한눈에 확인합니다."
         actions={
           <>
             <Link className="button-link secondary" href="/admin/pro/weekly-report-batches">
-              Batch Monitor
+              Batch Monitor로 이동
             </Link>
             <Link className="button-link secondary" href="/admin/pro/weekly-report-deliveries">
-              Delivery Preview
+              Delivery Preview로 이동
             </Link>
             <button type="button" onClick={() => loadSummary()} disabled={loading}>
               {loading ? "불러오는 중" : "새로고침"}
@@ -211,25 +218,27 @@ export default function AdminProOperationsPage() {
               <div className="card-title-row">
                 <div>
                   <p className="eyebrow">Pro Health Check</p>
-                  <h2>운영 상태 점검</h2>
+                  <h2>현재 Pro 운영 상태</h2>
                   <p>{health.summary_message}</p>
                 </div>
                 <div className="actions">
-                  <Badge tone={statusTone(health.overall_status)}>{health.overall_status}</Badge>
+                  <Badge tone={statusTone(health.overall_status)}>
+                    {healthStatusLabel(health.overall_status)} · {health.overall_status}
+                  </Badge>
                   <button type="button" onClick={() => loadSummary("Pro Health Check를 다시 점검했습니다.")} disabled={loading}>
                     {loading ? "점검 중" : "상태 다시 점검"}
                   </button>
                 </div>
               </div>
               <div className="summary-grid compact">
-                <StatCard label="전체 상태" value={health.overall_status} helper={formatDateTime(health.checked_at)} />
+                <StatCard label="전체 상태" value={healthStatusLabel(health.overall_status)} helper={formatDateTime(health.checked_at)} />
                 {healthCards.map(({ key, label }) => {
                   const item = health[key];
                   return (
                     <StatCard
                       key={key}
                       label={label}
-                      value={item.status}
+                      value={healthStatusLabel(item.status)}
                       helper={item.message}
                     />
                   );
@@ -313,7 +322,7 @@ export default function AdminProOperationsPage() {
             <StatCard label="알림 읽음률" value={`${summary.notifications.read_rate}%`} helper={`미확인 ${summary.notifications.unread_count}건`} />
             <StatCard
               label="주의 필요"
-              value={summary.attention.needs_attention ? "YES" : "NO"}
+              value={summary.attention.needs_attention ? "확인 필요" : "정상"}
               helper={`${summary.attention.attention_messages.length}개 메시지`}
             />
           </div>
@@ -335,21 +344,21 @@ export default function AdminProOperationsPage() {
                 onClick={() => runQuickAction("batch")}
                 disabled={actionLoading !== null}
               >
-                {actionLoading === "batch" ? "실행 중" : "전체 Weekly Report batch 실행"}
+                {actionLoading === "batch" ? "실행 중" : "전체 Weekly Report 생성"}
               </button>
               <button
                 type="button"
                 onClick={() => runQuickAction("preview")}
                 disabled={actionLoading !== null}
               >
-                {actionLoading === "preview" ? "생성 중" : "Delivery preview 생성"}
+                {actionLoading === "preview" ? "생성 중" : "Delivery 미리보기 생성"}
               </button>
               <button
                 type="button"
                 onClick={() => runQuickAction("mock")}
                 disabled={actionLoading !== null || !summary.can_run_mock_delivery}
               >
-                {actionLoading === "mock" ? "실행 중" : "In-app mock delivery 실행"}
+                {actionLoading === "mock" ? "실행 중" : "내부 알림 Mock 발송"}
               </button>
               <button
                 type="button"
@@ -365,13 +374,17 @@ export default function AdminProOperationsPage() {
                 Delivery Preview로 이동
               </Link>
             </div>
-            <div className="stacked-list">
-              {summary.quick_action_messages.map((quickActionMessage) => (
-                <article className="item compact-card" key={quickActionMessage}>
-                  <p>{quickActionMessage}</p>
-                </article>
-              ))}
-            </div>
+            {summary.quick_action_messages.length > 0 ? (
+              <div className="stacked-list">
+                {summary.quick_action_messages.map((quickActionMessage) => (
+                  <article className="item compact-card" key={quickActionMessage}>
+                    <p>{quickActionMessage}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="현재 실행을 막는 Quick Action 안내가 없습니다." />
+            )}
           </section>
 
           <section className="panel">
