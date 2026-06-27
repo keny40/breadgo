@@ -235,3 +235,38 @@ class AdminWeeklyReportBatchPreviewRead(BaseModel):
     target_merchant_count: int
     would_create_or_update_count: int
     message: str
+
+
+class ProWeeklyReportDeliveryRunItemRead(BaseModel):
+    id: UUID
+    delivery_run_id: UUID
+    merchant_id: UUID
+    snapshot_id: UUID | None = None
+    status: str
+    reason: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProWeeklyReportDeliveryRunRead(BaseModel):
+    id: UUID
+    run_type: str
+    channel: str
+    status: str
+    period_start: date
+    period_end: date
+    total_count: int
+    ready_count: int
+    skipped_count: int
+    failed_count: int
+    message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+    items: list[ProWeeklyReportDeliveryRunItemRead]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminProWeeklyReportDeliveryRunHistoryRead(BaseModel):
+    delivery_runs: list[ProWeeklyReportDeliveryRunRead]

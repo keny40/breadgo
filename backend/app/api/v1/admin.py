@@ -13,7 +13,9 @@ from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
     AdminProWeeklyReportBatchRunMonitorRead,
+    AdminProWeeklyReportDeliveryRunHistoryRead,
     AdminWeeklyReportBatchPreviewRead,
+    ProWeeklyReportDeliveryRunRead,
     ProWeeklyReportBatchRunRead,
 )
 from app.schemas.product import ProductRead
@@ -35,7 +37,10 @@ from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
     create_admin_weekly_report_batch_run,
+    create_weekly_report_delivery_preview,
     get_admin_weekly_report_batch_run,
+    get_weekly_report_delivery_run,
+    list_weekly_report_delivery_runs,
     list_admin_weekly_report_batch_runs,
     preview_admin_weekly_report_batch_run,
     retry_failed_weekly_report_batch_items,
@@ -145,6 +150,34 @@ def seed_demo(
     db: Session = Depends(get_db),
 ) -> DemoSeedResponse:
     return DemoSeedResponse(**seed_demo_data(db))
+
+
+@router.post("/pro/weekly-report/delivery-runs/preview", response_model=ProWeeklyReportDeliveryRunRead)
+def create_weekly_report_delivery_preview_for_admin(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportDeliveryRunRead:
+    return create_weekly_report_delivery_preview(db, start_date=start_date, end_date=end_date)
+
+
+@router.get("/pro/weekly-report/delivery-runs", response_model=AdminProWeeklyReportDeliveryRunHistoryRead)
+def list_weekly_report_delivery_runs_for_admin(
+    limit: int = 50,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProWeeklyReportDeliveryRunHistoryRead:
+    return list_weekly_report_delivery_runs(db, limit=limit)
+
+
+@router.get("/pro/weekly-report/delivery-runs/{delivery_run_id}", response_model=ProWeeklyReportDeliveryRunRead)
+def get_weekly_report_delivery_run_for_admin(
+    delivery_run_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportDeliveryRunRead:
+    return get_weekly_report_delivery_run(db, delivery_run_id)
 
 
 @router.get("/pro/weekly-report/batch-runs", response_model=AdminProWeeklyReportBatchRunMonitorRead)

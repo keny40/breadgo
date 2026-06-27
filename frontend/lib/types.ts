@@ -721,6 +721,37 @@ export type AdminWeeklyReportBatchPreview = {
   message: string;
 };
 
+export type ProWeeklyReportDeliveryRunItem = {
+  id: string;
+  delivery_run_id: string;
+  merchant_id: string;
+  snapshot_id: string | null;
+  status: string;
+  reason: string | null;
+  created_at: string;
+};
+
+export type ProWeeklyReportDeliveryRun = {
+  id: string;
+  run_type: string;
+  channel: string;
+  status: string;
+  period_start: string;
+  period_end: string;
+  total_count: number;
+  ready_count: number;
+  skipped_count: number;
+  failed_count: number;
+  message: string | null;
+  created_at: string;
+  completed_at: string | null;
+  items: ProWeeklyReportDeliveryRunItem[];
+};
+
+export type AdminProWeeklyReportDeliveryRunHistory = {
+  delivery_runs: ProWeeklyReportDeliveryRun[];
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

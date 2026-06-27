@@ -15,6 +15,8 @@ from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
 from app.models.pro_weekly_report import (
     ProWeeklyReportBatchRun,
     ProWeeklyReportBatchRunItem,
+    ProWeeklyReportDeliveryRun,
+    ProWeeklyReportDeliveryRunItem,
     ProWeeklyReportInsight,
     ProWeeklyReportSnapshot,
 )
@@ -28,6 +30,7 @@ from app.schemas.pro_daily_brief import (
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
     AdminProWeeklyReportBatchRunMonitorRead,
+    AdminProWeeklyReportDeliveryRunHistoryRead,
     AdminProWeeklyReportBatchRunSummaryRead,
     AdminWeeklyReportBatchPreviewRead,
     MerchantProWeeklyReportBatchRunHistoryRead,
@@ -35,6 +38,7 @@ from app.schemas.pro_daily_brief import (
     ProDailyBriefSnapshotRead,
     ProDailyBriefTaskRead,
     ProWeeklyReportBatchRunRead,
+    ProWeeklyReportDeliveryRunRead,
     ProWeeklyReportSnapshotRead,
     ProWeeklyReportDailyTrendRead,
     ProWeeklyReportInsightRead,
@@ -1094,6 +1098,139 @@ def retry_failed_weekly_report_batch_items(
     if refreshed is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report batch run not found.")
     return _batch_run_to_read(refreshed)
+
+
+def _delivery_run_to_read(delivery_run: ProWeeklyReportDeliveryRun) -> ProWeeklyReportDeliveryRunRead:
+    return ProWeeklyReportDeliveryRunRead.model_validate(delivery_run)
+
+
+def create_weekly_report_delivery_preview(
+    db: Session,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> ProWeeklyReportDeliveryRunRead:
+    default_start, default_end = _default_report_range()
+    resolved_start = start_date or default_start
+    resolved_end = end_date or default_end
+    merchants = list(db.scalars(select(Merchant).order_by(Merchant.created_at.asc())))
+    delivery_run = ProWeeklyReportDeliveryRun(
+        run_type="PREVIEW",
+        channel="IN_APP_PREVIEW",
+        status="PENDING",
+        period_start=resolved_start,
+        period_end=resolved_end,
+        total_count=len(merchants),
+        ready_count=0,
+        skipped_count=0,
+        failed_count=0,
+        message="Weekly Report 외부 발송 전 preview를 생성했습니다. 실제 발송은 하지 않습니다.",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(delivery_run)
+    db.flush()
+
+    ready_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for merchant in merchants:
+        try:
+            snapshot = db.scalar(
+                select(ProWeeklyReportSnapshot)
+                .where(
+                    ProWeeklyReportSnapshot.merchant_id == merchant.id,
+                    ProWeeklyReportSnapshot.start_date == resolved_start,
+                    ProWeeklyReportSnapshot.end_date == resolved_end,
+                )
+                .order_by(ProWeeklyReportSnapshot.updated_at.desc())
+            )
+            if snapshot is None:
+                db.add(
+                    ProWeeklyReportDeliveryRunItem(
+                        delivery_run_id=delivery_run.id,
+                        merchant_id=merchant.id,
+                        status="SKIPPED",
+                        reason="해당 기간의 Weekly Report snapshot이 없어 발송 준비 대상에서 제외했습니다.",
+                    )
+                )
+                skipped_count += 1
+                continue
+
+            db.add(
+                ProWeeklyReportDeliveryRunItem(
+                    delivery_run_id=delivery_run.id,
+                    merchant_id=merchant.id,
+                    snapshot_id=snapshot.id,
+                    status="READY",
+                    reason="해당 기간 Weekly Report snapshot이 있어 발송 준비가 가능합니다.",
+                )
+            )
+            ready_count += 1
+        except Exception as exc:
+            db.add(
+                ProWeeklyReportDeliveryRunItem(
+                    delivery_run_id=delivery_run.id,
+                    merchant_id=merchant.id,
+                    status="FAILED",
+                    reason=str(exc),
+                )
+            )
+            failed_count += 1
+
+    delivery_run.ready_count = ready_count
+    delivery_run.skipped_count = skipped_count
+    delivery_run.failed_count = failed_count
+    if failed_count and ready_count:
+        delivery_run.status = "PARTIAL"
+        delivery_run.message = "일부 merchant의 Weekly Report delivery preview 생성이 실패했습니다."
+    elif failed_count and not ready_count:
+        delivery_run.status = "FAILED"
+        delivery_run.message = "Weekly Report delivery preview가 실패했습니다."
+    else:
+        delivery_run.status = "COMPLETED"
+    delivery_run.completed_at = datetime.now(timezone.utc)
+    db.commit()
+
+    refreshed = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .where(ProWeeklyReportDeliveryRun.id == delivery_run.id)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
+    return _delivery_run_to_read(refreshed)
+
+
+def list_weekly_report_delivery_runs(
+    db: Session,
+    limit: int = 50,
+) -> AdminProWeeklyReportDeliveryRunHistoryRead:
+    bounded_limit = max(1, min(limit, 100))
+    delivery_runs = list(
+        db.scalars(
+            select(ProWeeklyReportDeliveryRun)
+            .options(selectinload(ProWeeklyReportDeliveryRun.items))
+            .order_by(ProWeeklyReportDeliveryRun.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+    return AdminProWeeklyReportDeliveryRunHistoryRead(
+        delivery_runs=[_delivery_run_to_read(run) for run in delivery_runs]
+    )
+
+
+def get_weekly_report_delivery_run(
+    db: Session,
+    delivery_run_id: UUID,
+) -> ProWeeklyReportDeliveryRunRead:
+    delivery_run = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .where(ProWeeklyReportDeliveryRun.id == delivery_run_id)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+    )
+    if delivery_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
+    return _delivery_run_to_read(delivery_run)
 
 
 def preview_admin_weekly_report_batch_run(

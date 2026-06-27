@@ -12,6 +12,8 @@ from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
 from app.models.pro_weekly_report import (
     ProWeeklyReportBatchRun,
     ProWeeklyReportBatchRunItem,
+    ProWeeklyReportDeliveryRun,
+    ProWeeklyReportDeliveryRunItem,
     ProWeeklyReportInsight,
     ProWeeklyReportSnapshot,
 )
@@ -43,6 +45,8 @@ __all__ = [
     "ProWeeklyReportSnapshot",
     "ProWeeklyReportBatchRun",
     "ProWeeklyReportBatchRunItem",
+    "ProWeeklyReportDeliveryRun",
+    "ProWeeklyReportDeliveryRunItem",
     "RecommendationActionEvent",
     "RecommendationUsage",
     "Reservation",

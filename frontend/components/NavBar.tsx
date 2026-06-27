@@ -45,6 +45,7 @@ export default function NavBar() {
             { href: "/admin/settlements", label: "정산 관리" },
             { href: "/admin/ops", label: "운영 점검" },
             { href: "/admin/pro/weekly-report-batches", label: "Batch Monitor" },
+            { href: "/admin/pro/weekly-report-deliveries", label: "Delivery Preview" },
           ]
         : [
             { href: "/products", label: "상품 보기" },
