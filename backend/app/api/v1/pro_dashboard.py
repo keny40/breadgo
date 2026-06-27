@@ -16,7 +16,9 @@ from app.schemas.pro_daily_brief import (
     MerchantProWeeklyReportBatchRunHistoryRead,
     MerchantProWeeklyReportHistoryRead,
     MerchantProWeeklyReportNotificationListRead,
+    MerchantProWeeklyReportReadAllResultRead,
     MerchantProWeeklyReportRead,
+    MerchantProWeeklyReportUnreadCountRead,
     ProDailyBriefSnapshotRead,
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
@@ -62,12 +64,14 @@ from app.services.pro_daily_brief_service import (
     create_current_week_snapshot,
     create_weekly_report_batch_test_run,
     get_daily_brief_snapshot,
+    get_merchant_weekly_report_unread_count,
     get_weekly_report_batch_run,
     get_weekly_report_snapshot,
     list_merchant_weekly_report_notifications,
     list_daily_brief_history,
     list_weekly_report_batch_runs,
     list_weekly_report_history,
+    mark_all_merchant_weekly_report_notifications_read,
     mark_merchant_weekly_report_notification_read,
     preview_auto_weekly_snapshot,
     weekly_report_to_csv,
@@ -243,6 +247,24 @@ def get_merchant_pro_weekly_report_notifications(
 ) -> MerchantProWeeklyReportNotificationListRead:
     merchant = require_merchant_for_user(db, current_user)
     return list_merchant_weekly_report_notifications(db, merchant, limit=limit)
+
+
+@router.get("/weekly-report/notifications/unread-count", response_model=MerchantProWeeklyReportUnreadCountRead)
+def get_merchant_pro_weekly_report_notification_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportUnreadCountRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return get_merchant_weekly_report_unread_count(db, merchant)
+
+
+@router.post("/weekly-report/notifications/read-all", response_model=MerchantProWeeklyReportReadAllResultRead)
+def mark_all_merchant_pro_weekly_report_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MerchantProWeeklyReportReadAllResultRead:
+    merchant = require_merchant_for_user(db, current_user)
+    return mark_all_merchant_weekly_report_notifications_read(db, merchant)
 
 
 @router.post(

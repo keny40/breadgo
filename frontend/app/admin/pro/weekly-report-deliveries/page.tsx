@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { AdminProWeeklyReportDeliveryRunHistory, ProWeeklyReportDeliveryRun } from "@/lib/types";
+import type {
+  AdminProWeeklyReportDeliveryRunHistory,
+  AdminProWeeklyReportNotificationList,
+  AdminProWeeklyReportNotificationSummary,
+  ProWeeklyReportDeliveryRun,
+} from "@/lib/types";
 
 function formatDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("ko-KR", {
@@ -105,6 +110,8 @@ function DeliveryRunCard({
 export default function AdminWeeklyReportDeliveriesPage() {
   const guard = useRoleGuard("ADMIN");
   const [history, setHistory] = useState<AdminProWeeklyReportDeliveryRunHistory | null>(null);
+  const [notificationSummary, setNotificationSummary] = useState<AdminProWeeklyReportNotificationSummary | null>(null);
+  const [notificationList, setNotificationList] = useState<AdminProWeeklyReportNotificationList | null>(null);
   const [lastPreview, setLastPreview] = useState<ProWeeklyReportDeliveryRun | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -122,7 +129,21 @@ export default function AdminWeeklyReportDeliveriesPage() {
         {},
         true,
       );
+      const [summary, notifications] = await Promise.all([
+        apiFetch<AdminProWeeklyReportNotificationSummary>(
+          "/api/v1/admin/pro/weekly-report/notifications/summary",
+          {},
+          true,
+        ),
+        apiFetch<AdminProWeeklyReportNotificationList>(
+          "/api/v1/admin/pro/weekly-report/notifications",
+          {},
+          true,
+        ),
+      ]);
       setHistory(result);
+      setNotificationSummary(summary);
+      setNotificationList(notifications);
       setMessage("Weekly Report delivery preview 이력을 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -212,6 +233,62 @@ export default function AdminWeeklyReportDeliveriesPage() {
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
+
+      {notificationSummary && (
+        <section className="panel">
+          <div className="card-title-row">
+            <div>
+              <p className="eyebrow">Weekly Report 내부 알림 현황</p>
+              <h2>읽음/미확인 상태</h2>
+              <p>실제 외부 발송 없이 BreadGo 내부 알림으로 생성된 리포트 안내의 확인 상태입니다.</p>
+            </div>
+            <Badge tone={notificationSummary.unread_count > 0 ? "warning" : "success"}>
+              미확인 {notificationSummary.unread_count}
+            </Badge>
+          </div>
+          <div className="summary-grid compact">
+            <StatCard label="전체 알림" value={notificationSummary.total_count} />
+            <StatCard label="읽음" value={notificationSummary.read_count} />
+            <StatCard label="미확인" value={notificationSummary.unread_count} />
+            <StatCard label="읽음률" value={`${notificationSummary.read_rate}%`} />
+            <StatCard label="최근 생성" value={formatDateTime(notificationSummary.latest_created_at)} />
+            <StatCard label="최근 읽음" value={formatDateTime(notificationSummary.latest_read_at)} />
+          </div>
+
+          {notificationList && notificationList.notifications.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Merchant</th>
+                    <th>Snapshot</th>
+                    <th>Delivery Run</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Read</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {notificationList.notifications.map((notification) => (
+                    <tr key={notification.notification_id}>
+                      <td>{notification.merchant_id}</td>
+                      <td>{notification.snapshot_id}</td>
+                      <td>{notification.delivery_run_id}</td>
+                      <td>
+                        <Badge tone={notification.status === "READ" ? "success" : "warning"}>
+                          {notification.status}
+                        </Badge>
+                      </td>
+                      <td>{formatDateTime(notification.created_at)}</td>
+                      <td>{formatDateTime(notification.read_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
 
       {lastPreview && (
         <section className="panel">

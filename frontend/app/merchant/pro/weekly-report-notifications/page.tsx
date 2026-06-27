@@ -6,7 +6,9 @@ import { Badge, EmptyState, PageHeader } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
 import type {
+  MerchantProWeeklyReportReadAllResult,
   MerchantProWeeklyReportNotificationList,
+  MerchantProWeeklyReportUnreadCount,
   ProWeeklyReportInAppNotification,
 } from "@/lib/types";
 
@@ -31,7 +33,7 @@ function NotificationCard({
   reading: boolean;
 }) {
   return (
-    <article className="item compact-card">
+    <article className={`item compact-card ${notification.status === "UNREAD" ? "highlight-card" : ""}`}>
       <div className="card-title-row">
         <div>
           <p className="eyebrow">BreadGo 내부 알림</p>
@@ -75,6 +77,8 @@ function NotificationCard({
 export default function MerchantProWeeklyReportNotificationsPage() {
   const guard = useRoleGuard("MERCHANT");
   const [data, setData] = useState<MerchantProWeeklyReportNotificationList | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "UNREAD" | "READ">("ALL");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,7 +94,13 @@ export default function MerchantProWeeklyReportNotificationsPage() {
         {},
         true,
       );
+      const unread = await apiFetch<MerchantProWeeklyReportUnreadCount>(
+        "/api/v1/merchant/pro/weekly-report/notifications/unread-count",
+        {},
+        true,
+      );
       setData(result);
+      setUnreadCount(unread.unread_count);
       setMessage("Weekly Report 내부 알림을 불러왔습니다.");
     } catch (error) {
       setIsError(true);
@@ -119,6 +129,28 @@ export default function MerchantProWeeklyReportNotificationsPage() {
       );
       setMessage("Weekly Report 알림을 읽음 처리했습니다.");
       await loadNotifications();
+      window.dispatchEvent(new Event("breadgo-auth-changed"));
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setReadingId(null);
+    }
+  }
+
+  async function markAllAsRead() {
+    setReadingId("ALL");
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<MerchantProWeeklyReportReadAllResult>(
+        "/api/v1/merchant/pro/weekly-report/notifications/read-all",
+        { method: "POST" },
+        true,
+      );
+      setMessage(`${result.updated_count}개의 Weekly Report 알림을 모두 읽음 처리했습니다.`);
+      await loadNotifications();
+      window.dispatchEvent(new Event("breadgo-auth-changed"));
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -135,7 +167,10 @@ export default function MerchantProWeeklyReportNotificationsPage() {
     );
   }
 
-  const notifications = data?.notifications || [];
+  const notifications = (data?.notifications || []).filter((notification) => {
+    if (statusFilter === "ALL") return true;
+    return notification.status === statusFilter;
+  });
 
   return (
     <section className="section">
@@ -143,9 +178,15 @@ export default function MerchantProWeeklyReportNotificationsPage() {
         title="Weekly Report 알림"
         description="외부 이메일/카카오/Push가 아니라 BreadGo 내부 알림으로 생성된 Weekly Report 안내를 확인합니다."
         actions={
-          <button type="button" onClick={loadNotifications} disabled={loading}>
-            {loading ? "불러오는 중" : "새로고침"}
-          </button>
+          <>
+            <Badge tone={unreadCount > 0 ? "warning" : "success"}>미확인 {unreadCount}건</Badge>
+            <button type="button" onClick={markAllAsRead} disabled={readingId === "ALL" || unreadCount === 0}>
+              {readingId === "ALL" ? "처리 중" : "모두 읽음 처리"}
+            </button>
+            <button type="button" onClick={loadNotifications} disabled={loading}>
+              {loading ? "불러오는 중" : "새로고침"}
+            </button>
+          </>
         }
       />
 
@@ -154,6 +195,19 @@ export default function MerchantProWeeklyReportNotificationsPage() {
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
+
+      <div className="segmented-control" aria-label="Weekly Report 알림 상태 필터">
+        {(["ALL", "UNREAD", "READ"] as const).map((status) => (
+          <button
+            key={status}
+            type="button"
+            className={statusFilter === status ? "active" : ""}
+            onClick={() => setStatusFilter(status)}
+          >
+            {status === "ALL" ? "전체" : status === "UNREAD" ? "미확인" : "읽음"}
+          </button>
+        ))}
+      </div>
 
       {notifications.length > 0 ? (
         <div className="stacked-list">

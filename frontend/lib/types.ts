@@ -766,6 +766,40 @@ export type MerchantProWeeklyReportNotificationList = {
   notifications: ProWeeklyReportInAppNotification[];
 };
 
+export type AdminProWeeklyReportNotificationSummary = {
+  total_count: number;
+  unread_count: number;
+  read_count: number;
+  read_rate: number;
+  latest_created_at: string | null;
+  latest_read_at: string | null;
+};
+
+export type AdminProWeeklyReportNotification = {
+  notification_id: string;
+  merchant_id: string;
+  snapshot_id: string;
+  delivery_run_id: string;
+  title: string;
+  message: string;
+  status: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export type AdminProWeeklyReportNotificationList = {
+  notifications: AdminProWeeklyReportNotification[];
+};
+
+export type MerchantProWeeklyReportUnreadCount = {
+  unread_count: number;
+};
+
+export type MerchantProWeeklyReportReadAllResult = {
+  updated_count: number;
+  unread_count: number;
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

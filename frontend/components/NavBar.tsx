@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, clearToken, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
-import type { AuthUser, Notification } from "@/lib/types";
+import type { AuthUser, MerchantProWeeklyReportUnreadCount, Notification } from "@/lib/types";
 
 export default function NavBar() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [weeklyReportUnreadCount, setWeeklyReportUnreadCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const normalizedRole = userRole?.toLowerCase();
@@ -21,7 +22,13 @@ export default function NavBar() {
           { href: "/merchant/pro", label: "Pro 대시보드" },
           { href: "/merchant/pro/daily-brief", label: "오늘 브리프" },
           { href: "/merchant/pro/weekly-report", label: "주간 리포트" },
-          { href: "/merchant/pro/weekly-report-notifications", label: "리포트 알림" },
+          {
+            href: "/merchant/pro/weekly-report-notifications",
+            label:
+              weeklyReportUnreadCount > 0
+                ? `리포트 알림 ${weeklyReportUnreadCount}`
+                : "리포트 알림",
+          },
           { href: "/merchant/pro/plan", label: "Pro 플랜" },
           { href: "/merchant/pro/stores", label: "매장 통합" },
           { href: "/merchant/pro/recommendations", label: "Pro 추천" },
@@ -68,6 +75,7 @@ export default function NavBar() {
       setUserRole(storedUser?.role || null);
       if (!token) {
         setUnreadCount(0);
+        setWeeklyReportUnreadCount(0);
       }
 
       if (token && (!storedUser?.email || !storedUser?.role)) {
@@ -76,6 +84,19 @@ export default function NavBar() {
             saveStoredUser(user);
             setUserEmail(user.email || null);
             setUserRole(user.role || null);
+            if (user.role?.toLowerCase() === "merchant") {
+              void apiFetch<MerchantProWeeklyReportUnreadCount>(
+                "/api/v1/merchant/pro/weekly-report/notifications/unread-count",
+                {},
+                true,
+              )
+                .then((result) => {
+                  setWeeklyReportUnreadCount(result.unread_count);
+                })
+                .catch(() => {
+                  setWeeklyReportUnreadCount(0);
+                });
+            }
           })
           .catch(() => {
             setUserEmail(null);
@@ -91,6 +112,22 @@ export default function NavBar() {
           .catch(() => {
             setUnreadCount(0);
           });
+
+        if (storedUser?.role?.toLowerCase() === "merchant") {
+          void apiFetch<MerchantProWeeklyReportUnreadCount>(
+            "/api/v1/merchant/pro/weekly-report/notifications/unread-count",
+            {},
+            true,
+          )
+            .then((result) => {
+              setWeeklyReportUnreadCount(result.unread_count);
+            })
+            .catch(() => {
+              setWeeklyReportUnreadCount(0);
+            });
+        } else {
+          setWeeklyReportUnreadCount(0);
+        }
       }
     }
 
@@ -111,6 +148,7 @@ export default function NavBar() {
     setUserEmail(null);
     setUserRole(null);
     setUnreadCount(0);
+    setWeeklyReportUnreadCount(0);
     setMenuOpen(false);
   }
 

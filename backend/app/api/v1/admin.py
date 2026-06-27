@@ -14,6 +14,8 @@ from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
     AdminProWeeklyReportBatchRunMonitorRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
+    AdminProWeeklyReportNotificationListRead,
+    AdminProWeeklyReportNotificationSummaryRead,
     AdminWeeklyReportBatchPreviewRead,
     ProWeeklyReportDeliveryRunRead,
     ProWeeklyReportBatchRunRead,
@@ -40,7 +42,9 @@ from app.services.pro_daily_brief_service import (
     create_weekly_report_in_app_mock_delivery,
     create_weekly_report_delivery_preview,
     get_admin_weekly_report_batch_run,
+    get_admin_weekly_report_notification_summary,
     get_weekly_report_delivery_run,
+    list_admin_weekly_report_notifications,
     list_weekly_report_delivery_runs,
     list_admin_weekly_report_batch_runs,
     preview_admin_weekly_report_batch_run,
@@ -179,6 +183,44 @@ def get_weekly_report_delivery_run_for_admin(
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
     return get_weekly_report_delivery_run(db, delivery_run_id)
+
+
+@router.get("/pro/weekly-report/notifications/summary", response_model=AdminProWeeklyReportNotificationSummaryRead)
+def get_weekly_report_notification_summary_for_admin(
+    merchant_id: UUID | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProWeeklyReportNotificationSummaryRead:
+    return get_admin_weekly_report_notification_summary(
+        db,
+        merchant_id=merchant_id,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+@router.get("/pro/weekly-report/notifications", response_model=AdminProWeeklyReportNotificationListRead)
+def list_weekly_report_notifications_for_admin(
+    merchant_id: UUID | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 100,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProWeeklyReportNotificationListRead:
+    return list_admin_weekly_report_notifications(
+        db,
+        merchant_id=merchant_id,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+    )
 
 
 @router.post(

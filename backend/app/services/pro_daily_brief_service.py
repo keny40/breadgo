@@ -32,10 +32,15 @@ from app.schemas.pro_daily_brief import (
     ProWeeklyReportAutoSnapshotPreviewRead,
     ProWeeklyReportAutoSnapshotRunRead,
     AdminProWeeklyReportBatchRunMonitorRead,
+    AdminProWeeklyReportNotificationListRead,
+    AdminProWeeklyReportNotificationRead,
+    AdminProWeeklyReportNotificationSummaryRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
     AdminProWeeklyReportBatchRunSummaryRead,
     AdminWeeklyReportBatchPreviewRead,
     MerchantProWeeklyReportBatchRunHistoryRead,
+    MerchantProWeeklyReportReadAllResultRead,
+    MerchantProWeeklyReportUnreadCountRead,
     ProDailyBriefHistoryDeltaRead,
     ProDailyBriefSnapshotRead,
     ProDailyBriefTaskRead,
@@ -1345,6 +1350,133 @@ def create_weekly_report_in_app_mock_delivery(
     return _delivery_run_to_read(refreshed)
 
 
+def create_weekly_report_unread_reminders(db: Session) -> ProWeeklyReportDeliveryRunRead:
+    targets = list(
+        db.scalars(
+            select(ProWeeklyReportInAppNotification)
+            .where(
+                ProWeeklyReportInAppNotification.status == "UNREAD",
+                ProWeeklyReportInAppNotification.snapshot_id.is_not(None),
+                ~ProWeeklyReportInAppNotification.title.contains("리마인드"),
+                ~ProWeeklyReportInAppNotification.message.contains("리마인드"),
+            )
+            .order_by(ProWeeklyReportInAppNotification.created_at.asc())
+        )
+    )
+    if not targets:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="리마인드 대상 미확인 알림이 없습니다.")
+
+    first_target = targets[0]
+    snapshot = db.scalar(
+        select(ProWeeklyReportSnapshot).where(ProWeeklyReportSnapshot.id == first_target.snapshot_id)
+    )
+    period_start = snapshot.start_date if snapshot else datetime.now(KST).date()
+    period_end = snapshot.end_date if snapshot else datetime.now(KST).date()
+
+    reminder_run = ProWeeklyReportDeliveryRun(
+        run_type="IN_APP_REMINDER",
+        channel="IN_APP",
+        status="PENDING",
+        period_start=period_start,
+        period_end=period_end,
+        total_count=len(targets),
+        ready_count=0,
+        skipped_count=0,
+        failed_count=0,
+        message="미확인 Weekly Report 내부 알림을 대상으로 리마인드 mock delivery를 실행합니다.",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(reminder_run)
+    db.flush()
+
+    sent_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for target in targets:
+        try:
+            existing_reminder = db.scalar(
+                select(ProWeeklyReportInAppNotification)
+                .where(
+                    ProWeeklyReportInAppNotification.merchant_id == target.merchant_id,
+                    ProWeeklyReportInAppNotification.snapshot_id == target.snapshot_id,
+                    ProWeeklyReportInAppNotification.status == "UNREAD",
+                    ProWeeklyReportInAppNotification.title.contains("리마인드"),
+                )
+                .order_by(ProWeeklyReportInAppNotification.created_at.desc())
+            )
+            if existing_reminder is not None:
+                db.add(
+                    ProWeeklyReportDeliveryRunItem(
+                        delivery_run_id=reminder_run.id,
+                        merchant_id=target.merchant_id,
+                        snapshot_id=target.snapshot_id,
+                        status="SKIPPED",
+                        reason="동일 merchant/snapshot에 아직 읽지 않은 리마인드 알림이 있어 중복 생성을 건너뛰었습니다.",
+                    )
+                )
+                skipped_count += 1
+                continue
+
+            result_item = ProWeeklyReportDeliveryRunItem(
+                delivery_run_id=reminder_run.id,
+                merchant_id=target.merchant_id,
+                snapshot_id=target.snapshot_id,
+                status="SENT",
+                reason="미확인 Weekly Report 내부 알림 리마인드를 생성했습니다.",
+            )
+            db.add(result_item)
+            db.flush()
+            db.add(
+                ProWeeklyReportInAppNotification(
+                    merchant_id=target.merchant_id,
+                    snapshot_id=target.snapshot_id,
+                    delivery_run_id=reminder_run.id,
+                    delivery_run_item_id=result_item.id,
+                    title="Weekly Report 확인 리마인드",
+                    message="아직 확인하지 않은 Weekly Report가 있습니다. BreadGo Pro에서 확인해 주세요.",
+                    status="UNREAD",
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            sent_count += 1
+        except Exception as exc:
+            db.add(
+                ProWeeklyReportDeliveryRunItem(
+                    delivery_run_id=reminder_run.id,
+                    merchant_id=target.merchant_id,
+                    snapshot_id=target.snapshot_id,
+                    status="FAILED",
+                    reason=str(exc),
+                )
+            )
+            failed_count += 1
+
+    reminder_run.ready_count = sent_count
+    reminder_run.skipped_count = skipped_count
+    reminder_run.failed_count = failed_count
+    if failed_count and sent_count:
+        reminder_run.status = "PARTIAL"
+        reminder_run.message = "일부 Weekly Report 리마인드 mock delivery가 실패했습니다."
+    elif failed_count and not sent_count:
+        reminder_run.status = "FAILED"
+        reminder_run.message = "Weekly Report 리마인드 mock delivery가 실패했습니다."
+    else:
+        reminder_run.status = "COMPLETED"
+        reminder_run.message = "Weekly Report 리마인드 mock delivery가 완료되었습니다. 실제 외부 발송은 하지 않았습니다."
+    reminder_run.completed_at = datetime.now(timezone.utc)
+    db.commit()
+
+    refreshed = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .where(ProWeeklyReportDeliveryRun.id == reminder_run.id)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+    )
+    if refreshed is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weekly report delivery run not found.")
+    return _delivery_run_to_read(refreshed)
+
+
 def _weekly_report_notification_to_read(
     notification: ProWeeklyReportInAppNotification,
 ) -> ProWeeklyReportInAppNotificationRead:
@@ -1356,6 +1488,108 @@ def _weekly_report_notification_to_read(
         status=notification.status,
         created_at=notification.created_at,
         read_at=notification.read_at,
+    )
+
+
+def _admin_weekly_report_notification_to_read(
+    notification: ProWeeklyReportInAppNotification,
+) -> AdminProWeeklyReportNotificationRead:
+    return AdminProWeeklyReportNotificationRead(
+        notification_id=notification.id,
+        merchant_id=notification.merchant_id,
+        snapshot_id=notification.snapshot_id,
+        delivery_run_id=notification.delivery_run_id,
+        title=notification.title,
+        message=notification.message,
+        status=notification.status,
+        created_at=notification.created_at,
+        read_at=notification.read_at,
+    )
+
+
+def _weekly_report_notification_filters(
+    merchant_id: UUID | None = None,
+    status_filter: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list:
+    conditions = []
+    if merchant_id is not None:
+        conditions.append(ProWeeklyReportInAppNotification.merchant_id == merchant_id)
+    if status_filter is not None:
+        if status_filter not in {"UNREAD", "READ"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="status는 UNREAD 또는 READ만 가능합니다.")
+        conditions.append(ProWeeklyReportInAppNotification.status == status_filter)
+    if date_from is not None:
+        conditions.append(
+            ProWeeklyReportInAppNotification.created_at
+            >= datetime.combine(date_from, time.min, tzinfo=KST).astimezone(timezone.utc)
+        )
+    if date_to is not None:
+        conditions.append(
+            ProWeeklyReportInAppNotification.created_at
+            < (datetime.combine(date_to, time.min, tzinfo=KST) + timedelta(days=1)).astimezone(timezone.utc)
+        )
+    return conditions
+
+
+def get_admin_weekly_report_notification_summary(
+    db: Session,
+    merchant_id: UUID | None = None,
+    status_filter: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> AdminProWeeklyReportNotificationSummaryRead:
+    conditions = _weekly_report_notification_filters(
+        merchant_id=merchant_id,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    notifications = list(db.scalars(select(ProWeeklyReportInAppNotification).where(*conditions)))
+    total_count = len(notifications)
+    unread_count = sum(1 for notification in notifications if notification.status == "UNREAD")
+    read_count = sum(1 for notification in notifications if notification.status == "READ")
+    latest_created_at = max((notification.created_at for notification in notifications), default=None)
+    latest_read_at = max(
+        (notification.read_at for notification in notifications if notification.read_at is not None),
+        default=None,
+    )
+    return AdminProWeeklyReportNotificationSummaryRead(
+        total_count=total_count,
+        unread_count=unread_count,
+        read_count=read_count,
+        read_rate=round((read_count / total_count) * 100, 1) if total_count else 0.0,
+        latest_created_at=latest_created_at,
+        latest_read_at=latest_read_at,
+    )
+
+
+def list_admin_weekly_report_notifications(
+    db: Session,
+    merchant_id: UUID | None = None,
+    status_filter: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 100,
+) -> AdminProWeeklyReportNotificationListRead:
+    conditions = _weekly_report_notification_filters(
+        merchant_id=merchant_id,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    bounded_limit = max(1, min(limit, 200))
+    notifications = list(
+        db.scalars(
+            select(ProWeeklyReportInAppNotification)
+            .where(*conditions)
+            .order_by(ProWeeklyReportInAppNotification.created_at.desc())
+            .limit(bounded_limit)
+        )
+    )
+    return AdminProWeeklyReportNotificationListRead(
+        notifications=[_admin_weekly_report_notification_to_read(notification) for notification in notifications]
     )
 
 
@@ -1378,6 +1612,21 @@ def list_merchant_weekly_report_notifications(
     )
 
 
+def get_merchant_weekly_report_unread_count(
+    db: Session,
+    merchant: Merchant,
+) -> MerchantProWeeklyReportUnreadCountRead:
+    unread_count = db.scalar(
+        select(func.count())
+        .select_from(ProWeeklyReportInAppNotification)
+        .where(
+            ProWeeklyReportInAppNotification.merchant_id == merchant.id,
+            ProWeeklyReportInAppNotification.status == "UNREAD",
+        )
+    )
+    return MerchantProWeeklyReportUnreadCountRead(unread_count=unread_count or 0)
+
+
 def mark_merchant_weekly_report_notification_read(
     db: Session,
     merchant: Merchant,
@@ -1396,6 +1645,26 @@ def mark_merchant_weekly_report_notification_read(
     db.commit()
     db.refresh(notification)
     return _weekly_report_notification_to_read(notification)
+
+
+def mark_all_merchant_weekly_report_notifications_read(
+    db: Session,
+    merchant: Merchant,
+) -> MerchantProWeeklyReportReadAllResultRead:
+    notifications = list(
+        db.scalars(
+            select(ProWeeklyReportInAppNotification).where(
+                ProWeeklyReportInAppNotification.merchant_id == merchant.id,
+                ProWeeklyReportInAppNotification.status == "UNREAD",
+            )
+        )
+    )
+    now = datetime.now(timezone.utc)
+    for notification in notifications:
+        notification.status = "READ"
+        notification.read_at = now
+    db.commit()
+    return MerchantProWeeklyReportReadAllResultRead(updated_count=len(notifications), unread_count=0)
 
 
 def preview_admin_weekly_report_batch_run(

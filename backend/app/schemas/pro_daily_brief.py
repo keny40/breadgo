@@ -284,3 +284,37 @@ class ProWeeklyReportInAppNotificationRead(BaseModel):
 
 class MerchantProWeeklyReportNotificationListRead(BaseModel):
     notifications: list[ProWeeklyReportInAppNotificationRead]
+
+
+class AdminProWeeklyReportNotificationSummaryRead(BaseModel):
+    total_count: int
+    unread_count: int
+    read_count: int
+    read_rate: float
+    latest_created_at: datetime | None = None
+    latest_read_at: datetime | None = None
+
+
+class AdminProWeeklyReportNotificationRead(BaseModel):
+    notification_id: UUID
+    merchant_id: UUID
+    snapshot_id: UUID
+    delivery_run_id: UUID
+    title: str
+    message: str
+    status: str
+    created_at: datetime
+    read_at: datetime | None = None
+
+
+class AdminProWeeklyReportNotificationListRead(BaseModel):
+    notifications: list[AdminProWeeklyReportNotificationRead]
+
+
+class MerchantProWeeklyReportUnreadCountRead(BaseModel):
+    unread_count: int
+
+
+class MerchantProWeeklyReportReadAllResultRead(BaseModel):
+    updated_count: int
+    unread_count: int

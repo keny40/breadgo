@@ -754,6 +754,27 @@ code {
   line-height: 1.55;
 }
 
+.highlight-card {
+  border-color: color-mix(in srgb, var(--warning) 36%, var(--border));
+  background: color-mix(in srgb, var(--warning-soft) 42%, var(--surface));
+}
+
+.segmented-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.segmented-control button {
+  width: auto;
+}
+
+.segmented-control button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 .card-title-row {
   display: flex;
   flex-wrap: wrap;
