@@ -1685,6 +1685,7 @@ def build_admin_pro_operations_summary(db: Session) -> AdminProOperationsSummary
     failed_batch_count = sum(1 for run in recent_batch_runs if run.status == "FAILED")
     partial_batch_count = sum(1 for run in recent_batch_runs if run.status == "PARTIAL")
     batch_summary = AdminProOperationsBatchSummaryRead(
+        latest_batch_run_id=latest_batch.id if latest_batch else None,
         latest_status=latest_batch.status if latest_batch else None,
         latest_created_at=latest_batch.created_at if latest_batch else None,
         latest_run_type=latest_batch.run_type if latest_batch else None,
@@ -1707,7 +1708,18 @@ def build_admin_pro_operations_summary(db: Session) -> AdminProOperationsSummary
         db.scalars(select(ProWeeklyReportDeliveryRun).where(ProWeeklyReportDeliveryRun.created_at >= recent_start))
     )
     failed_delivery_count = sum(1 for run in recent_delivery_runs if run.status in {"FAILED", "PARTIAL"})
+    latest_ready_delivery = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .join(ProWeeklyReportDeliveryRunItem)
+        .where(
+            ProWeeklyReportDeliveryRun.run_type.in_(["PREVIEW", "DRY_RUN"]),
+            ProWeeklyReportDeliveryRunItem.status == "READY",
+        )
+        .order_by(ProWeeklyReportDeliveryRun.created_at.desc())
+    )
     delivery_summary = AdminProOperationsDeliverySummaryRead(
+        latest_delivery_run_id=latest_delivery.id if latest_delivery else None,
+        latest_ready_delivery_run_id=latest_ready_delivery.id if latest_ready_delivery else None,
         latest_status=latest_delivery.status if latest_delivery else None,
         latest_run_type=latest_delivery.run_type if latest_delivery else None,
         latest_channel=latest_delivery.channel if latest_delivery else None,
@@ -1762,12 +1774,29 @@ def build_admin_pro_operations_summary(db: Session) -> AdminProOperationsSummary
         needs_attention=bool(attention_messages),
         attention_messages=attention_messages,
     )
+    can_run_mock_delivery = latest_ready_delivery is not None
+    can_run_unread_reminder = unread_count > 0
+    quick_action_messages = [
+        "전체 Weekly Report batch 실행은 언제든 수동 실행할 수 있습니다.",
+        "Delivery preview 생성은 언제든 수동 실행할 수 있습니다.",
+    ]
+    if can_run_mock_delivery:
+        quick_action_messages.append("READY item이 있는 최신 delivery preview로 In-app mock delivery를 실행할 수 있습니다.")
+    else:
+        quick_action_messages.append("READY item이 있는 delivery preview가 없어 In-app mock delivery를 바로 실행할 수 없습니다.")
+    if can_run_unread_reminder:
+        quick_action_messages.append("미확인 Weekly Report 알림이 있어 리마인드를 생성할 수 있습니다.")
+    else:
+        quick_action_messages.append("미확인 Weekly Report 알림이 없어 리마인드 생성 대상이 없습니다.")
 
     return AdminProOperationsSummaryRead(
         batch=batch_summary,
         delivery=delivery_summary,
         notifications=notification_summary,
         attention=attention_summary,
+        can_run_mock_delivery=can_run_mock_delivery,
+        can_run_unread_reminder=can_run_unread_reminder,
+        quick_action_messages=quick_action_messages,
     )
 
 

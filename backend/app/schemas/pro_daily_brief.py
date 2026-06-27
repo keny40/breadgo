@@ -321,6 +321,7 @@ class MerchantProWeeklyReportReadAllResultRead(BaseModel):
 
 
 class AdminProOperationsBatchSummaryRead(BaseModel):
+    latest_batch_run_id: UUID | None = None
     latest_status: str | None = None
     latest_created_at: datetime | None = None
     latest_run_type: str | None = None
@@ -333,6 +334,8 @@ class AdminProOperationsBatchSummaryRead(BaseModel):
 
 
 class AdminProOperationsDeliverySummaryRead(BaseModel):
+    latest_delivery_run_id: UUID | None = None
+    latest_ready_delivery_run_id: UUID | None = None
     latest_status: str | None = None
     latest_run_type: str | None = None
     latest_channel: str | None = None
@@ -369,3 +372,6 @@ class AdminProOperationsSummaryRead(BaseModel):
     delivery: AdminProOperationsDeliverySummaryRead
     notifications: AdminProOperationsNotificationSummaryRead
     attention: AdminProOperationsAttentionSummaryRead
+    can_run_mock_delivery: bool
+    can_run_unread_reminder: bool
+    quick_action_messages: list[str]

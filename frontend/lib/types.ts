@@ -802,6 +802,7 @@ export type MerchantProWeeklyReportReadAllResult = {
 
 export type AdminProOperationsSummary = {
   batch: {
+    latest_batch_run_id: string | null;
     latest_status: string | null;
     latest_created_at: string | null;
     latest_run_type: string | null;
@@ -813,6 +814,8 @@ export type AdminProOperationsSummary = {
     recent_7_days_failed_or_partial_count: number;
   };
   delivery: {
+    latest_delivery_run_id: string | null;
+    latest_ready_delivery_run_id: string | null;
     latest_status: string | null;
     latest_run_type: string | null;
     latest_channel: string | null;
@@ -841,6 +844,9 @@ export type AdminProOperationsSummary = {
     needs_attention: boolean;
     attention_messages: string[];
   };
+  can_run_mock_delivery: boolean;
+  can_run_unread_reminder: boolean;
+  quick_action_messages: string[];
 };
 
 export type ProRecommendationDraftCreateResponse = {

@@ -26,8 +26,9 @@ export default function AdminProOperationsPage() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const loadSummary = useCallback(async () => {
+  const loadSummary = useCallback(async (nextMessage = "BreadGo Pro 운영 상태를 불러왔습니다.") => {
     setLoading(true);
     setMessage("");
     setIsError(false);
@@ -38,7 +39,7 @@ export default function AdminProOperationsPage() {
         true,
       );
       setSummary(result);
-      setMessage("BreadGo Pro 운영 상태를 불러왔습니다.");
+      setMessage(nextMessage);
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -53,6 +54,53 @@ export default function AdminProOperationsPage() {
       void loadSummary();
     });
   }, [guard.allowed, loadSummary]);
+
+  async function runQuickAction(action: "batch" | "preview" | "mock" | "reminder") {
+    setActionLoading(action);
+    setMessage("");
+    setIsError(false);
+    try {
+      if (action === "batch") {
+        await apiFetch("/api/v1/admin/pro/weekly-report/batch-runs", { method: "POST" }, true);
+        setMessage("전체 Weekly Report batch 실행을 완료했습니다.");
+      }
+      if (action === "preview") {
+        await apiFetch("/api/v1/admin/pro/weekly-report/delivery-runs/preview", { method: "POST" }, true);
+        setMessage("Delivery preview를 생성했습니다.");
+      }
+      if (action === "mock") {
+        if (!summary?.delivery.latest_ready_delivery_run_id) {
+          setIsError(true);
+          setMessage("READY item이 있는 delivery preview가 없어 In-app mock delivery를 실행할 수 없습니다.");
+          return;
+        }
+        await apiFetch(
+          `/api/v1/admin/pro/weekly-report/delivery-runs/${summary.delivery.latest_ready_delivery_run_id}/mock-send`,
+          { method: "POST" },
+          true,
+        );
+        setMessage("In-app mock delivery를 실행했습니다.");
+      }
+      if (action === "reminder") {
+        await apiFetch("/api/v1/admin/pro/weekly-report/notifications/remind-unread", { method: "POST" }, true);
+        setMessage("미확인 Weekly Report 리마인드를 생성했습니다.");
+      }
+      await loadSummary(
+        action === "batch"
+          ? "전체 Weekly Report batch 실행 후 운영 상태를 새로고침했습니다."
+          : action === "preview"
+            ? "Delivery preview 생성 후 운영 상태를 새로고침했습니다."
+            : action === "mock"
+              ? "In-app mock delivery 실행 후 운영 상태를 새로고침했습니다."
+              : "미확인 Weekly Report 리마인드 생성 후 운영 상태를 새로고침했습니다.",
+      );
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   if (!guard.allowed) {
     return (
@@ -75,7 +123,7 @@ export default function AdminProOperationsPage() {
             <Link className="button-link secondary" href="/admin/pro/weekly-report-deliveries">
               Delivery Preview
             </Link>
-            <button type="button" onClick={loadSummary} disabled={loading}>
+            <button type="button" onClick={() => loadSummary()} disabled={loading}>
               {loading ? "불러오는 중" : "새로고침"}
             </button>
           </>
@@ -100,6 +148,62 @@ export default function AdminProOperationsPage() {
               helper={`${summary.attention.attention_messages.length}개 메시지`}
             />
           </div>
+
+          <section className="panel">
+            <div className="card-title-row">
+              <div>
+                <p className="eyebrow">운영 Quick Actions</p>
+                <h2>필요한 조치를 바로 실행</h2>
+                <p>기존 Weekly Report 운영 API를 재사용합니다. 실제 외부 발송은 수행하지 않습니다.</p>
+              </div>
+              <Badge tone={summary.attention.needs_attention ? "warning" : "success"}>
+                {summary.attention.needs_attention ? "조치 확인" : "정상"}
+              </Badge>
+            </div>
+            <div className="actions">
+              <button
+                type="button"
+                onClick={() => runQuickAction("batch")}
+                disabled={actionLoading !== null}
+              >
+                {actionLoading === "batch" ? "실행 중" : "전체 Weekly Report batch 실행"}
+              </button>
+              <button
+                type="button"
+                onClick={() => runQuickAction("preview")}
+                disabled={actionLoading !== null}
+              >
+                {actionLoading === "preview" ? "생성 중" : "Delivery preview 생성"}
+              </button>
+              <button
+                type="button"
+                onClick={() => runQuickAction("mock")}
+                disabled={actionLoading !== null || !summary.can_run_mock_delivery}
+              >
+                {actionLoading === "mock" ? "실행 중" : "In-app mock delivery 실행"}
+              </button>
+              <button
+                type="button"
+                onClick={() => runQuickAction("reminder")}
+                disabled={actionLoading !== null || !summary.can_run_unread_reminder}
+              >
+                {actionLoading === "reminder" ? "생성 중" : "미확인 리마인드 생성"}
+              </button>
+              <Link className="button-link secondary" href="/admin/pro/weekly-report-batches">
+                Batch Monitor로 이동
+              </Link>
+              <Link className="button-link secondary" href="/admin/pro/weekly-report-deliveries">
+                Delivery Preview로 이동
+              </Link>
+            </div>
+            <div className="stacked-list">
+              {summary.quick_action_messages.map((quickActionMessage) => (
+                <article className="item compact-card" key={quickActionMessage}>
+                  <p>{quickActionMessage}</p>
+                </article>
+              ))}
+            </div>
+          </section>
 
           <section className="panel">
             <div className="card-title-row">
