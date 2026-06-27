@@ -208,6 +208,9 @@ export default function AdminPage() {
         description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 모니터링합니다."
         actions={
           <>
+            <Link className="button-link secondary" href="/admin/pro/operations">
+              Pro Operations
+            </Link>
             <Link className="button-link secondary" href="/admin/pro/weekly-report-batches">
               Weekly Batch Monitor
             </Link>

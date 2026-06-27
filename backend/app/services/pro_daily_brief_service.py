@@ -35,6 +35,11 @@ from app.schemas.pro_daily_brief import (
     AdminProWeeklyReportNotificationListRead,
     AdminProWeeklyReportNotificationRead,
     AdminProWeeklyReportNotificationSummaryRead,
+    AdminProOperationsAttentionSummaryRead,
+    AdminProOperationsBatchSummaryRead,
+    AdminProOperationsDeliverySummaryRead,
+    AdminProOperationsNotificationSummaryRead,
+    AdminProOperationsSummaryRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
     AdminProWeeklyReportBatchRunSummaryRead,
     AdminWeeklyReportBatchPreviewRead,
@@ -1665,6 +1670,105 @@ def mark_all_merchant_weekly_report_notifications_read(
         notification.read_at = now
     db.commit()
     return MerchantProWeeklyReportReadAllResultRead(updated_count=len(notifications), unread_count=0)
+
+
+def build_admin_pro_operations_summary(db: Session) -> AdminProOperationsSummaryRead:
+    now = datetime.now(timezone.utc)
+    recent_start = now - timedelta(days=7)
+
+    latest_batch = db.scalar(
+        select(ProWeeklyReportBatchRun).order_by(ProWeeklyReportBatchRun.created_at.desc())
+    )
+    recent_batch_runs = list(
+        db.scalars(select(ProWeeklyReportBatchRun).where(ProWeeklyReportBatchRun.created_at >= recent_start))
+    )
+    failed_batch_count = sum(1 for run in recent_batch_runs if run.status == "FAILED")
+    partial_batch_count = sum(1 for run in recent_batch_runs if run.status == "PARTIAL")
+    batch_summary = AdminProOperationsBatchSummaryRead(
+        latest_status=latest_batch.status if latest_batch else None,
+        latest_created_at=latest_batch.created_at if latest_batch else None,
+        latest_run_type=latest_batch.run_type if latest_batch else None,
+        latest_total_count=latest_batch.target_merchant_count if latest_batch else 0,
+        latest_success_count=latest_batch.success_count if latest_batch else 0,
+        latest_failed_count=latest_batch.failed_count if latest_batch else 0,
+        latest_skipped_count=latest_batch.skipped_count if latest_batch else 0,
+        recent_7_days_run_count=len(recent_batch_runs),
+        recent_7_days_failed_or_partial_count=failed_batch_count + partial_batch_count,
+    )
+
+    latest_delivery = db.scalar(
+        select(ProWeeklyReportDeliveryRun)
+        .options(selectinload(ProWeeklyReportDeliveryRun.items))
+        .order_by(ProWeeklyReportDeliveryRun.created_at.desc())
+    )
+    latest_delivery_items = latest_delivery.items if latest_delivery else []
+    latest_sent_count = sum(1 for item in latest_delivery_items if item.status == "SENT")
+    recent_delivery_runs = list(
+        db.scalars(select(ProWeeklyReportDeliveryRun).where(ProWeeklyReportDeliveryRun.created_at >= recent_start))
+    )
+    failed_delivery_count = sum(1 for run in recent_delivery_runs if run.status in {"FAILED", "PARTIAL"})
+    delivery_summary = AdminProOperationsDeliverySummaryRead(
+        latest_status=latest_delivery.status if latest_delivery else None,
+        latest_run_type=latest_delivery.run_type if latest_delivery else None,
+        latest_channel=latest_delivery.channel if latest_delivery else None,
+        latest_created_at=latest_delivery.created_at if latest_delivery else None,
+        latest_total_count=latest_delivery.total_count if latest_delivery else 0,
+        latest_ready_count=sum(1 for item in latest_delivery_items if item.status == "READY"),
+        latest_sent_count=latest_sent_count,
+        latest_skipped_count=latest_delivery.skipped_count if latest_delivery else 0,
+        latest_failed_count=latest_delivery.failed_count if latest_delivery else 0,
+    )
+
+    notifications = list(db.scalars(select(ProWeeklyReportInAppNotification)))
+    total_notifications = len(notifications)
+    unread_count = sum(1 for notification in notifications if notification.status == "UNREAD")
+    read_count = sum(1 for notification in notifications if notification.status == "READ")
+    latest_created_at = max((notification.created_at for notification in notifications), default=None)
+    latest_read_at = max(
+        (notification.read_at for notification in notifications if notification.read_at is not None),
+        default=None,
+    )
+    reminder_notifications = [notification for notification in notifications if "리마인드" in notification.title]
+    latest_reminder_at = max((notification.created_at for notification in reminder_notifications), default=None)
+    unread_reminder_count = sum(1 for notification in reminder_notifications if notification.status == "UNREAD")
+    notification_summary = AdminProOperationsNotificationSummaryRead(
+        total_count=total_notifications,
+        read_count=read_count,
+        unread_count=unread_count,
+        read_rate=round((read_count / total_notifications) * 100, 1) if total_notifications else 0.0,
+        latest_created_at=latest_created_at,
+        latest_read_at=latest_read_at,
+        latest_reminder_at=latest_reminder_at,
+        unread_reminder_count=unread_reminder_count,
+    )
+
+    attention_messages: list[str] = []
+    if latest_batch and latest_batch.status in {"FAILED", "PARTIAL"}:
+        attention_messages.append("최근 Weekly Report batch에 실패 또는 부분 실패가 있습니다.")
+    if latest_delivery and latest_delivery.status in {"FAILED", "PARTIAL"}:
+        attention_messages.append("최근 delivery run에 실패 항목이 있습니다.")
+    if unread_count > 0:
+        attention_messages.append("미확인 Weekly Report 알림이 남아 있습니다.")
+    if failed_batch_count > 0:
+        attention_messages.append("최근 7일 내 실패한 Weekly Report batch가 있습니다.")
+    if latest_reminder_at is not None and unread_count > 0:
+        attention_messages.append("최근 리마인드 이후에도 읽지 않은 Weekly Report 알림이 남아 있습니다.")
+
+    attention_summary = AdminProOperationsAttentionSummaryRead(
+        failed_batch_count=failed_batch_count,
+        partial_batch_count=partial_batch_count,
+        failed_delivery_count=failed_delivery_count,
+        unread_notification_count=unread_count,
+        needs_attention=bool(attention_messages),
+        attention_messages=attention_messages,
+    )
+
+    return AdminProOperationsSummaryRead(
+        batch=batch_summary,
+        delivery=delivery_summary,
+        notifications=notification_summary,
+        attention=attention_summary,
+    )
 
 
 def preview_admin_weekly_report_batch_run(

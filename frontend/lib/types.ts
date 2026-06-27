@@ -800,6 +800,49 @@ export type MerchantProWeeklyReportReadAllResult = {
   unread_count: number;
 };
 
+export type AdminProOperationsSummary = {
+  batch: {
+    latest_status: string | null;
+    latest_created_at: string | null;
+    latest_run_type: string | null;
+    latest_total_count: number;
+    latest_success_count: number;
+    latest_failed_count: number;
+    latest_skipped_count: number;
+    recent_7_days_run_count: number;
+    recent_7_days_failed_or_partial_count: number;
+  };
+  delivery: {
+    latest_status: string | null;
+    latest_run_type: string | null;
+    latest_channel: string | null;
+    latest_created_at: string | null;
+    latest_total_count: number;
+    latest_ready_count: number;
+    latest_sent_count: number;
+    latest_skipped_count: number;
+    latest_failed_count: number;
+  };
+  notifications: {
+    total_count: number;
+    read_count: number;
+    unread_count: number;
+    read_rate: number;
+    latest_created_at: string | null;
+    latest_read_at: string | null;
+    latest_reminder_at: string | null;
+    unread_reminder_count: number;
+  };
+  attention: {
+    failed_batch_count: number;
+    partial_batch_count: number;
+    failed_delivery_count: number;
+    unread_notification_count: number;
+    needs_attention: boolean;
+    attention_messages: string[];
+  };
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

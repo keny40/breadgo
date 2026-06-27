@@ -12,6 +12,7 @@ from app.schemas.auth import UserResponse
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
+    AdminProOperationsSummaryRead,
     AdminProWeeklyReportBatchRunMonitorRead,
     AdminProWeeklyReportDeliveryRunHistoryRead,
     AdminProWeeklyReportNotificationListRead,
@@ -38,6 +39,7 @@ from app.services.admin_service import (
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
+    build_admin_pro_operations_summary,
     create_admin_weekly_report_batch_run,
     create_weekly_report_in_app_mock_delivery,
     create_weekly_report_delivery_preview,
@@ -156,6 +158,14 @@ def seed_demo(
     db: Session = Depends(get_db),
 ) -> DemoSeedResponse:
     return DemoSeedResponse(**seed_demo_data(db))
+
+
+@router.get("/pro/operations/summary", response_model=AdminProOperationsSummaryRead)
+def get_admin_pro_operations_summary(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> AdminProOperationsSummaryRead:
+    return build_admin_pro_operations_summary(db)
 
 
 @router.post("/pro/weekly-report/delivery-runs/preview", response_model=ProWeeklyReportDeliveryRunRead)

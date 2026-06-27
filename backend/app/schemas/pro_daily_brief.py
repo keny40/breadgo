@@ -318,3 +318,54 @@ class MerchantProWeeklyReportUnreadCountRead(BaseModel):
 class MerchantProWeeklyReportReadAllResultRead(BaseModel):
     updated_count: int
     unread_count: int
+
+
+class AdminProOperationsBatchSummaryRead(BaseModel):
+    latest_status: str | None = None
+    latest_created_at: datetime | None = None
+    latest_run_type: str | None = None
+    latest_total_count: int
+    latest_success_count: int
+    latest_failed_count: int
+    latest_skipped_count: int
+    recent_7_days_run_count: int
+    recent_7_days_failed_or_partial_count: int
+
+
+class AdminProOperationsDeliverySummaryRead(BaseModel):
+    latest_status: str | None = None
+    latest_run_type: str | None = None
+    latest_channel: str | None = None
+    latest_created_at: datetime | None = None
+    latest_total_count: int
+    latest_ready_count: int
+    latest_sent_count: int
+    latest_skipped_count: int
+    latest_failed_count: int
+
+
+class AdminProOperationsNotificationSummaryRead(BaseModel):
+    total_count: int
+    read_count: int
+    unread_count: int
+    read_rate: float
+    latest_created_at: datetime | None = None
+    latest_read_at: datetime | None = None
+    latest_reminder_at: datetime | None = None
+    unread_reminder_count: int
+
+
+class AdminProOperationsAttentionSummaryRead(BaseModel):
+    failed_batch_count: int
+    partial_batch_count: int
+    failed_delivery_count: int
+    unread_notification_count: int
+    needs_attention: bool
+    attention_messages: list[str]
+
+
+class AdminProOperationsSummaryRead(BaseModel):
+    batch: AdminProOperationsBatchSummaryRead
+    delivery: AdminProOperationsDeliverySummaryRead
+    notifications: AdminProOperationsNotificationSummaryRead
+    attention: AdminProOperationsAttentionSummaryRead
