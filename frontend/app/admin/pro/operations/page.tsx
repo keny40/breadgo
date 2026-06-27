@@ -8,6 +8,8 @@ import { useRoleGuard } from "@/lib/authGuard";
 import type {
   AdminProOperationsHealth,
   AdminProOperationsSummary,
+  ProHealthAlertList,
+  ProHealthAlertGenerateResult,
   ProOperationsAuditLogList,
   ProOperationsAuditLogSummary,
 } from "@/lib/types";
@@ -46,6 +48,7 @@ export default function AdminProOperationsPage() {
   const guard = useRoleGuard("ADMIN");
   const [summary, setSummary] = useState<AdminProOperationsSummary | null>(null);
   const [health, setHealth] = useState<AdminProOperationsHealth | null>(null);
+  const [healthAlerts, setHealthAlerts] = useState<ProHealthAlertList>({ alerts: [], total_count: 0 });
   const [auditSummary, setAuditSummary] = useState<ProOperationsAuditLogSummary | null>(null);
   const [auditLogs, setAuditLogs] = useState<ProOperationsAuditLogList>({ audit_logs: [], total_count: 0 });
   const [message, setMessage] = useState("");
@@ -58,14 +61,16 @@ export default function AdminProOperationsPage() {
     setMessage("");
     setIsError(false);
     try {
-      const [result, healthResult, auditSummaryResult, auditLogsResult] = await Promise.all([
+      const [result, healthResult, alertsResult, auditSummaryResult, auditLogsResult] = await Promise.all([
         apiFetch<AdminProOperationsSummary>("/api/v1/admin/pro/operations/summary", {}, true),
         apiFetch<AdminProOperationsHealth>("/api/v1/admin/pro/operations/health", {}, true),
+        apiFetch<ProHealthAlertList>("/api/v1/admin/pro/operations/health/alerts?limit=10", {}, true),
         apiFetch<ProOperationsAuditLogSummary>("/api/v1/admin/pro/operations/audit-logs/summary", {}, true),
         apiFetch<ProOperationsAuditLogList>("/api/v1/admin/pro/operations/audit-logs?limit=10", {}, true),
       ]);
       setSummary(result);
       setHealth(healthResult);
+      setHealthAlerts(alertsResult);
       setAuditSummary(auditSummaryResult);
       setAuditLogs(auditLogsResult);
       setMessage(nextMessage);
@@ -123,6 +128,40 @@ export default function AdminProOperationsPage() {
               ? "In-app mock delivery 실행 후 운영 상태를 새로고침했습니다."
               : "미확인 Weekly Report 리마인드 생성 후 운영 상태를 새로고침했습니다.",
       );
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function generateHealthAlerts() {
+    setActionLoading("health-alerts");
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProHealthAlertGenerateResult>(
+        "/api/v1/admin/pro/operations/health/alerts/generate",
+        { method: "POST" },
+        true,
+      );
+      await loadSummary(`${result.generated_count}건 생성, ${result.skipped_count}건 중복 skip 처리했습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function updateHealthAlert(alertId: string, action: "acknowledge" | "resolve") {
+    setActionLoading(`${action}-${alertId}`);
+    setMessage("");
+    setIsError(false);
+    try {
+      await apiFetch(`/api/v1/admin/pro/operations/health/alerts/${alertId}/${action}`, { method: "POST" }, true);
+      await loadSummary(action === "acknowledge" ? "Health Alert를 확인 처리했습니다." : "Health Alert를 해결 처리했습니다.");
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -209,6 +248,64 @@ export default function AdminProOperationsPage() {
               )}
             </section>
           )}
+
+          <section className="panel">
+            <div className="card-title-row">
+              <div>
+                <p className="eyebrow">Health Alerts</p>
+                <h2>내부 상태 알림</h2>
+                <p>WARNING 또는 CRITICAL Health Check 결과를 내부 관리자 알림으로 기록합니다.</p>
+              </div>
+              <div className="actions">
+                <Badge tone={healthAlerts.alerts.some((alert) => alert.status !== "RESOLVED") ? "warning" : "success"}>
+                  미해결 {healthAlerts.alerts.filter((alert) => alert.status !== "RESOLVED").length}
+                </Badge>
+                <button type="button" onClick={generateHealthAlerts} disabled={actionLoading !== null}>
+                  {actionLoading === "health-alerts" ? "생성 중" : "Health Alert 생성"}
+                </button>
+              </div>
+            </div>
+            {healthAlerts.alerts.length > 0 ? (
+              <div className="stacked-list">
+                {healthAlerts.alerts.map((alert) => (
+                  <article className="item compact-card" key={alert.id}>
+                    <div className="card-title-row">
+                      <div>
+                        <strong>{alert.title}</strong>
+                        <p>{alert.message}</p>
+                        <small>
+                          {alert.source_key} · {formatDateTime(alert.created_at)}
+                        </small>
+                      </div>
+                      <div className="actions">
+                        <Badge tone={statusTone(alert.severity)}>{alert.severity}</Badge>
+                        <Badge tone={alert.status === "RESOLVED" ? "success" : "warning"}>{alert.status}</Badge>
+                      </div>
+                    </div>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => updateHealthAlert(alert.id, "acknowledge")}
+                        disabled={actionLoading !== null || alert.status !== "OPEN"}
+                      >
+                        확인
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateHealthAlert(alert.id, "resolve")}
+                        disabled={actionLoading !== null || alert.status === "RESOLVED"}
+                      >
+                        해결 처리
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState title="아직 Health Alert가 없습니다." description="Health Alert 생성 버튼으로 현재 경고 상태를 내부 알림으로 기록할 수 있습니다." />
+            )}
+          </section>
 
           <div className="summary-grid">
             <StatCard label="최근 Batch" value={summary.batch.latest_status || "-"} helper={summary.batch.latest_run_type || "-"} />

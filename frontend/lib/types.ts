@@ -869,6 +869,31 @@ export type AdminProOperationsHealth = {
   purge_policy_health: AdminProOperationsHealthItem;
 };
 
+export type ProHealthAlert = {
+  id: string;
+  severity: "WARNING" | "CRITICAL";
+  status: "OPEN" | "ACKNOWLEDGED" | "RESOLVED";
+  source: string;
+  source_key: string;
+  title: string;
+  message: string;
+  created_at: string;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+};
+
+export type ProHealthAlertList = {
+  alerts: ProHealthAlert[];
+  total_count: number;
+};
+
+export type ProHealthAlertGenerateResult = {
+  generated_count: number;
+  skipped_count: number;
+  alerts: ProHealthAlert[];
+  message: string;
+};
+
 export type ProOperationsAuditLog = {
   id: string;
   actor_user_id: string | null;

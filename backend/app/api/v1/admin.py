@@ -24,6 +24,11 @@ from app.schemas.pro_daily_brief import (
     ProWeeklyReportDeliveryRunRead,
     ProWeeklyReportBatchRunRead,
 )
+from app.schemas.pro_health_alert import (
+    ProHealthAlertDetailRead,
+    ProHealthAlertGenerateResultRead,
+    ProHealthAlertListRead,
+)
 from app.schemas.pro_operations_audit import (
     ProOperationsAuditLogListRead,
     ProOperationsAuditLogPurgeExecuteRequest,
@@ -73,6 +78,13 @@ from app.services.pro_operations_audit_service import (
     list_pro_operation_audit_logs,
     preview_pro_operation_audit_log_purge,
     purge_pro_operation_audit_logs,
+)
+from app.services.pro_health_alert_service import (
+    acknowledge_pro_health_alert,
+    generate_pro_health_alerts,
+    get_pro_health_alert,
+    list_pro_health_alerts,
+    resolve_pro_health_alert,
 )
 from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
@@ -210,6 +222,114 @@ def get_admin_pro_operations_health(
     db: Session = Depends(get_db),
 ) -> AdminProOperationsHealthRead:
     return build_admin_pro_operations_health(db)
+
+
+@router.post("/pro/operations/health/alerts/generate", response_model=ProHealthAlertGenerateResultRead)
+def generate_admin_pro_health_alerts(
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProHealthAlertGenerateResultRead:
+    try:
+        health = build_admin_pro_operations_health(db)
+        result = generate_pro_health_alerts(db, health)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="GENERATE_HEALTH_ALERTS",
+            target_type="HEALTH_ALERT",
+            status_value="SUCCESS",
+            message="Pro Operations Health Alert를 생성했습니다.",
+            metadata_json={
+                "generated_count": result.generated_count,
+                "skipped_count": result.skipped_count,
+                "overall_status": health.overall_status,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "GENERATE_HEALTH_ALERTS", "HEALTH_ALERT", str(exc))
+        raise
+
+
+@router.get("/pro/operations/health/alerts", response_model=ProHealthAlertListRead)
+def list_admin_pro_health_alerts(
+    severity: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    source: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProHealthAlertListRead:
+    return list_pro_health_alerts(
+        db,
+        severity=severity,
+        status_filter=status_filter,
+        source=source,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.post("/pro/operations/health/alerts/{alert_id}/acknowledge", response_model=ProHealthAlertDetailRead)
+def acknowledge_admin_pro_health_alert(
+    alert_id: UUID,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProHealthAlertDetailRead:
+    try:
+        result = acknowledge_pro_health_alert(db, alert_id, current_admin)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="ACKNOWLEDGE_HEALTH_ALERT",
+            target_type="HEALTH_ALERT",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="Pro Health Alert를 확인 처리했습니다.",
+            metadata_json={"alert_id": str(result.id), "severity": result.severity, "status": result.status},
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "ACKNOWLEDGE_HEALTH_ALERT", "HEALTH_ALERT", str(exc))
+        raise
+
+
+@router.post("/pro/operations/health/alerts/{alert_id}/resolve", response_model=ProHealthAlertDetailRead)
+def resolve_admin_pro_health_alert(
+    alert_id: UUID,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProHealthAlertDetailRead:
+    try:
+        result = resolve_pro_health_alert(db, alert_id, current_admin)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="RESOLVE_HEALTH_ALERT",
+            target_type="HEALTH_ALERT",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="Pro Health Alert를 해결 처리했습니다.",
+            metadata_json={"alert_id": str(result.id), "severity": result.severity, "status": result.status},
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "RESOLVE_HEALTH_ALERT", "HEALTH_ALERT", str(exc))
+        raise
+
+
+@router.get("/pro/operations/health/alerts/{alert_id}", response_model=ProHealthAlertDetailRead)
+def get_admin_pro_health_alert(
+    alert_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProHealthAlertDetailRead:
+    return get_pro_health_alert(db, alert_id)
 
 
 @router.get("/pro/operations/audit-logs/summary", response_model=ProOperationsAuditLogSummaryRead)

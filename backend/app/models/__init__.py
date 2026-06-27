@@ -9,6 +9,8 @@ from app.models.product_import import ProductImportBatch, ProductImportRow
 from app.models.product_inventory_event import ProductInventoryEvent
 from app.models.product_template import ProductTemplate
 from app.models.pro_daily_brief import ProDailyBriefSnapshot, ProDailyBriefTask
+from app.models.pro_health_alert import ProHealthAlert
+from app.models.pro_operations_audit import ProOperationsAuditLog
 from app.models.pro_weekly_report import (
     ProWeeklyReportBatchRun,
     ProWeeklyReportBatchRunItem,
@@ -42,6 +44,8 @@ __all__ = [
     "ProductTemplate",
     "ProDailyBriefSnapshot",
     "ProDailyBriefTask",
+    "ProHealthAlert",
+    "ProOperationsAuditLog",
     "ProWeeklyReportInsight",
     "ProWeeklyReportSnapshot",
     "ProWeeklyReportBatchRun",

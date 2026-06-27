@@ -211,6 +211,9 @@ export default function AdminPage() {
             <Link className="button-link secondary" href="/admin/pro/operations">
               Pro Operations
             </Link>
+            <Link className="button-link secondary" href="/admin/pro/operations/health-alerts">
+              Pro 상태 알림
+            </Link>
             <Link className="button-link secondary" href="/admin/pro/operations/audit-logs">
               Pro 감사 로그
             </Link>
