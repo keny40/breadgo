@@ -41,7 +41,7 @@ function DeliveryRunCard({
 }) {
   const readyItemCount = run.items.filter((item) => item.status === "READY").length;
   const canMockSend = readyItemCount > 0;
-  const successLabel = run.run_type === "IN_APP_MOCK" ? "SENT" : "READY";
+  const successLabel = run.run_type === "IN_APP_MOCK" || run.run_type === "IN_APP_REMINDER" ? "SENT" : "READY";
 
   return (
     <article className="panel">
@@ -118,6 +118,7 @@ export default function AdminWeeklyReportDeliveriesPage() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [sendingRunId, setSendingRunId] = useState<string | null>(null);
+  const [reminding, setReminding] = useState(false);
 
   const loadDeliveryRuns = useCallback(async () => {
     setLoading(true);
@@ -202,6 +203,27 @@ export default function AdminWeeklyReportDeliveriesPage() {
     }
   }
 
+  async function createUnreadReminder() {
+    setReminding(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<ProWeeklyReportDeliveryRun>(
+        "/api/v1/admin/pro/weekly-report/notifications/remind-unread",
+        { method: "POST" },
+        true,
+      );
+      setLastPreview(result);
+      setMessage("미확인 Weekly Report 알림 리마인드를 생성했습니다. 실제 외부 발송은 수행하지 않았습니다.");
+      await loadDeliveryRuns();
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setReminding(false);
+    }
+  }
+
   if (!guard.allowed) {
     return (
       <section className="section">
@@ -219,6 +241,9 @@ export default function AdminWeeklyReportDeliveriesPage() {
           <>
             <button type="button" onClick={createPreview} disabled={creating}>
               {creating ? "생성 중" : "발송 미리보기 생성"}
+            </button>
+            <button type="button" onClick={createUnreadReminder} disabled={reminding}>
+              {reminding ? "생성 중" : "미확인 리마인드 생성"}
             </button>
             <button type="button" onClick={loadDeliveryRuns} disabled={loading}>
               {loading ? "불러오는 중" : "이력 새로고침"}
@@ -302,7 +327,10 @@ export default function AdminWeeklyReportDeliveriesPage() {
             <Badge tone={statusTone(lastPreview.status)}>{lastPreview.status}</Badge>
           </div>
           <div className="summary-grid compact">
-            <StatCard label={lastPreview.run_type === "IN_APP_MOCK" ? "SENT" : "READY"} value={lastPreview.ready_count} />
+            <StatCard
+              label={lastPreview.run_type === "IN_APP_MOCK" || lastPreview.run_type === "IN_APP_REMINDER" ? "SENT" : "READY"}
+              value={lastPreview.ready_count}
+            />
             <StatCard label="SKIPPED" value={lastPreview.skipped_count} />
             <StatCard label="FAILED" value={lastPreview.failed_count} />
             <StatCard label="Channel" value={lastPreview.channel} />

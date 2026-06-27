@@ -41,6 +41,7 @@ from app.services.pro_daily_brief_service import (
     create_admin_weekly_report_batch_run,
     create_weekly_report_in_app_mock_delivery,
     create_weekly_report_delivery_preview,
+    create_weekly_report_unread_reminders,
     get_admin_weekly_report_batch_run,
     get_admin_weekly_report_notification_summary,
     get_weekly_report_delivery_run,
@@ -233,6 +234,14 @@ def create_weekly_report_in_app_mock_delivery_for_admin(
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
     return create_weekly_report_in_app_mock_delivery(db, delivery_run_id)
+
+
+@router.post("/pro/weekly-report/notifications/remind-unread", response_model=ProWeeklyReportDeliveryRunRead)
+def create_weekly_report_unread_reminders_for_admin(
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProWeeklyReportDeliveryRunRead:
+    return create_weekly_report_unread_reminders(db)
 
 
 @router.get("/pro/weekly-report/batch-runs", response_model=AdminProWeeklyReportBatchRunMonitorRead)
