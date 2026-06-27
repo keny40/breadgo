@@ -849,6 +849,36 @@ export type AdminProOperationsSummary = {
   quick_action_messages: string[];
 };
 
+export type ProOperationsAuditLog = {
+  id: string;
+  actor_user_id: string | null;
+  actor_role: string;
+  action_type: string;
+  target_type: string;
+  target_id: string | null;
+  status: string;
+  message: string | null;
+  metadata_json: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type ProOperationsAuditLogList = {
+  audit_logs: ProOperationsAuditLog[];
+  total_count: number;
+};
+
+export type ProOperationsAuditLogSummary = {
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  latest_action_at: string | null;
+  latest_failed_action_at: string | null;
+  last_24h_count: number;
+  last_24h_failed_count: number;
+  action_type_counts: Record<string, number>;
+  status_counts: Record<string, number>;
+};
+
 export type ProRecommendationDraftCreateResponse = {
   created_product: Product;
   usage_id: string;

@@ -21,6 +21,11 @@ from app.schemas.pro_daily_brief import (
     ProWeeklyReportDeliveryRunRead,
     ProWeeklyReportBatchRunRead,
 )
+from app.schemas.pro_operations_audit import (
+    ProOperationsAuditLogListRead,
+    ProOperationsAuditLogRead,
+    ProOperationsAuditLogSummaryRead,
+)
 from app.schemas.product import ProductRead
 from app.schemas.reservation import DeliveryStatusUpdate, ReservationRead
 from app.schemas.reservation_history import ReservationHistoryRead
@@ -53,11 +58,32 @@ from app.services.pro_daily_brief_service import (
     preview_admin_weekly_report_batch_run,
     retry_failed_weekly_report_batch_items,
 )
+from app.services.pro_operations_audit_service import (
+    create_pro_operation_audit_log,
+    get_pro_operation_audit_log,
+    get_pro_operation_audit_log_summary,
+    list_pro_operation_audit_logs,
+)
 from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
 
 
 router = APIRouter()
+
+
+def _safe_audit_failure(db: Session, actor: User, action_type: str, target_type: str, message: str) -> None:
+    try:
+        db.rollback()
+        create_pro_operation_audit_log(
+            db,
+            actor=actor,
+            action_type=action_type,
+            target_type=target_type,
+            status_value="FAILED",
+            message=message[:500],
+        )
+    except Exception:
+        db.rollback()
 
 
 def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -168,14 +194,96 @@ def get_admin_pro_operations_summary(
     return build_admin_pro_operations_summary(db)
 
 
+@router.get("/pro/operations/audit-logs/summary", response_model=ProOperationsAuditLogSummaryRead)
+def get_admin_pro_operations_audit_log_summary(
+    action_type: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    target_type: str | None = None,
+    target_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProOperationsAuditLogSummaryRead:
+    return get_pro_operation_audit_log_summary(
+        db,
+        action_type=action_type,
+        status_filter=status_filter,
+        target_type=target_type,
+        target_id=target_id,
+        actor_user_id=actor_user_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+@router.get("/pro/operations/audit-logs/{audit_log_id}", response_model=ProOperationsAuditLogRead)
+def get_admin_pro_operations_audit_log(
+    audit_log_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProOperationsAuditLogRead:
+    return get_pro_operation_audit_log(db, audit_log_id)
+
+
+@router.get("/pro/operations/audit-logs", response_model=ProOperationsAuditLogListRead)
+def list_admin_pro_operations_audit_logs(
+    action_type: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    target_type: str | None = None,
+    target_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProOperationsAuditLogListRead:
+    return list_pro_operation_audit_logs(
+        db,
+        action_type=action_type,
+        status_filter=status_filter,
+        target_type=target_type,
+        target_id=target_id,
+        actor_user_id=actor_user_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @router.post("/pro/weekly-report/delivery-runs/preview", response_model=ProWeeklyReportDeliveryRunRead)
 def create_weekly_report_delivery_preview_for_admin(
     start_date: date | None = None,
     end_date: date | None = None,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
-    return create_weekly_report_delivery_preview(db, start_date=start_date, end_date=end_date)
+    try:
+        result = create_weekly_report_delivery_preview(db, start_date=start_date, end_date=end_date)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="CREATE_DELIVERY_PREVIEW",
+            target_type="DELIVERY_RUN",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="Weekly Report delivery preview를 생성했습니다.",
+            metadata_json={
+                "run_id": str(result.id),
+                "status": result.status,
+                "ready_count": result.ready_count,
+                "skipped_count": result.skipped_count,
+                "failed_count": result.failed_count,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "CREATE_DELIVERY_PREVIEW", "DELIVERY_RUN", str(exc))
+        raise
 
 
 @router.get("/pro/weekly-report/delivery-runs", response_model=AdminProWeeklyReportDeliveryRunHistoryRead)
@@ -240,18 +348,61 @@ def list_weekly_report_notifications_for_admin(
 )
 def create_weekly_report_in_app_mock_delivery_for_admin(
     delivery_run_id: UUID,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
-    return create_weekly_report_in_app_mock_delivery(db, delivery_run_id)
+    try:
+        result = create_weekly_report_in_app_mock_delivery(db, delivery_run_id)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="RUN_IN_APP_MOCK_DELIVERY",
+            target_type="DELIVERY_RUN",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="Weekly Report in-app mock delivery를 실행했습니다.",
+            metadata_json={
+                "source_delivery_run_id": str(delivery_run_id),
+                "run_id": str(result.id),
+                "status": result.status,
+                "sent_count": result.ready_count,
+                "skipped_count": result.skipped_count,
+                "failed_count": result.failed_count,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "RUN_IN_APP_MOCK_DELIVERY", "DELIVERY_RUN", str(exc))
+        raise
 
 
 @router.post("/pro/weekly-report/notifications/remind-unread", response_model=ProWeeklyReportDeliveryRunRead)
 def create_weekly_report_unread_reminders_for_admin(
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportDeliveryRunRead:
-    return create_weekly_report_unread_reminders(db)
+    try:
+        result = create_weekly_report_unread_reminders(db)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="RUN_UNREAD_REMINDER",
+            target_type="NOTIFICATION",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="미확인 Weekly Report 알림 리마인드를 실행했습니다.",
+            metadata_json={
+                "delivery_run_id": str(result.id),
+                "status": result.status,
+                "sent_count": result.ready_count,
+                "skipped_count": result.skipped_count,
+                "failed_count": result.failed_count,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "RUN_UNREAD_REMINDER", "NOTIFICATION", str(exc))
+        raise
 
 
 @router.get("/pro/weekly-report/batch-runs", response_model=AdminProWeeklyReportBatchRunMonitorRead)
@@ -288,19 +439,61 @@ def preview_weekly_report_batch_run_for_admin(
 def create_weekly_report_batch_run_for_admin(
     start_date: date | None = None,
     end_date: date | None = None,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportBatchRunRead:
-    return create_admin_weekly_report_batch_run(db, start_date=start_date, end_date=end_date)
+    try:
+        result = create_admin_weekly_report_batch_run(db, start_date=start_date, end_date=end_date)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="RUN_WEEKLY_REPORT_BATCH",
+            target_type="BATCH_RUN",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="전체 Weekly Report batch를 실행했습니다.",
+            metadata_json={
+                "batch_run_id": str(result.id),
+                "status": result.status,
+                "success_count": result.success_count,
+                "failed_count": result.failed_count,
+                "skipped_count": result.skipped_count,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "RUN_WEEKLY_REPORT_BATCH", "BATCH_RUN", str(exc))
+        raise
 
 
 @router.post("/pro/weekly-report/batch-runs/{batch_run_id}/retry-failed", response_model=ProWeeklyReportBatchRunRead)
 def retry_failed_weekly_report_batch_items_for_admin(
     batch_run_id: UUID,
-    _: User = Depends(get_current_admin),
+    current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ) -> ProWeeklyReportBatchRunRead:
-    return retry_failed_weekly_report_batch_items(db, batch_run_id)
+    try:
+        result = retry_failed_weekly_report_batch_items(db, batch_run_id)
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="RETRY_FAILED_BATCH_ITEMS",
+            target_type="BATCH_RUN",
+            target_id=result.id,
+            status_value="SUCCESS",
+            message="Weekly Report 실패 batch item 재실행을 완료했습니다.",
+            metadata_json={
+                "source_batch_run_id": str(batch_run_id),
+                "retry_batch_run_id": str(result.id),
+                "status": result.status,
+                "success_count": result.success_count,
+                "failed_count": result.failed_count,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "RETRY_FAILED_BATCH_ITEMS", "BATCH_RUN", str(exc))
+        raise
 
 
 @router.get("/pro/weekly-report/batch-runs/{batch_run_id}", response_model=ProWeeklyReportBatchRunRead)

@@ -211,6 +211,9 @@ export default function AdminPage() {
             <Link className="button-link secondary" href="/admin/pro/operations">
               Pro Operations
             </Link>
+            <Link className="button-link secondary" href="/admin/pro/operations/audit-logs">
+              Pro 감사 로그
+            </Link>
             <Link className="button-link secondary" href="/admin/pro/weekly-report-batches">
               Weekly Batch Monitor
             </Link>

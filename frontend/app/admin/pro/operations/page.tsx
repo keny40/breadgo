@@ -5,7 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
-import type { AdminProOperationsSummary } from "@/lib/types";
+import type {
+  AdminProOperationsSummary,
+  ProOperationsAuditLogList,
+  ProOperationsAuditLogSummary,
+} from "@/lib/types";
 
 function formatDateTime(value: string | null) {
   if (!value) return "-";
@@ -23,6 +27,8 @@ function statusTone(status: string | null): "success" | "warning" | "danger" | "
 export default function AdminProOperationsPage() {
   const guard = useRoleGuard("ADMIN");
   const [summary, setSummary] = useState<AdminProOperationsSummary | null>(null);
+  const [auditSummary, setAuditSummary] = useState<ProOperationsAuditLogSummary | null>(null);
+  const [auditLogs, setAuditLogs] = useState<ProOperationsAuditLogList>({ audit_logs: [], total_count: 0 });
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,12 +39,14 @@ export default function AdminProOperationsPage() {
     setMessage("");
     setIsError(false);
     try {
-      const result = await apiFetch<AdminProOperationsSummary>(
-        "/api/v1/admin/pro/operations/summary",
-        {},
-        true,
-      );
+      const [result, auditSummaryResult, auditLogsResult] = await Promise.all([
+        apiFetch<AdminProOperationsSummary>("/api/v1/admin/pro/operations/summary", {}, true),
+        apiFetch<ProOperationsAuditLogSummary>("/api/v1/admin/pro/operations/audit-logs/summary", {}, true),
+        apiFetch<ProOperationsAuditLogList>("/api/v1/admin/pro/operations/audit-logs?limit=10", {}, true),
+      ]);
       setSummary(result);
+      setAuditSummary(auditSummaryResult);
+      setAuditLogs(auditLogsResult);
       setMessage(nextMessage);
     } catch (error) {
       setIsError(true);
@@ -203,6 +211,61 @@ export default function AdminProOperationsPage() {
                 </article>
               ))}
             </div>
+          </section>
+
+          <section className="panel">
+            <div className="card-title-row">
+              <div>
+                <p className="eyebrow">Audit Trail</p>
+                <h2>최근 운영 액션 이력</h2>
+                <p>Quick Action과 주요 Weekly Report 운영 액션 실행 결과를 기록합니다.</p>
+              </div>
+              <div className="actions">
+                <Badge tone={(auditSummary?.failed_count || 0) > 0 ? "warning" : "success"}>
+                  실패 {auditSummary?.failed_count || 0}
+                </Badge>
+                <Link className="button-link secondary" href="/admin/pro/operations/audit-logs">
+                  전체 Audit Log 보기
+                </Link>
+              </div>
+            </div>
+            <div className="summary-grid compact">
+              <StatCard label="전체 액션" value={auditSummary?.total_count || 0} />
+              <StatCard label="성공" value={auditSummary?.success_count || 0} />
+              <StatCard label="실패" value={auditSummary?.failed_count || 0} />
+              <StatCard label="최근 액션" value={formatDateTime(auditSummary?.latest_action_at || null)} />
+              <StatCard label="최근 실패" value={formatDateTime(auditSummary?.latest_failed_action_at || null)} />
+            </div>
+            {auditLogs.audit_logs.length > 0 ? (
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>액션</th>
+                      <th>상태</th>
+                      <th>대상</th>
+                      <th>메시지</th>
+                      <th>실행 시각</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.audit_logs.map((log) => (
+                      <tr key={log.id}>
+                        <td>{log.action_type}</td>
+                        <td>
+                          <Badge tone={statusTone(log.status)}>{log.status}</Badge>
+                        </td>
+                        <td>{log.target_type}</td>
+                        <td>{log.message || "-"}</td>
+                        <td>{formatDateTime(log.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState title="아직 기록된 운영 액션이 없습니다." />
+            )}
           </section>
 
           <section className="panel">
