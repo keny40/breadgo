@@ -15,6 +15,7 @@ const actionTypes = [
   "RUN_UNREAD_REMINDER",
   "RETRY_FAILED_BATCH_ITEMS",
   "EXPORT_AUDIT_LOG_CSV",
+  "PURGE_AUDIT_LOGS",
 ];
 
 const targetTypes = ["", "BATCH_RUN", "DELIVERY_RUN", "NOTIFICATION", "OPERATIONS", "WEEKLY_REPORT", "AUDIT_LOG"];
@@ -58,6 +59,18 @@ type AuditLogFilters = {
   date_to: string;
 };
 
+type AuditLogPurgePreview = {
+  retention_days: number;
+  cutoff_date: string;
+  matched_count: number;
+  oldest_created_at: string | null;
+  newest_created_at: string | null;
+  status_counts: Record<string, number>;
+  action_type_counts: Record<string, number>;
+  message: string;
+  deleted_count?: number;
+};
+
 const emptyFilters: AuditLogFilters = {
   action_type: "",
   status: "",
@@ -77,6 +90,9 @@ export default function AdminProOperationsAuditLogsPage() {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [purgeRetentionDays, setPurgeRetentionDays] = useState(180);
+  const [purgePreview, setPurgePreview] = useState<AuditLogPurgePreview | null>(null);
+  const [purgeLoading, setPurgeLoading] = useState(false);
 
   const loadAuditLogs = useCallback(async (nextFilters: AuditLogFilters) => {
     setLoading(true);
@@ -159,6 +175,72 @@ export default function AdminProOperationsAuditLogsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setExporting(false);
+    }
+  }
+
+  function purgePayload(confirm = false) {
+    return {
+      retention_days: purgeRetentionDays,
+      confirm,
+      status: appliedFilters.status || null,
+      action_type: appliedFilters.action_type || null,
+    };
+  }
+
+  async function previewPurge() {
+    if (purgeRetentionDays < 30) {
+      setIsError(true);
+      setMessage("retention_days는 최소 30일 이상이어야 합니다.");
+      return;
+    }
+    setPurgeLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<AuditLogPurgePreview>(
+        "/api/v1/admin/pro/operations/audit-logs/purge/preview",
+        {
+          method: "POST",
+          body: JSON.stringify(purgePayload(false)),
+        },
+        true,
+      );
+      setPurgePreview(result);
+      setMessage("삭제 대상 미리보기를 확인했습니다. 아직 실제 삭제는 실행하지 않았습니다.");
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setPurgeLoading(false);
+    }
+  }
+
+  async function executePurge() {
+    if (!purgePreview) {
+      setIsError(true);
+      setMessage("먼저 삭제 대상 미리보기를 확인해 주세요.");
+      return;
+    }
+    setPurgeLoading(true);
+    setMessage("");
+    setIsError(false);
+    try {
+      const result = await apiFetch<AuditLogPurgePreview>(
+        "/api/v1/admin/pro/operations/audit-logs/purge",
+        {
+          method: "POST",
+          body: JSON.stringify(purgePayload(true)),
+        },
+        true,
+      );
+      setPurgePreview(result);
+      setMessage(`오래된 감사 로그 ${result.deleted_count || 0}건을 삭제했습니다.`);
+      await loadAuditLogs(appliedFilters);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setPurgeLoading(false);
     }
   }
 
@@ -287,6 +369,80 @@ export default function AdminProOperationsAuditLogsPage() {
             </button>
           </div>
         </form>
+      </section>
+
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">Retention</p>
+            <h2>오래된 감사 로그 정리</h2>
+            <p>먼저 삭제 대상 미리보기를 확인한 뒤에만 실제 삭제를 실행할 수 있습니다.</p>
+          </div>
+          <Badge tone="warning">ADMIN only</Badge>
+        </div>
+        <div className="form-grid">
+          <label>
+            Retention Days
+            <input
+              type="number"
+              min={30}
+              value={purgeRetentionDays}
+              onChange={(event) => {
+                setPurgeRetentionDays(Number(event.target.value));
+                setPurgePreview(null);
+              }}
+            />
+          </label>
+          <label>
+            적용 중인 Status 필터
+            <input value={appliedFilters.status || "전체"} readOnly />
+          </label>
+          <label>
+            적용 중인 Action Type 필터
+            <input value={appliedFilters.action_type || "전체"} readOnly />
+          </label>
+          <div className="actions">
+            <button type="button" onClick={previewPurge} disabled={purgeLoading || purgeRetentionDays < 30}>
+              {purgeLoading ? "확인 중" : "삭제 대상 미리보기"}
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={executePurge}
+              disabled={purgeLoading || !purgePreview || purgePreview.matched_count === 0}
+            >
+              확인 후 삭제 실행
+            </button>
+          </div>
+        </div>
+        {purgePreview && (
+          <div className="summary-grid compact">
+            <StatCard label="삭제 대상" value={purgePreview.matched_count} />
+            <StatCard label="Cutoff" value={formatDateTime(purgePreview.cutoff_date)} />
+            <StatCard label="가장 오래된 로그" value={formatDateTime(purgePreview.oldest_created_at)} />
+            <StatCard label="가장 최근 대상" value={formatDateTime(purgePreview.newest_created_at)} />
+            <StatCard label="삭제 완료" value={purgePreview.deleted_count ?? "-"} />
+          </div>
+        )}
+        {purgePreview && (
+          <div className="stacked-list">
+            <article className="item compact-card">
+              <strong>{purgePreview.message}</strong>
+              <p>
+                Status별: {Object.entries(purgePreview.status_counts).map(([key, count]) => `${key} ${count}`).join(", ") || "-"}
+              </p>
+              <p>
+                Action별:{" "}
+                {Object.entries(purgePreview.action_type_counts)
+                  .map(([key, count]) => `${key} ${count}`)
+                  .join(", ") || "-"}
+              </p>
+              <p className="field-help">
+                삭제 실행은 되돌릴 수 없습니다. 필요한 경우 CSV 다운로드 후 별도 보안 관리 체계에서 보관하세요.
+              </p>
+            </article>
+          </div>
+        )}
       </section>
 
       <section className="panel">

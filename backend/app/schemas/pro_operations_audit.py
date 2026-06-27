@@ -44,3 +44,29 @@ class ProOperationsAuditLogFilters(BaseModel):
     actor_user_id: UUID | None = None
     date_from: date | None = None
     date_to: date | None = None
+
+
+class ProOperationsAuditLogPurgePreviewRequest(BaseModel):
+    retention_days: int = 180
+    date_to: date | None = None
+    status: str | None = None
+    action_type: str | None = None
+
+
+class ProOperationsAuditLogPurgeExecuteRequest(ProOperationsAuditLogPurgePreviewRequest):
+    confirm: bool = False
+
+
+class ProOperationsAuditLogPurgePreviewRead(BaseModel):
+    retention_days: int
+    cutoff_date: datetime
+    matched_count: int
+    oldest_created_at: datetime | None = None
+    newest_created_at: datetime | None = None
+    status_counts: dict[str, int]
+    action_type_counts: dict[str, int]
+    message: str
+
+
+class ProOperationsAuditLogPurgeResultRead(ProOperationsAuditLogPurgePreviewRead):
+    deleted_count: int

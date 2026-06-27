@@ -3,7 +3,7 @@ from datetime import date, datetime
 from io import StringIO
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
@@ -25,6 +25,10 @@ from app.schemas.pro_daily_brief import (
 )
 from app.schemas.pro_operations_audit import (
     ProOperationsAuditLogListRead,
+    ProOperationsAuditLogPurgeExecuteRequest,
+    ProOperationsAuditLogPurgePreviewRead,
+    ProOperationsAuditLogPurgePreviewRequest,
+    ProOperationsAuditLogPurgeResultRead,
     ProOperationsAuditLogRead,
     ProOperationsAuditLogSummaryRead,
 )
@@ -65,6 +69,8 @@ from app.services.pro_operations_audit_service import (
     get_pro_operation_audit_log,
     get_pro_operation_audit_log_summary,
     list_pro_operation_audit_logs,
+    preview_pro_operation_audit_log_purge,
+    purge_pro_operation_audit_logs,
 )
 from app.api.v1.reservations import reservation_history_to_read, reservation_to_read
 from scripts.seed_demo import seed_demo_data
@@ -306,6 +312,58 @@ def export_admin_pro_operations_audit_logs_csv(
         )
     except Exception as exc:
         _safe_audit_failure(db, current_admin, "EXPORT_AUDIT_LOG_CSV", "AUDIT_LOG", str(exc))
+        raise
+
+
+@router.post("/pro/operations/audit-logs/purge/preview", response_model=ProOperationsAuditLogPurgePreviewRead)
+def preview_admin_pro_operations_audit_log_purge(
+    payload: ProOperationsAuditLogPurgePreviewRequest,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProOperationsAuditLogPurgePreviewRead:
+    return preview_pro_operation_audit_log_purge(
+        db,
+        retention_days=payload.retention_days,
+        date_to=payload.date_to,
+        status_filter=payload.status,
+        action_type=payload.action_type,
+    )
+
+
+@router.post("/pro/operations/audit-logs/purge", response_model=ProOperationsAuditLogPurgeResultRead)
+def purge_admin_pro_operations_audit_logs(
+    payload: ProOperationsAuditLogPurgeExecuteRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> ProOperationsAuditLogPurgeResultRead:
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="감사 로그 삭제를 실행하려면 confirm=true가 필요합니다.")
+    try:
+        result = purge_pro_operation_audit_logs(
+            db,
+            retention_days=payload.retention_days,
+            date_to=payload.date_to,
+            status_filter=payload.status,
+            action_type=payload.action_type,
+        )
+        create_pro_operation_audit_log(
+            db,
+            actor=current_admin,
+            action_type="PURGE_AUDIT_LOGS",
+            target_type="AUDIT_LOG",
+            status_value="SUCCESS",
+            message="오래된 Pro Operations Audit Log를 삭제했습니다.",
+            metadata_json={
+                "retention_days": payload.retention_days,
+                "cutoff_date": result.cutoff_date.isoformat(),
+                "deleted_count": result.deleted_count,
+                "filter_status": payload.status,
+                "filter_action_type": payload.action_type,
+            },
+        )
+        return result
+    except Exception as exc:
+        _safe_audit_failure(db, current_admin, "PURGE_AUDIT_LOGS", "AUDIT_LOG", str(exc))
         raise
 
 
