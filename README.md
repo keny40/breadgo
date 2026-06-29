@@ -239,6 +239,8 @@ cd backend
 python scripts/smoke_test.py
 ```
 
+Smoke test는 고객 예약/Mock 결제/픽업 흐름과 함께 Admin Pro Operations read-only API, Weekly Report batch 조회, Health Alert 목록, merchant 권한 차단까지 확인합니다.
+
 ### Pro 운영 CLI
 
 Weekly Report scheduler MVP:

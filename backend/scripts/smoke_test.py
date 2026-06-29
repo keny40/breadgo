@@ -97,6 +97,36 @@ def expect_status(step: str, response: ApiResponse, expected: set[int]) -> Any:
     return response.body
 
 
+def expect_dict_with_keys(step: str, body: Any, keys: set[str], status_code: int = 200) -> dict[str, Any]:
+    if not isinstance(body, dict) or not keys.issubset(body.keys()):
+        raise SmokeTestError(
+            step,
+            status_code,
+            {
+                "expected_keys": sorted(keys),
+                "actual_body": body,
+            },
+        )
+    return body
+
+
+def expect_http_error_status(
+    step: str,
+    method: str,
+    path: str,
+    token: str | None,
+    expected: set[int],
+) -> Any:
+    try:
+        response = request_json(step=step, method=method, path=path, token=token)
+    except SmokeTestError as exc:
+        if exc.status_code in expected:
+            print_pass(step)
+            return exc.body
+        raise
+    raise SmokeTestError(step, response.status_code, response.body)
+
+
 def login(email: str, label: str) -> str:
     body = expect_status(
         label,
@@ -312,6 +342,103 @@ def main() -> int:
         )
         if not isinstance(summary, dict) or "total_users" not in summary:
             raise SmokeTestError("Admin summary loaded", 200, summary)
+
+        operations_summary = expect_status(
+            "Admin Pro Operations summary loaded",
+            request_json(
+                step="Admin Pro Operations summary loaded",
+                method="GET",
+                path="/api/v1/admin/pro/operations/summary",
+                token=admin_token,
+            ),
+            {200},
+        )
+        expect_dict_with_keys(
+            "Admin Pro Operations summary loaded",
+            operations_summary,
+            {"batch", "delivery", "notifications", "attention"},
+        )
+
+        operations_health = expect_status(
+            "Admin Pro Operations health loaded",
+            request_json(
+                step="Admin Pro Operations health loaded",
+                method="GET",
+                path="/api/v1/admin/pro/operations/health",
+                token=admin_token,
+            ),
+            {200},
+        )
+        expect_dict_with_keys(
+            "Admin Pro Operations health loaded",
+            operations_health,
+            {"overall_status", "checked_at", "health_messages"},
+        )
+
+        health_alerts = expect_status(
+            "Admin Pro Health Alerts list loaded",
+            request_json(
+                step="Admin Pro Health Alerts list loaded",
+                method="GET",
+                path="/api/v1/admin/pro/operations/health/alerts",
+                token=admin_token,
+            ),
+            {200},
+        )
+        expect_dict_with_keys(
+            "Admin Pro Health Alerts list loaded",
+            health_alerts,
+            {"alerts", "total_count"},
+        )
+
+        batch_runs = expect_status(
+            "Admin Weekly Report batch runs loaded",
+            request_json(
+                step="Admin Weekly Report batch runs loaded",
+                method="GET",
+                path="/api/v1/admin/pro/weekly-report/batch-runs",
+                token=admin_token,
+            ),
+            {200},
+        )
+        batch_runs_body = expect_dict_with_keys(
+            "Admin Weekly Report batch runs loaded",
+            batch_runs,
+            {"summary", "batch_runs"},
+        )
+        batch_run_items = batch_runs_body.get("batch_runs")
+        if not isinstance(batch_run_items, list):
+            raise SmokeTestError("Admin Weekly Report batch runs loaded", 200, batch_runs)
+
+        if batch_run_items:
+            batch_run_id = batch_run_items[0].get("id") if isinstance(batch_run_items[0], dict) else None
+            if not batch_run_id:
+                raise SmokeTestError("Admin Weekly Report batch detail loaded", 200, batch_runs)
+            batch_run_detail = expect_status(
+                "Admin Weekly Report batch detail loaded",
+                request_json(
+                    step=f"Admin Weekly Report batch detail loaded ({batch_run_id})",
+                    method="GET",
+                    path=f"/api/v1/admin/pro/weekly-report/batch-runs/{batch_run_id}",
+                    token=admin_token,
+                ),
+                {200},
+            )
+            expect_dict_with_keys(
+                "Admin Weekly Report batch detail loaded",
+                batch_run_detail,
+                {"id", "run_type", "status", "items"},
+            )
+        else:
+            print_pass("Admin Weekly Report batch detail skipped (no batch runs)")
+
+        expect_http_error_status(
+            "Merchant blocked from Admin Pro Operations summary",
+            "GET",
+            "/api/v1/admin/pro/operations/summary",
+            merchant_token,
+            {403},
+        )
 
         print("[PASS] BreadGo MVP smoke test completed")
         return 0

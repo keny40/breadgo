@@ -256,6 +256,26 @@ admin@breadgo.test / 12345678
 - `v0.1.2-demo-published`는 문서성/임시 tag로 유지한다.
 - 다음 개발 단계 후보 중 1순위는 Pro Operations smoke coverage 확대와 troubleshooting guide 정리다.
 
+## Phase 114 반영 메모
+
+Phase 113의 1순위 개선 항목인 Pro Operations smoke coverage 확대를 Phase 114에서 일부 반영했다.
+
+추가된 smoke test 범위:
+
+- Admin Pro Operations summary read-only 조회
+- Admin Pro Operations health read-only 조회
+- Admin Pro Health Alerts 목록 조회
+- Admin Weekly Report batch run 목록 조회
+- batch run이 존재하는 경우 Admin Weekly Report batch 상세 조회
+- merchant 권한으로 Admin Pro Operations summary 접근 시 `403` 차단 확인
+
+아직 남은 후보:
+
+- delivery preview 목록 read-only 검증
+- audit log summary read-only 검증
+- merchant weekly report notification unread count 검증
+- troubleshooting guide 별도 문서화
+
 ## 검증 결과
 
 - `git status`: PASS
