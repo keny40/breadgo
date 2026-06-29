@@ -140,20 +140,75 @@ export default function MerchantPage() {
             </div>
           </article>
           {summary && (
-            <div className="summary-grid">
-              <div className="summary-card">
-                <span>오늘 확정 예약</span>
-                <strong>{summary.todayConfirmed}</strong>
+            <>
+              <div className="summary-grid">
+                <div className="summary-card">
+                  <span>오늘 확정 예약</span>
+                  <strong>{summary.todayConfirmed}</strong>
+                </div>
+                <div className="summary-card">
+                  <span>픽업 완료</span>
+                  <strong>{summary.pickedUp}</strong>
+                </div>
+                <div className="summary-card">
+                  <span>취소 예약</span>
+                  <strong>{summary.cancelled}</strong>
+                </div>
               </div>
-              <div className="summary-card">
-                <span>픽업 완료</span>
-                <strong>{summary.pickedUp}</strong>
-              </div>
-              <div className="summary-card">
-                <span>취소 예약</span>
-                <strong>{summary.cancelled}</strong>
-              </div>
-            </div>
+
+              <section className="panel">
+                <div className="card-title-row">
+                  <div>
+                    <p className="eyebrow">Merchant Operations</p>
+                    <h2>오늘 먼저 확인할 점주 운영 흐름</h2>
+                    <p>
+                      상품 재고를 등록하고, 예약/결제 상태를 확인한 뒤, 고객 픽업 코드를 입력해 수령을 확정합니다.
+                      BreadGo Pro에서는 재고 이력과 Weekly Report 알림을 이어서 확인합니다.
+                    </p>
+                  </div>
+                  <Link className="button-link secondary" href="/merchant/products">
+                    상품/재고 관리
+                  </Link>
+                </div>
+                <div className="account-grid">
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>1. 상품과 재고</h3>
+                      <span className="badge success">Stock</span>
+                    </div>
+                    <p>오늘 판매할 마감 할인 상품을 등록하고 남은 재고와 판매 상태를 확인합니다.</p>
+                    <Link href="/merchant/products">
+                      <button type="button" className="secondary">상품 관리</button>
+                    </Link>
+                  </article>
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>2. 예약과 픽업</h3>
+                      <span className="badge warning">Pickup</span>
+                    </div>
+                    <p>결제 완료 예약을 확인하고 고객이 제시한 픽업 코드로 수령을 확정합니다.</p>
+                    <div className="actions">
+                      <Link href="/merchant/orders">
+                        <button type="button" className="secondary">주문 관리</button>
+                      </Link>
+                      <Link href="/merchant/pickup">
+                        <button type="button" className="secondary">픽업 확인</button>
+                      </Link>
+                    </div>
+                  </article>
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>3. Pro 운영 확인</h3>
+                      <span className="badge muted">Mock</span>
+                    </div>
+                    <p>재고 이력, Weekly Report 알림, POS 준비 흐름을 확인합니다. 실제 POS/배송/외부 알림은 아직 연결하지 않습니다.</p>
+                    <Link href="/merchant/pro">
+                      <button type="button" className="secondary">BreadGo Pro</button>
+                    </Link>
+                  </article>
+                </div>
+              </section>
+            </>
           )}
         </>
       ) : (

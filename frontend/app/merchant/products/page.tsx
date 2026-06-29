@@ -461,6 +461,12 @@ export default function MerchantProductsPage() {
             <Link className="button-link secondary" href="/merchant/products/import">
               CSV 일괄 등록
             </Link>
+            <Link className="button-link secondary" href="/merchant/orders">
+              예약/주문 확인
+            </Link>
+            <Link className="button-link secondary" href="/merchant/pro/inventory-ledger">
+              재고 이력
+            </Link>
           </div>
         }
       />
@@ -469,6 +475,30 @@ export default function MerchantProductsPage() {
         <br />
         반복 상품 등록은 기존 상품 정보는 유지하고 오늘 재고와 마감 시간만 바꿔 빠르게 재등록합니다.
         CSV 일괄 등록은 POS 연동 전 단계의 BreadGo Pro 고급 기능입니다.
+        실제 POS API, 배송 provider, 외부 알림 발송은 아직 연결하지 않습니다.
+      </div>
+      <div className="account-grid">
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>상품 등록</h3>
+            <span className="badge success">Create</span>
+          </div>
+          <p>상품명, 가격, 할인 가격, 재고, 판매 시간을 입력하면 고객 상품 목록에 노출됩니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>재고 확인</h3>
+            <span className="badge warning">Stock</span>
+          </div>
+          <p>예약/취소/POS mock/CSV import로 바뀐 재고 흐름은 BreadGo Pro 재고 이력에서 추적합니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>예약 연결</h3>
+            <span className="badge muted">Orders</span>
+          </div>
+          <p>상품 등록 후 결제 완료 예약은 주문 관리와 픽업 확인 화면에서 처리합니다.</p>
+        </article>
       </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 

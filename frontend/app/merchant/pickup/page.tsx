@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -165,7 +166,20 @@ export default function MerchantPickupPage() {
       <PageHeader
         title="픽업 확인"
         description="고객이 제시한 6자리 픽업 코드를 조회하고 예약 상태를 확인한 뒤 픽업을 확정합니다."
+        actions={
+          <>
+            <Link className="button-link secondary" href="/merchant/orders">
+              주문 관리
+            </Link>
+            <Link className="button-link secondary" href="/merchant/products">
+              상품/재고 관리
+            </Link>
+          </>
+        }
       />
+      <p className="message">
+        픽업 확정은 BreadGo 내부 예약 상태와 재고 이력에 반영됩니다. 배송 요청 상태는 실제 배송 provider 없이 점주가 수동으로 관리합니다.
+      </p>
 
       <form className="panel form-grid pickup-search-panel" onSubmit={findReservation}>
         <label>

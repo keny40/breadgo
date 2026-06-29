@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -222,13 +223,22 @@ export default function MerchantOrdersPage() {
         title="주문 관리"
         description="픽업 주문, 퀵배달 요청, 택배 배송 요청을 한 화면에서 확인하고 처리합니다."
         actions={
-          <button type="button" onClick={loadOrders} disabled={loading}>
-            {loading ? "불러오는 중" : "주문 새로고침"}
-          </button>
+          <>
+            <Link className="button-link secondary" href="/merchant/products">
+              상품/재고 관리
+            </Link>
+            <Link className="button-link secondary" href="/merchant/pickup">
+              픽업 확인
+            </Link>
+            <button type="button" onClick={loadOrders} disabled={loading}>
+              {loading ? "불러오는 중" : "주문 새로고침"}
+            </button>
+          </>
         }
       />
       <p className="message">
-        배송 상태는 점주가 수동으로 변경합니다. 현재는 실제 배송 연동이 아닌 MVP용 주문 관리입니다.
+        결제 완료 주문을 확인한 뒤 픽업 주문은 픽업 코드로 확정하고, 배송 요청은 점주가 상태를 수동으로 변경합니다.
+        현재는 실제 배송 provider나 외부 알림을 호출하지 않는 MVP용 주문 관리입니다.
       </p>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
