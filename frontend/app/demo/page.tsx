@@ -5,27 +5,36 @@ const accounts = [
     role: "고객",
     email: "customer@breadgo.test",
     password: "12345678",
-    description: "지역 상품 조회, 예약, Mock 결제, 픽업코드 확인 흐름을 시연합니다. 실제 PG 결제는 발생하지 않습니다.",
+    description: "지역 상품 조회, 예약, Mock 결제, 픽업코드 확인 흐름을 시연합니다. 실제 PG 결제나 카드 청구는 발생하지 않습니다.",
+    startHref: "/products",
+    startLabel: "고객 흐름 시작",
+    nextStep: "로그인 후 상품 보기에서 강남구 역삼동 상품을 예약합니다.",
   },
   {
     role: "가맹점",
     email: "merchant@breadgo.test",
     password: "12345678",
     description: "매장, 상품, 이미지 업로드, 픽업 확인과 BreadGo Pro 운영 기능을 시연합니다. POS/배송 연동은 Mock 또는 준비 단계입니다.",
+    startHref: "/merchant",
+    startLabel: "점주 흐름 시작",
+    nextStep: "로그인 후 픽업 확인, 상품 관리, BreadGo Pro 알림을 확인합니다.",
   },
   {
     role: "관리자",
     email: "admin@breadgo.test",
     password: "12345678",
     description: "사용자, 가맹점, 예약/결제와 Pro Operations를 확인합니다. 외부 알림 발송 없이 내부 Mock 운영 흐름만 보여줍니다.",
+    startHref: "/admin/pro/operations",
+    startLabel: "관리자 Pro Operations 시작",
+    nextStep: "로그인 후 Pro Operations에서 batch, delivery, audit, health alert를 확인합니다.",
   },
 ];
 
 const quickLinks = [
-  { label: "고객 로그인", href: "/login" },
-  { label: "가맹점 로그인", href: "/login" },
-  { label: "관리자 로그인", href: "/login" },
-  { label: "상품 보기", href: "/products" },
+  { label: "로그인", href: "/login" },
+  { label: "고객 상품 보기", href: "/products" },
+  { label: "점주 대시보드", href: "/merchant" },
+  { label: "관리자 대시보드", href: "/admin" },
   { label: "Pro Operations", href: "/admin/pro/operations" },
 ];
 
@@ -33,20 +42,20 @@ const recommendedFlows = [
   {
     role: "Customer",
     title: "고객 시연",
-    flow: "login → products → reserve → mock payment → pickup code → my reservations/payments",
-    body: "고객이 지역 상품을 찾고 예약, Mock 결제, 픽업코드 확인까지 완료하는 흐름입니다.",
+    flow: "로그인 → 상품 보기 → 예약 → Mock 결제 → 픽업코드 → 내 예약/결제",
+    body: "고객이 지역 상품을 찾고 예약, Mock 결제, 픽업코드 확인까지 완료하는 흐름입니다. 결제는 외부 PG를 호출하지 않습니다.",
   },
   {
     role: "Merchant",
     title: "가맹점 시연",
-    flow: "login → merchant dashboard → products → pickup confirmation → merchant pro",
+    flow: "로그인 → 점주 대시보드 → 상품/픽업 → BreadGo Pro → Weekly Report 알림",
     body: "가맹점이 매장과 상품을 관리하고 픽업코드로 수령을 확정한 뒤 BreadGo Pro 리포트/알림을 확인합니다.",
   },
   {
     role: "Admin",
     title: "관리자 시연",
-    flow: "login → admin dashboard → pro operations → batch/delivery/audit/health alerts",
-    body: "운영자가 기본 현황과 Weekly Report batch, 내부 알림 Mock, Audit Log, Health Alert 흐름을 확인합니다.",
+    flow: "로그인 → 관리자 대시보드 → Pro Operations → batch/delivery/audit/health alerts",
+    body: "운영자가 기본 현황과 Weekly Report batch, 내부 알림 Mock, Audit Log, Health Alert 흐름을 확인합니다. 실제 이메일/카카오/Push는 발송하지 않습니다.",
   },
 ];
 
@@ -142,14 +151,14 @@ export default function DemoPage() {
       </div>
 
       <section className="section">
-        <h2>데모 전 확인</h2>
+        <h2>먼저 확인할 것</h2>
         <div className="account-grid">
           <article className="account-card">
             <div className="card-title-row">
-              <h3>실제 연동 없음</h3>
+              <h3>외부 연동 없음</h3>
               <span className="badge warning">Mock</span>
             </div>
-            <p>결제, 환불, 배송, POS, 외부 알림은 실제 provider를 호출하지 않습니다.</p>
+            <p>결제, 환불, 배송, POS, 이메일/카카오/Push/Slack/Webhook은 실제 provider를 호출하지 않습니다.</p>
           </article>
           <article className="account-card">
             <div className="card-title-row">
@@ -157,6 +166,16 @@ export default function DemoPage() {
               <span className="badge success">Walkthrough</span>
             </div>
             <p>고객 예약 → 가맹점 픽업 → 관리자 Pro Operations → 점주 Weekly Report 알림 순서로 진행하세요.</p>
+          </article>
+          <article className="account-card">
+            <div className="card-title-row">
+              <h3>운영 화면 핵심</h3>
+              <span className="badge success">Admin</span>
+            </div>
+            <p>관리자 데모의 핵심은 Pro Operations입니다. batch, delivery preview, audit log, health alert를 한 화면에서 설명합니다.</p>
+            <Link href="/admin/pro/operations">
+              <button type="button">Pro Operations 바로가기</button>
+            </Link>
           </article>
           <article className="account-card">
             <div className="card-title-row">
@@ -179,6 +198,7 @@ export default function DemoPage() {
                   <span className="badge success">Demo</span>
                 </div>
                 <p>{account.description}</p>
+                <p className="field-help">{account.nextStep}</p>
               </div>
               <dl>
                 <div>
@@ -190,8 +210,8 @@ export default function DemoPage() {
                   <dd>{account.password}</dd>
                 </div>
               </dl>
-              <Link href="/login">
-                <button type="button">로그인 페이지로 이동</button>
+              <Link href={account.startHref}>
+                <button type="button">{account.startLabel}</button>
               </Link>
             </article>
           ))}

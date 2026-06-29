@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -105,13 +106,24 @@ export default function MerchantPage() {
     <section className="section">
       <PageHeader
         title="가맹점 대시보드"
-        description="가맹점 등록 상태와 기본 사업자 정보를 확인합니다."
+        description="가맹점 등록 상태와 기본 사업자 정보를 확인합니다. 데모에서는 픽업 확인, 상품 관리, BreadGo Pro 리포트 흐름을 이어서 시연합니다."
         actions={
-          <button type="button" onClick={loadMerchant}>
-            내 가맹점 정보 확인
-          </button>
+          <>
+            <button type="button" onClick={loadMerchant}>
+              내 가맹점 정보 확인
+            </button>
+            <Link className="button-link secondary" href="/merchant/pickup">
+              픽업 확인
+            </Link>
+            <Link className="button-link secondary" href="/merchant/pro">
+              BreadGo Pro
+            </Link>
+          </>
         }
       />
+      <p className="message">
+        POS, 배송, 외부 알림은 실제 연동 전 단계입니다. 데모에서는 BreadGo 내부 데이터와 Mock 흐름으로 운영 동선을 확인합니다.
+      </p>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
       {merchant ? (

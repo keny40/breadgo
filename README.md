@@ -26,6 +26,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Operations troubleshooting: [Operations Troubleshooting Guide](docs/operations-troubleshooting-guide.md)
 - Environment reference: [Environment Reference](docs/environment-reference.md)
 - Demo walkthrough: [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)
+- Demo UX final review: [Phase 123 Demo UX Final Review](docs/demo-ux-final-review-phase123.md)
 - v0.1.2 scope candidate: [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - v0.1.2 release checklist: [Release Checklist v0.1.2](docs/release-checklist-v0.1.2.md)
 - v0.1.2 post-release verification: [Post-release Verification v0.1.2](docs/post-release-verification-v0.1.2.md)
@@ -51,8 +52,8 @@ admin@breadgo.test / 12345678
 
 1. Backend migration과 seed를 실행합니다.
 2. Backend server를 실행합니다.
-3. Frontend dev server를 실행하고 `/demo`를 엽니다.
-4. 고객 예약/Mock 결제 → 가맹점 픽업 → 관리자 Pro Operations → 점주 Weekly Report 알림 순서로 시연합니다.
+3. Frontend dev server를 실행하고 [`/demo`](https://breadgo.vercel.app/demo)를 엽니다.
+4. `/demo`의 역할별 시작 버튼을 따라 고객 예약/Mock 결제 → 가맹점 픽업 → 관리자 Pro Operations → 점주 Weekly Report 알림 순서로 시연합니다.
 5. 문제가 생기면 [Operations Troubleshooting Guide](docs/operations-troubleshooting-guide.md)를 확인합니다.
 
 자세한 시연 스크립트는 [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)을 참고하세요.

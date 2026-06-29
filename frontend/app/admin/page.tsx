@@ -205,7 +205,7 @@ export default function AdminPage() {
     <section className="section">
       <PageHeader
         title="Admin Dashboard"
-        description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 모니터링합니다."
+        description="BreadGo MVP의 사용자, 가맹점, 매장, 상품, 예약, Mock 결제 현황을 모니터링합니다. Pro Operations에서는 v0.1.2 운영 안정화 흐름을 확인합니다."
         actions={
           <>
             <Link className="button-link secondary" href="/admin/pro/operations">
@@ -231,6 +231,11 @@ export default function AdminPage() {
           로컬 개발 환경에서는 seed_demo.py 또는 직접 SQL로 관리자 계정을 준비할 수 있습니다.
         </p>
       )}
+
+      <p className="message">
+        데모에서는 실제 PG 결제, 배송 provider, 이메일/카카오/Push 발송을 호출하지 않습니다.
+        관리자 운영 시연은 Pro Operations, Weekly Batch Monitor, Delivery Preview 순서로 진행하면 가장 자연스럽습니다.
+      </p>
 
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
