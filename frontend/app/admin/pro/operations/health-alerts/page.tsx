@@ -127,6 +127,7 @@ export default function AdminProHealthAlertsPage() {
       <p className="message">
         운영 서버에서는 <code>scripts/run_pro_health_alert_check.py</code>를 cron으로 실행할 수 있습니다. 현재는 외부 발송 없이 BreadGo 내부 alert만 생성합니다.
         동일 원인의 미해결 알림은 중복 생성되지 않습니다.
+        이메일, 카카오, Push, Slack, Discord, Webhook은 호출하지 않습니다.
       </p>
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
       <section className="panel">

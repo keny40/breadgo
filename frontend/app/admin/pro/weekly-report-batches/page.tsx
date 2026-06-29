@@ -304,7 +304,8 @@ export default function AdminWeeklyReportBatchMonitorPage() {
             <h2>Batch run_type / status 의미</h2>
             <p>
               SCHEDULED는 운영 scheduler 실행, RETRY는 실패 merchant만 재실행, SCHEDULE_PREP는 자동 생성 준비 흐름입니다.
-              COMPLETED는 전체 성공, PARTIAL은 일부 실패, SKIPPED는 중복 실행 방지 또는 대상 없음입니다.
+              COMPLETED는 전체 성공, PARTIAL은 일부 실패, SKIPPED는 동일 기간 중복 실행 방지 또는 대상 없음입니다.
+              SKIPPED는 조건에 따라 정상적인 안전장치일 수 있습니다.
             </p>
           </div>
         </div>

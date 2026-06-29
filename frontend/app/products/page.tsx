@@ -896,6 +896,9 @@ export default function ProductsPage() {
                 결제하기
               </button>
             </div>
+            <p className="muted">
+              현재 결제는 실제 PG 승인 없이 BreadGo MVP 안에서 상태만 바꾸는 Mock 결제입니다.
+            </p>
             {paymentMessage && (
               <div className={`message ${isPaymentError ? "error" : "success"}`}>{paymentMessage}</div>
             )}

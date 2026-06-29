@@ -278,11 +278,15 @@ Phase 113의 1순위 개선 항목인 Pro Operations smoke coverage 확대를 Ph
 
 ## Phase 115 반영 메모
 
-Phase 113의 2순위 개선 항목인 operations troubleshooting guide를 Phase 115에서 반영했다.
+Phase 113의 2~5순위 개선 항목을 Phase 115 통합 안정화 패키지로 일부 반영했다.
 
-추가 문서:
+추가/보강 문서:
 
 - `docs/operations-troubleshooting-guide.md`
+- `docs/environment-reference.md`
+- `.env.example`
+- `backend/.env.example`
+- `frontend/.env.example`
 
 문서화된 상황:
 
@@ -296,6 +300,20 @@ Phase 113의 2순위 개선 항목인 operations troubleshooting guide를 Phase 
 - 로그인/권한 오류
 - Mock payment / Mock delivery / Health Alert mock 혼동
 - 환경변수 누락 의심 시 확인 위치
+
+화면 문구 보강:
+
+- Admin Weekly Report Batch Monitor에서 `SKIPPED`가 동일 기간 중복 실행 방지 또는 대상 없음에 따른 정상 안전장치일 수 있음을 명시
+- Admin Health Alerts 화면에서 이메일/카카오/Push/Slack/Discord/Webhook을 호출하지 않는 내부 alert임을 명시
+- 고객 상품/결제 화면에서 Mock 결제가 실제 PG 승인 없이 MVP 내부 상태만 변경한다는 점을 명시
+
+남은 후보:
+
+- delivery preview 목록 read-only 검증
+- audit log summary read-only 검증
+- merchant weekly report notification unread count 검증
+- Admin Delivery 화면 상태 help text 추가 고도화
+- Mock flow UX 배지/툴팁 통일
 
 ## 검증 결과
 
