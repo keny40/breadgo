@@ -30,6 +30,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Admin operations report: [Phase 124 Admin Operations Report](docs/admin-operations-report-phase124.md)
 - Merchant inventory UX: [Phase 125 Merchant Inventory UX](docs/merchant-inventory-ux-phase125.md)
 - External integration plan: [Phase 126 External Integration Plan](docs/external-integration-plan-phase126.md)
+- v0.1.3 scope plan: [Phase 127 v0.1.3 Scope Plan](docs/v0.1.3-scope-plan-phase127.md)
 - v0.1.2 scope candidate: [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - v0.1.2 release checklist: [Release Checklist v0.1.2](docs/release-checklist-v0.1.2.md)
 - v0.1.2 post-release verification: [Post-release Verification v0.1.2](docs/post-release-verification-v0.1.2.md)
