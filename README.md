@@ -19,6 +19,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Current demo tag: `v0.1.1-demo-ready`
 - Official public demo release 기준: `v0.1.1-demo-ready`
 - GitHub Release: [v0.1.1-demo-ready](https://github.com/keny40/breadgo/releases/tag/v0.1.1-demo-ready)
+- Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - GitHub Release draft: [GitHub Release v0.1.1 Demo Ready](docs/github-release-v0.1.1-demo-ready.md)
 - Final release note: [Release Note v0.1.1](docs/release-note-v0.1.1.md)
 - GitHub Release publish guide: [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
@@ -419,6 +420,7 @@ Neon PostgreSQL:
 
 - [CHANGELOG](CHANGELOG.md)
 - [GitHub Release v0.1.1 Demo Ready](docs/github-release-v0.1.1-demo-ready.md)
+- [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - [Release Note v0.1.1](docs/release-note-v0.1.1.md)
 - [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
 - [Post-release Verification v0.1.1](docs/post-release-verification-v0.1.1.md)
