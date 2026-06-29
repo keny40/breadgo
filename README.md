@@ -23,6 +23,8 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
 - Operations troubleshooting: [Operations Troubleshooting Guide](docs/operations-troubleshooting-guide.md)
 - Environment reference: [Environment Reference](docs/environment-reference.md)
+- Demo walkthrough: [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)
+- v0.1.2 scope candidate: [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - GitHub Release draft: [GitHub Release v0.1.1 Demo Ready](docs/github-release-v0.1.1-demo-ready.md)
 - Final release note: [Release Note v0.1.1](docs/release-note-v0.1.1.md)
 - GitHub Release publish guide: [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
@@ -38,6 +40,16 @@ customer@breadgo.test / 12345678
 merchant@breadgo.test / 12345678
 admin@breadgo.test / 12345678
 ```
+
+## 데모 실행 순서
+
+1. Backend migration과 seed를 실행합니다.
+2. Backend server를 실행합니다.
+3. Frontend dev server를 실행하고 `/demo`를 엽니다.
+4. 고객 예약/Mock 결제 → 가맹점 픽업 → 관리자 Pro Operations → 점주 Weekly Report 알림 순서로 시연합니다.
+5. 문제가 생기면 [Operations Troubleshooting Guide](docs/operations-troubleshooting-guide.md)를 확인합니다.
+
+자세한 시연 스크립트는 [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)을 참고하세요.
 
 ## 프로젝트 개요
 
@@ -429,6 +441,8 @@ Neon PostgreSQL:
 - [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
 - [Operations Troubleshooting Guide](docs/operations-troubleshooting-guide.md)
 - [Environment Reference](docs/environment-reference.md)
+- [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)
+- [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - [Release Note v0.1.1](docs/release-note-v0.1.1.md)
 - [GitHub Release Publish Guide](docs/github-release-publish-guide.md)
 - [Post-release Verification v0.1.1](docs/post-release-verification-v0.1.1.md)

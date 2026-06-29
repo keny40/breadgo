@@ -5,28 +5,28 @@ const accounts = [
     role: "고객",
     email: "customer@breadgo.test",
     password: "12345678",
-    description: "지역 상품 조회, 예약, Mock 결제, 픽업코드 확인 흐름을 시연합니다.",
+    description: "지역 상품 조회, 예약, Mock 결제, 픽업코드 확인 흐름을 시연합니다. 실제 PG 결제는 발생하지 않습니다.",
   },
   {
     role: "가맹점",
     email: "merchant@breadgo.test",
     password: "12345678",
-    description: "매장, 상품, 이미지 업로드, 픽업 확인 흐름을 시연합니다.",
+    description: "매장, 상품, 이미지 업로드, 픽업 확인과 BreadGo Pro 운영 기능을 시연합니다. POS/배송 연동은 Mock 또는 준비 단계입니다.",
   },
   {
     role: "관리자",
     email: "admin@breadgo.test",
     password: "12345678",
-    description: "사용자, 가맹점, 매장, 상품, 예약, 결제 현황을 확인합니다.",
+    description: "사용자, 가맹점, 예약/결제와 Pro Operations를 확인합니다. 외부 알림 발송 없이 내부 Mock 운영 흐름만 보여줍니다.",
   },
 ];
 
 const quickLinks = [
-  { label: "고객으로 시작", href: "/login" },
-  { label: "가맹점으로 시작", href: "/login" },
-  { label: "관리자로 시작", href: "/login" },
+  { label: "고객 로그인", href: "/login" },
+  { label: "가맹점 로그인", href: "/login" },
+  { label: "관리자 로그인", href: "/login" },
   { label: "상품 보기", href: "/products" },
-  { label: "픽업 확인", href: "/merchant/pickup" },
+  { label: "Pro Operations", href: "/admin/pro/operations" },
 ];
 
 const recommendedFlows = [
@@ -39,14 +39,14 @@ const recommendedFlows = [
   {
     role: "Merchant",
     title: "가맹점 시연",
-    flow: "login → dashboard → stores → products → image upload → pickup confirmation",
-    body: "가맹점이 매장과 상품을 관리하고 대표 이미지를 업로드한 뒤 픽업코드로 수령을 확정합니다.",
+    flow: "login → merchant dashboard → products → pickup confirmation → merchant pro",
+    body: "가맹점이 매장과 상품을 관리하고 픽업코드로 수령을 확정한 뒤 BreadGo Pro 리포트/알림을 확인합니다.",
   },
   {
     role: "Admin",
     title: "관리자 시연",
-    flow: "login → admin dashboard → users/merchants/stores/products/reservations/payments",
-    body: "운영자가 전체 지표와 핵심 운영 데이터를 한 화면에서 모니터링합니다.",
+    flow: "login → admin dashboard → pro operations → batch/delivery/audit/health alerts",
+    body: "운영자가 기본 현황과 Weekly Report batch, 내부 알림 Mock, Audit Log, Health Alert 흐름을 확인합니다.",
   },
 ];
 
@@ -71,7 +71,7 @@ const steps = [
   },
   {
     title: "Mock 결제",
-    body: "카드, 카카오페이, 네이버페이 중 하나로 모의결제를 완료합니다.",
+    body: "카드, 카카오페이, 네이버페이 중 하나로 모의결제를 완료합니다. 실제 PG 승인이나 카드 청구는 없습니다.",
     href: "/products",
     action: "결제 흐름 보기",
   },
@@ -111,6 +111,12 @@ const steps = [
     href: "/admin",
     action: "관리자 화면",
   },
+  {
+    title: "Pro Operations 확인",
+    body: "Weekly Report batch, Delivery preview, 내부 알림 Mock, Audit Log, Health Alert 상태를 확인합니다. 실제 이메일/카카오/Push/Slack/Webhook 발송은 없습니다.",
+    href: "/admin/pro/operations",
+    action: "Pro Operations",
+  },
 ];
 
 export default function DemoPage() {
@@ -122,7 +128,8 @@ export default function DemoPage() {
           <h1>브레드고 데모 가이드</h1>
           <p>
             비기술 이해관계자에게 BreadGo MVP의 고객 예약, Mock 결제, 가맹점 픽업,
-            상품 이미지 업로드, 관리자 모니터링 흐름을 순서대로 보여주기 위한 발표용 페이지입니다.
+            상품 이미지 업로드, 관리자 Pro Operations 흐름을 순서대로 보여주기 위한 발표용 페이지입니다.
+            실제 결제, 배송, POS, 이메일/카카오/Push/Slack/Webhook 연동은 포함하지 않습니다.
           </p>
         </div>
         <div className="actions">
@@ -133,6 +140,33 @@ export default function DemoPage() {
           ))}
         </div>
       </div>
+
+      <section className="section">
+        <h2>데모 전 확인</h2>
+        <div className="account-grid">
+          <article className="account-card">
+            <div className="card-title-row">
+              <h3>실제 연동 없음</h3>
+              <span className="badge warning">Mock</span>
+            </div>
+            <p>결제, 환불, 배송, POS, 외부 알림은 실제 provider를 호출하지 않습니다.</p>
+          </article>
+          <article className="account-card">
+            <div className="card-title-row">
+              <h3>권장 순서</h3>
+              <span className="badge success">Walkthrough</span>
+            </div>
+            <p>고객 예약 → 가맹점 픽업 → 관리자 Pro Operations → 점주 Weekly Report 알림 순서로 진행하세요.</p>
+          </article>
+          <article className="account-card">
+            <div className="card-title-row">
+              <h3>문제 발생 시</h3>
+              <span className="badge muted">Guide</span>
+            </div>
+            <p>로컬 실행, seed, smoke, batch, health alert 문제는 operations troubleshooting guide 기준으로 확인합니다.</p>
+          </article>
+        </div>
+      </section>
 
       <section className="section">
         <h2>데모 계정</h2>
