@@ -247,20 +247,80 @@ export default function AdminPage() {
       ) : (
         <>
           {summary && (
-            <div className="summary-grid">
-              <StatCard label="Users" value={summary.total_users} />
-              <StatCard label="Merchants" value={summary.total_merchants} />
-              <StatCard label="Stores" value={summary.total_stores} />
-              <StatCard label="Products" value={summary.total_products} helper={`${summary.active_products} active`} />
-              <StatCard label="Reservations" value={summary.total_reservations} />
-              <StatCard label="Picked Up" value={summary.picked_up_reservations} />
-              <StatCard label="Cancelled" value={summary.cancelled_reservations} />
-              <StatCard label="Payments" value={summary.total_payments} />
-              <StatCard label="Paid" value={summary.paid_payments} />
-              <StatCard label="Cancelled Pay" value={summary.cancelled_payments} />
-              <StatCard label="Failed Pay" value={summary.failed_payments} />
-              <StatCard label="Paid Amount" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} />
-            </div>
+            <>
+              <section className="panel">
+                <div className="card-title-row">
+                  <div>
+                    <p className="eyebrow">Admin Operations Report</p>
+                    <h2>오늘 먼저 확인할 운영 현황</h2>
+                    <p>
+                      이 화면에서는 MVP 기본 지표를 확인하고, Pro Operations에서 Weekly Report batch,
+                      Delivery preview, Health Alert 상태를 이어서 점검합니다.
+                    </p>
+                  </div>
+                  <Link className="button-link secondary" href="/admin/pro/operations">
+                    Pro Operations로 이동
+                  </Link>
+                </div>
+                <div className="summary-grid compact">
+                  <StatCard label="활성 상품" value={summary.active_products} helper={`${summary.total_products} total`} />
+                  <StatCard label="예약" value={summary.total_reservations} helper={`${summary.picked_up_reservations} picked up`} />
+                  <StatCard label="취소" value={summary.cancelled_reservations} helper="예약 취소 흐름 점검" />
+                  <StatCard label="Mock 결제 완료" value={summary.paid_payments} helper={`${summary.failed_payments} failed`} />
+                  <StatCard label="Mock 결제액" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} helper="실제 PG 승인 없음" />
+                  <StatCard label="가맹점" value={summary.total_merchants} helper={`${summary.total_stores} stores`} />
+                </div>
+                <div className="account-grid">
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>1. MVP 운영 지표</h3>
+                      <span className="badge success">PASS</span>
+                    </div>
+                    <p>상품, 예약, 픽업, Mock 결제 수치가 seed/smoke 흐름과 맞는지 확인합니다.</p>
+                  </article>
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>2. Weekly Report Batch</h3>
+                      <span className="badge warning">SKIPPED 가능</span>
+                    </div>
+                    <p>동일 기간 SCHEDULED batch는 중복 방지로 SKIPPED가 정상일 수 있습니다.</p>
+                    <Link href="/admin/pro/weekly-report-batches">
+                      <button type="button" className="secondary">Batch Monitor</button>
+                    </Link>
+                  </article>
+                  <article className="account-card">
+                    <div className="card-title-row">
+                      <h3>3. Delivery / Health</h3>
+                      <span className="badge muted">Mock</span>
+                    </div>
+                    <p>Delivery는 내부 알림 Mock만 생성하고, Health Alert는 외부 Webhook 없이 관리자 내부 알림으로 처리합니다.</p>
+                    <div className="actions">
+                      <Link href="/admin/pro/weekly-report-deliveries">
+                        <button type="button" className="secondary">Delivery Preview</button>
+                      </Link>
+                      <Link href="/admin/pro/operations/health-alerts">
+                        <button type="button" className="secondary">Health Alerts</button>
+                      </Link>
+                    </div>
+                  </article>
+                </div>
+              </section>
+
+              <div className="summary-grid">
+                <StatCard label="Users" value={summary.total_users} />
+                <StatCard label="Merchants" value={summary.total_merchants} />
+                <StatCard label="Stores" value={summary.total_stores} />
+                <StatCard label="Products" value={summary.total_products} helper={`${summary.active_products} active`} />
+                <StatCard label="Reservations" value={summary.total_reservations} />
+                <StatCard label="Picked Up" value={summary.picked_up_reservations} />
+                <StatCard label="Cancelled" value={summary.cancelled_reservations} />
+                <StatCard label="Payments" value={summary.total_payments} />
+                <StatCard label="Paid" value={summary.paid_payments} />
+                <StatCard label="Cancelled Pay" value={summary.cancelled_payments} />
+                <StatCard label="Failed Pay" value={summary.failed_payments} />
+                <StatCard label="Paid Amount" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} />
+              </div>
+            </>
           )}
 
           <AdminTable title="Users">

@@ -27,6 +27,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Environment reference: [Environment Reference](docs/environment-reference.md)
 - Demo walkthrough: [Demo Walkthrough v0.1.1](docs/demo-walkthrough-v0.1.1.md)
 - Demo UX final review: [Phase 123 Demo UX Final Review](docs/demo-ux-final-review-phase123.md)
+- Admin operations report: [Phase 124 Admin Operations Report](docs/admin-operations-report-phase124.md)
 - v0.1.2 scope candidate: [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - v0.1.2 release checklist: [Release Checklist v0.1.2](docs/release-checklist-v0.1.2.md)
 - v0.1.2 post-release verification: [Post-release Verification v0.1.2](docs/post-release-verification-v0.1.2.md)

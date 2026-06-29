@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -247,14 +248,24 @@ export default function AdminWeeklyReportBatchMonitorPage() {
         title="Weekly Report Batch Monitor"
         description="BreadGo Pro 주간 리포트 자동 생성 준비 작업의 실행 이력과 merchant별 결과를 확인합니다."
         actions={
-          <button type="button" onClick={loadBatchRuns} disabled={loading}>
-            {loading ? "불러오는 중" : "새로고침"}
-          </button>
+          <>
+            <Link className="button-link secondary" href="/admin/pro/operations">
+              Pro Operations
+            </Link>
+            <Link className="button-link secondary" href="/admin/pro/operations/health-alerts">
+              Health Alerts
+            </Link>
+            <button type="button" onClick={loadBatchRuns} disabled={loading}>
+              {loading ? "불러오는 중" : "새로고침"}
+            </button>
+          </>
         }
       />
 
       <p className="message">
-        실제 cron/scheduler는 아직 연결하지 않았습니다. 현재는 점주 화면의 자동 생성 테스트 실행 이력을 모니터링합니다.
+        이 화면은 Weekly Report snapshot 생성 작업의 운영 이력을 보여줍니다.
+        SCHEDULED는 CLI/scheduler 실행, RETRY는 실패 merchant 재실행, SKIPPED는 동일 기간 중복 실행 방지일 수 있습니다.
+        실제 외부 발송은 Delivery Preview에서 내부 알림 Mock으로만 확인합니다.
       </p>
 
       {message && <div className={isError ? "notice error" : "notice success"}>{message}</div>}
