@@ -276,6 +276,27 @@ Phase 113의 1순위 개선 항목인 Pro Operations smoke coverage 확대를 Ph
 - merchant weekly report notification unread count 검증
 - troubleshooting guide 별도 문서화
 
+## Phase 115 반영 메모
+
+Phase 113의 2순위 개선 항목인 operations troubleshooting guide를 Phase 115에서 반영했다.
+
+추가 문서:
+
+- `docs/operations-troubleshooting-guide.md`
+
+문서화된 상황:
+
+- 로컬 서버 실행 실패
+- DB migration 실패
+- seed_demo 실패
+- smoke_test 실패
+- Weekly Report batch `SKIPPED`
+- Pro Health Alert check skip
+- frontend build 실패
+- 로그인/권한 오류
+- Mock payment / Mock delivery / Health Alert mock 혼동
+- 환경변수 누락 의심 시 확인 위치
+
 ## 검증 결과
 
 - `git status`: PASS
