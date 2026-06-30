@@ -69,6 +69,10 @@ Recommended next development candidates:
 4. Improve merchant inventory report filtering and export.
 5. Prepare a v0.1.5 planning document for controlled sandbox integration readiness.
 
+## Phase 141 Follow-up
+
+Phase 141 refined the `/admin` External Integration Readiness area into a simple default view plus collapsible technical detail mode. This keeps the v0.1.4 readiness scope intact while making the demo easier for non-technical reviewers.
+
 ## Change Boundaries
 
 - Feature code changed: No

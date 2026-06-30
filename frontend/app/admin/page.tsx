@@ -42,12 +42,44 @@ const integrationAreaOrder = ["PAYMENT", "DELIVERY", "NOTIFICATION", "POS"];
 
 function integrationAreaLabel(area: string) {
   const labels: Record<string, string> = {
-    PAYMENT: "Payment",
-    DELIVERY: "Delivery",
-    NOTIFICATION: "Notification",
+    PAYMENT: "결제",
+    DELIVERY: "배송",
+    NOTIFICATION: "알림",
     POS: "POS",
   };
   return labels[area] || area;
+}
+
+function integrationOffLabel(area: string) {
+  const labels: Record<string, string> = {
+    PAYMENT: "실제 결제 OFF",
+    DELIVERY: "실제 배송 OFF",
+    NOTIFICATION: "실제 발송 OFF",
+    POS: "실제 POS OFF",
+  };
+  return labels[area] || "실제 연동 OFF";
+}
+
+function integrationSimpleStatus(
+  readiness: ExternalIntegrationReadiness,
+  area: string,
+) {
+  const providers = readiness.items.filter((item) => item.area === area);
+  const dryRun = readiness.dry_runs.find((item) => item.area === area);
+  const hasExternalCalls =
+    providers.some((item) => item.external_calls_enabled) || Boolean(dryRun?.external_calls_enabled);
+  const hasFailedStatus = providers.some((item) => item.status === "CHECK_FAILED");
+
+  if (hasExternalCalls) {
+    return { label: "점검 필요", helper: "외부 호출 ON 감지", badgeClass: "badge danger" };
+  }
+  if (hasFailedStatus) {
+    return { label: "점검 필요", helper: integrationOffLabel(area), badgeClass: "badge danger" };
+  }
+  if (providers.length === 0) {
+    return { label: "설정 전", helper: integrationOffLabel(area), badgeClass: "badge warning" };
+  }
+  return { label: "준비 완료", helper: integrationOffLabel(area), badgeClass: "badge success" };
 }
 
 function readinessStatusLabel(status: string) {
@@ -121,6 +153,7 @@ export default function AdminPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [externalReadiness, setExternalReadiness] = useState<ExternalIntegrationReadiness | null>(null);
+  const [showIntegrationDetails, setShowIntegrationDetails] = useState(false);
   const [historyByReservation, setHistoryByReservation] = useState<Record<string, ReservationHistory[]>>({});
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
@@ -403,47 +436,93 @@ export default function AdminPage() {
                   <div className="card-title-row">
                     <div>
                       <p className="eyebrow">External Integration Readiness</p>
-                      <h2>실제 연동 전 adapter 준비 상태</h2>
+                      <h2>외부 연동 준비 상태</h2>
                       <p>
-                        Payment, Delivery, Notification, POS adapter의 mock/noop 준비 상태와 dry-run 결과를 확인합니다.
-                        이 카드는 운영 연동 완료 상태가 아니라 실제 provider 연결 전 점검 화면입니다.
+                        실제 외부 연동은 꺼져 있고, 데모/점검용 adapter 준비 상태만 확인합니다.
+                        결제, 배송, 알림, POS가 실제 호출 없이 준비되어 있는지 한눈에 봅니다.
                       </p>
                     </div>
-                    <span className={readinessBadgeClass(externalReadiness.overall_status, externalReadiness.external_calls_enabled)}>
-                      {readinessStatusLabel(externalReadiness.overall_status)}
-                    </span>
+                    <div className="actions">
+                      <span className={readinessBadgeClass(externalReadiness.overall_status, externalReadiness.external_calls_enabled)}>
+                        {readinessStatusLabel(externalReadiness.overall_status)}
+                      </span>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setShowIntegrationDetails((current) => !current)}
+                      >
+                        {showIntegrationDetails ? "상세 닫기" : "상세 보기"}
+                      </button>
+                    </div>
                   </div>
 
-                  <p className="field-help">{readinessStatusHelp(externalReadiness.overall_status)}</p>
                   <p className="message">
-                    현재 단계에서는 실제 PG 결제, 배송 provider, POS API, 이메일/카카오/Push/Slack/Discord/Webhook을 호출하지 않습니다.
-                    모든 provider는 mock/noop dry-run으로만 검증되며 external_calls_enabled=false가 정상입니다.
+                    현재는 실제 운영 연동 완료가 아니라 안전한 준비 상태입니다. 외부 호출은 모두 OFF입니다.
                   </p>
 
-                  <div className="summary-grid compact">
-                    <StatCard
-                      label="Overall"
-                      value={readinessStatusLabel(externalReadiness.overall_status)}
-                      helper={externalReadiness.external_calls_enabled ? "external_calls_enabled=true" : "external_calls_enabled=false"}
-                    />
-                    <StatCard
-                      label="Readiness items"
-                      value={externalReadiness.items.length}
-                      helper="provider별 준비 상태"
-                    />
-                    <StatCard
-                      label="Dry-run checks"
-                      value={externalReadiness.dry_runs.length}
-                      helper="외부 호출 없는 mock 실행"
-                    />
-                    <StatCard
-                      label="External calls"
-                      value={externalReadiness.external_calls_enabled ? "ON" : "OFF"}
-                      helper="OFF가 데모 정상 상태"
-                    />
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>영역</th>
+                          <th>준비 상태</th>
+                          <th>실제 연동</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {integrationAreaOrder.map((area) => {
+                          const simpleStatus = integrationSimpleStatus(externalReadiness, area);
+                          return (
+                            <tr key={area}>
+                              <td>{integrationAreaLabel(area)}</td>
+                              <td>
+                                <span className={simpleStatus.badgeClass}>{simpleStatus.label}</span>
+                              </td>
+                              <td>{simpleStatus.helper}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="account-grid">
+                  <p className="field-help">
+                    기술 정보가 필요하면 상세 보기를 열어 Mock / Noop / dry-run / external_calls_enabled 값을 확인하세요.
+                  </p>
+
+                  {showIntegrationDetails && (
+                    <>
+                      <p className="field-help">{readinessStatusHelp(externalReadiness.overall_status)}</p>
+                      <p className="message">
+                        상세 모드는 개발/운영 점검용입니다. 현재 단계에서는 실제 PG 결제, 배송 provider, POS API,
+                        이메일/카카오/Push/Slack/Discord/Webhook을 호출하지 않습니다.
+                        모든 provider는 mock/noop dry-run으로만 검증되며 external_calls_enabled=false가 정상입니다.
+                      </p>
+
+                      <div className="summary-grid compact">
+                        <StatCard
+                          label="Overall"
+                          value={readinessStatusLabel(externalReadiness.overall_status)}
+                          helper={externalReadiness.external_calls_enabled ? "external_calls_enabled=true" : "external_calls_enabled=false"}
+                        />
+                        <StatCard
+                          label="Readiness items"
+                          value={externalReadiness.items.length}
+                          helper="provider별 준비 상태"
+                        />
+                        <StatCard
+                          label="Dry-run checks"
+                          value={externalReadiness.dry_runs.length}
+                          helper="외부 호출 없는 mock 실행"
+                        />
+                        <StatCard
+                          label="External calls"
+                          value={externalReadiness.external_calls_enabled ? "ON" : "OFF"}
+                          helper="OFF가 데모 정상 상태"
+                        />
+                      </div>
+
+                      <div className="account-grid">
                     {integrationAreaOrder.map((area) => {
                       const providers = externalReadiness.items.filter((item) => item.area === area);
                       const dryRun = externalReadiness.dry_runs.find((item) => item.area === area);
@@ -497,26 +576,28 @@ export default function AdminPage() {
                         </article>
                       );
                     })}
-                  </div>
+                      </div>
 
-                  <div className="account-grid">
-                    <article className="account-card">
-                      <div className="card-title-row">
-                        <h3>상태 해석</h3>
-                        <span className="badge muted">Guide</span>
+                      <div className="account-grid">
+                        <article className="account-card">
+                          <div className="card-title-row">
+                            <h3>상태 해석</h3>
+                            <span className="badge muted">Guide</span>
+                          </div>
+                          <p><strong>MOCK_READY</strong>: mock/noop adapter와 dry-run이 모두 외부 호출 없이 통과했습니다.</p>
+                          <p><strong>NOT_ENABLED</strong>: 실제 provider skeleton은 있으나 운영 연동은 켜지지 않았습니다.</p>
+                          <p><strong>NOT_CONFIGURED</strong>: 실제 provider credential 또는 store 설정이 아직 없습니다.</p>
+                        </article>
+                        <article className="account-card">
+                          <div className="card-title-row">
+                            <h3>실제 연동 전 필요 항목</h3>
+                            <span className="badge warning">Before live</span>
+                          </div>
+                          <p>credential 저장 경계, provider별 실패/재시도 정책, audit log, webhook 검증, 운영 secret 관리 기준을 확정한 뒤 실제 연동을 켭니다.</p>
+                        </article>
                       </div>
-                      <p><strong>MOCK_READY</strong>: mock/noop adapter와 dry-run이 모두 외부 호출 없이 통과했습니다.</p>
-                      <p><strong>NOT_ENABLED</strong>: 실제 provider skeleton은 있으나 운영 연동은 켜지지 않았습니다.</p>
-                      <p><strong>NOT_CONFIGURED</strong>: 실제 provider credential 또는 store 설정이 아직 없습니다.</p>
-                    </article>
-                    <article className="account-card">
-                      <div className="card-title-row">
-                        <h3>실제 연동 전 필요 항목</h3>
-                        <span className="badge warning">Before live</span>
-                      </div>
-                      <p>credential 저장 경계, provider별 실패/재시도 정책, audit log, webhook 검증, 운영 secret 관리 기준을 확정한 뒤 실제 연동을 켭니다.</p>
-                    </article>
-                  </div>
+                    </>
+                  )}
                 </section>
               )}
             </>
