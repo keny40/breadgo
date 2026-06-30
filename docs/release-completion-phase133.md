@@ -114,6 +114,8 @@ v0.1.3은 실제 외부 연동 Release가 아니라 adapter readiness Release다
 
 우선 1순위와 2순위를 v0.1.4 MVP로 묶는 것을 추천한다. 이유는 v0.1.3에서 추가한 adapter readiness 기반을 테스트와 화면 양쪽에서 안정화하면 실제 외부 연동 전 회귀 위험을 크게 줄일 수 있기 때문이다.
 
+Phase 134에서 1순위 후보인 Provider adapter 단위 테스트 추가를 진행했다. Payment / Delivery / Notification / POS adapter readiness와 dry-run, 통합 External Integration Readiness의 `external_calls_enabled=false` 원칙을 pytest로 고정했다.
+
 ## 검증 결과
 
 - `git status`: PASS
@@ -144,4 +146,3 @@ v0.1.3은 실제 외부 연동 Release가 아니라 adapter readiness Release다
 ## Suggested commit message
 
 `Document v0.1.3 release completion`
-
