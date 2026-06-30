@@ -32,6 +32,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - External integration plan: [Phase 126 External Integration Plan](docs/external-integration-plan-phase126.md)
 - v0.1.3 scope plan: [Phase 127 v0.1.3 Scope Plan](docs/v0.1.3-scope-plan-phase127.md)
 - Adapter skeleton: [Phase 128 Adapter Skeleton](docs/adapter-skeleton-phase128.md)
+- Adapter readiness: [Phase 129 Adapter Readiness](docs/adapter-readiness-phase129.md)
 - v0.1.2 scope candidate: [v0.1.2 Scope Candidate](docs/v0.1.2-scope-candidate.md)
 - v0.1.2 release checklist: [Release Checklist v0.1.2](docs/release-checklist-v0.1.2.md)
 - v0.1.2 post-release verification: [Post-release Verification v0.1.2](docs/post-release-verification-v0.1.2.md)

@@ -171,7 +171,10 @@ def seed_local_demo_data_if_available() -> bool:
 def verify_adapter_mock_readiness() -> None:
     try:
         from app.services.delivery_provider_service import assert_mock_delivery_provider_ready
+        from app.services.external_integration_readiness_service import assert_external_integration_readiness_ready
+        from app.services.notification_provider_service import assert_mock_notification_provider_ready
         from app.services.payment_provider_service import assert_mock_payment_provider_ready
+        from app.services.pos_provider_service import assert_mock_pos_provider_ready
     except Exception as exc:
         raise SmokeTestError("Adapter mock readiness imports", None, str(exc)) from exc
 
@@ -186,6 +189,24 @@ def verify_adapter_mock_readiness() -> None:
     except Exception as exc:
         raise SmokeTestError("Delivery provider adapter mock dry-run", None, str(exc)) from exc
     print_pass("Delivery provider adapter mock dry-run")
+
+    try:
+        assert_mock_notification_provider_ready()
+    except Exception as exc:
+        raise SmokeTestError("Notification provider adapter mock dry-run", None, str(exc)) from exc
+    print_pass("Notification provider adapter mock dry-run")
+
+    try:
+        assert_mock_pos_provider_ready()
+    except Exception as exc:
+        raise SmokeTestError("POS provider adapter mock dry-run", None, str(exc)) from exc
+    print_pass("POS provider adapter mock dry-run")
+
+    try:
+        assert_external_integration_readiness_ready()
+    except Exception as exc:
+        raise SmokeTestError("External integration readiness dry-run", None, str(exc)) from exc
+    print_pass("External integration readiness dry-run")
 
 
 def region_products_path() -> str:
@@ -402,6 +423,31 @@ def main() -> int:
             {"overall_status", "checked_at", "health_messages"},
         )
 
+        external_readiness = expect_status(
+            "Admin external integration readiness loaded",
+            request_json(
+                step="Admin external integration readiness loaded",
+                method="GET",
+                path="/api/v1/admin/pro/operations/external-integrations/readiness",
+                token=admin_token,
+            ),
+            {200},
+        )
+        readiness_body = expect_dict_with_keys(
+            "Admin external integration readiness loaded",
+            external_readiness,
+            {"overall_status", "external_calls_enabled", "items", "dry_runs"},
+        )
+        if readiness_body.get("external_calls_enabled") is not False:
+            raise SmokeTestError("Admin external integration readiness loaded", 200, external_readiness)
+        readiness_areas = {
+            item.get("area")
+            for item in readiness_body.get("items", [])
+            if isinstance(item, dict) and item.get("external_calls_enabled") is False
+        }
+        if not {"PAYMENT", "DELIVERY", "NOTIFICATION", "POS"}.issubset(readiness_areas):
+            raise SmokeTestError("Admin external integration readiness loaded", 200, external_readiness)
+
         health_alerts = expect_status(
             "Admin Pro Health Alerts list loaded",
             request_json(
@@ -463,6 +509,14 @@ def main() -> int:
             "Merchant blocked from Admin Pro Operations summary",
             "GET",
             "/api/v1/admin/pro/operations/summary",
+            merchant_token,
+            {403},
+        )
+
+        expect_http_error_status(
+            "Merchant blocked from Admin external integration readiness",
+            "GET",
+            "/api/v1/admin/pro/operations/external-integrations/readiness",
             merchant_token,
             {403},
         )

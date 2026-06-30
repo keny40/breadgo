@@ -869,6 +869,31 @@ export type AdminProOperationsHealth = {
   purge_policy_health: AdminProOperationsHealthItem;
 };
 
+export type ExternalIntegrationReadinessItem = {
+  area: string;
+  provider: string;
+  status: string;
+  mode: string;
+  external_calls_enabled: boolean;
+  message: string;
+};
+
+export type ExternalIntegrationDryRunItem = {
+  area: string;
+  provider: string;
+  status: string;
+  external_calls_enabled: boolean;
+  message: string;
+};
+
+export type ExternalIntegrationReadiness = {
+  overall_status: string;
+  external_calls_enabled: boolean;
+  message: string;
+  items: ExternalIntegrationReadinessItem[];
+  dry_runs: ExternalIntegrationDryRunItem[];
+};
+
 export type ProHealthAlert = {
   id: string;
   severity: "WARNING" | "CRITICAL";

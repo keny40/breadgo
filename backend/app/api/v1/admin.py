@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantStatusUpdate
 from app.schemas.auth import UserResponse
+from app.schemas.external_integration import ExternalIntegrationReadinessRead
 from app.schemas.merchant import MerchantRead
 from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
@@ -53,6 +54,7 @@ from app.services.admin_service import (
     require_admin_user,
     update_merchant_status,
 )
+from app.services.external_integration_readiness_service import build_external_integration_readiness
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
@@ -222,6 +224,13 @@ def get_admin_pro_operations_health(
     db: Session = Depends(get_db),
 ) -> AdminProOperationsHealthRead:
     return build_admin_pro_operations_health(db)
+
+
+@router.get("/pro/operations/external-integrations/readiness", response_model=ExternalIntegrationReadinessRead)
+def get_admin_external_integration_readiness(
+    _: User = Depends(get_current_admin),
+) -> ExternalIntegrationReadinessRead:
+    return ExternalIntegrationReadinessRead.model_validate(build_external_integration_readiness())
 
 
 @router.post("/pro/operations/health/alerts/generate", response_model=ProHealthAlertGenerateResultRead)

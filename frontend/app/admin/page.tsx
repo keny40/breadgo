@@ -13,6 +13,7 @@ import {
   deliveryStatuses,
   type AdminSummary,
   type AuthUser,
+  type ExternalIntegrationReadiness,
   type Merchant,
   type Payment,
   type Product,
@@ -46,6 +47,7 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [externalReadiness, setExternalReadiness] = useState<ExternalIntegrationReadiness | null>(null);
   const [historyByReservation, setHistoryByReservation] = useState<Record<string, ReservationHistory[]>>({});
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function AdminPage() {
           return;
         }
 
-        const [summaryData, userData, merchantData, storeData, productData, reservationData, paymentData] =
+        const [summaryData, userData, merchantData, storeData, productData, reservationData, paymentData, readinessData] =
           await Promise.all([
             apiFetch<AdminSummary>("/api/v1/admin/summary", {}, true),
             apiFetch<AuthUser[]>("/api/v1/admin/users", {}, true),
@@ -84,6 +86,7 @@ export default function AdminPage() {
             apiFetch<Product[]>("/api/v1/admin/products", {}, true),
             apiFetch<Reservation[]>("/api/v1/admin/reservations", {}, true),
             apiFetch<Payment[]>("/api/v1/admin/payments", {}, true),
+            apiFetch<ExternalIntegrationReadiness>("/api/v1/admin/pro/operations/external-integrations/readiness", {}, true),
           ]);
 
         if (cancelled) {
@@ -97,6 +100,7 @@ export default function AdminPage() {
         setProducts(productData);
         setReservations(reservationData);
         setPayments(paymentData);
+        setExternalReadiness(readinessData);
         setMessage("관리자 데이터를 불러왔습니다.");
       } catch (error) {
         if (cancelled) {
@@ -320,6 +324,52 @@ export default function AdminPage() {
                 <StatCard label="Failed Pay" value={summary.failed_payments} />
                 <StatCard label="Paid Amount" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} />
               </div>
+
+              {externalReadiness && (
+                <section className="panel">
+                  <div className="card-title-row">
+                    <div>
+                      <p className="eyebrow">External Integration Readiness</p>
+                      <h2>실제 연동 전 adapter 준비 상태</h2>
+                      <p>
+                        Payment, Delivery, Notification, POS adapter의 mock/noop 준비 상태입니다.
+                        실제 PG/배송/POS/이메일/카카오/Push/Slack/Webhook 호출은 비활성화되어 있습니다.
+                      </p>
+                    </div>
+                    <span className={externalReadiness.external_calls_enabled ? "badge danger" : "badge success"}>
+                      {externalReadiness.external_calls_enabled ? "외부 호출 주의" : "외부 호출 없음"}
+                    </span>
+                  </div>
+                  <p className="field-help">{externalReadiness.message}</p>
+                  <div className="summary-grid compact">
+                    {externalReadiness.items
+                      .filter((item) => ["PAYMENT", "DELIVERY", "NOTIFICATION", "POS"].includes(item.area))
+                      .slice(0, 8)
+                      .map((item) => (
+                        <StatCard
+                          key={`${item.area}-${item.provider}`}
+                          label={`${item.area} · ${item.provider}`}
+                          value={item.status}
+                          helper={`${item.mode} · external calls ${item.external_calls_enabled ? "ON" : "OFF"}`}
+                        />
+                      ))}
+                  </div>
+                  <div className="account-grid">
+                    {externalReadiness.dry_runs.map((item) => (
+                      <article className="account-card" key={`${item.area}-${item.provider}`}>
+                        <div className="card-title-row">
+                          <h3>{item.area}</h3>
+                          <span className={item.external_calls_enabled ? "badge danger" : "badge success"}>
+                            {item.external_calls_enabled ? "External ON" : "Mock dry-run"}
+                          </span>
+                        </div>
+                        <p>{item.provider} · {item.status}</p>
+                        <p className="field-help">{item.message}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
             </>
           )}
 
