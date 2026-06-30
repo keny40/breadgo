@@ -106,3 +106,16 @@ def test_external_integration_readiness_summary_reports_mock_ready_without_exter
     _assert_no_external_calls(summary.items)
     _assert_no_external_calls(summary.dry_runs)
 
+
+def test_external_integration_readiness_summary_includes_pos_mock_sync_boundary() -> None:
+    summary = build_external_integration_readiness()
+
+    pos_readiness = [item for item in summary.items if item.area == "POS"]
+    pos_dry_run = next(item for item in summary.dry_runs if item.area == "POS")
+
+    assert {item.provider for item in pos_readiness} >= {"MOCK_POS", "GENERIC_POS"}
+    assert next(item for item in pos_readiness if item.provider == "MOCK_POS").status == "READY"
+    assert next(item for item in pos_readiness if item.provider == "GENERIC_POS").status == "NOT_CONFIGURED"
+    assert pos_dry_run.status.startswith("READY/ITEMS_")
+    assert pos_dry_run.external_calls_enabled is False
+    assert "No external POS API calls" in pos_dry_run.message

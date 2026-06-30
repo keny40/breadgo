@@ -217,8 +217,8 @@ export default function MerchantProPosPage() {
           <p className="eyebrow">Enterprise 준비 기능</p>
           <h2>POS/API 연동 MVP</h2>
           <p>
-            CSV 일괄 등록에서 만든 external_sku와 중복 업데이트 기준을 그대로 사용합니다. API key나 token 같은
-            민감정보는 저장하지 않습니다.
+            CSV 일괄 등록에서 만든 external_sku와 중복 업데이트 기준을 그대로 사용합니다. 현재는 Mock JSON을 BreadGo 내부에서만 처리하며,
+            실제 POS API, API key, token, credential은 저장하거나 호출하지 않습니다.
           </p>
         </div>
         <div className="pro-score">
@@ -233,6 +233,31 @@ export default function MerchantProPosPage() {
         <StatCard label="최근 상태" value={integration?.last_sync_status || "-"} />
         <StatCard label="최근 생성" value={`${latestBatch?.created_count || 0}건`} />
         <StatCard label="최근 업데이트" value={`${latestBatch?.updated_count || 0}건`} />
+        <StatCard label="외부 POS 호출" value="OFF" helper="Mock dry-run only" />
+      </div>
+
+      <div className="account-grid">
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>현재 단계</h3>
+            <span className="badge success">Mock POS</span>
+          </div>
+          <p>샘플 JSON을 내부 adapter로 정규화해 상품 생성/업데이트 정책을 검증합니다. 외부 POS 서버와 통신하지 않습니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>CSV와의 관계</h3>
+            <span className="badge muted">Fallback</span>
+          </div>
+          <p>CSV import와 Mock POS sync는 모두 external_sku를 기준으로 중복을 판단합니다. 실제 POS 전에도 CSV fallback을 유지합니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>실제 연동 전 필요</h3>
+            <span className="badge warning">Before live</span>
+          </div>
+          <p>credential boundary, store mapping, 실패 재시도, sync audit, sandbox 검증이 끝난 뒤 실제 POS API를 연결합니다.</p>
+        </article>
       </div>
 
       <section className="panel">
@@ -240,6 +265,7 @@ export default function MerchantProPosPage() {
           <div>
             <p className="eyebrow">POS 설정</p>
             <h2>연동 설정 저장</h2>
+            <p>현재 설정은 provider readiness와 Mock sync 정책을 위한 값입니다. 실제 credential이나 token은 저장하지 않습니다.</p>
           </div>
           {integration && <StatusBadge status={integration.status} />}
         </div>
@@ -308,6 +334,7 @@ export default function MerchantProPosPage() {
         </div>
         <p className="field-help">
           ACTIVE 생성은 이번 MVP에서 제한합니다. POS에서 들어온 상품은 숨김 상태로 만든 뒤 점주가 상품관리에서 노출합니다.
+          Mock POS 동기화는 외부 POS API 호출 없이 내부 dry-run으로만 실행됩니다.
         </p>
         <label>
           Mock item JSON

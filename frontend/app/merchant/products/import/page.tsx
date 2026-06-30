@@ -229,6 +229,9 @@ export default function MerchantProductCsvImportPage() {
             <Link className="button-link secondary" href="/merchant/products">
               상품관리로 이동
             </Link>
+            <Link className="button-link secondary" href="/merchant/pro/pos">
+              Mock POS sync
+            </Link>
           </div>
         }
       />
@@ -238,6 +241,30 @@ export default function MerchantProductCsvImportPage() {
         <br />
         실제 POS API 연동 전, CSV로 상품명/가격/재고/판매 시간을 일괄 등록하는 MVP 기능입니다.
         업로드된 상품은 기본적으로 숨김 상태로 생성되며, 상품관리에서 확인 후 판매 상태로 변경할 수 있습니다.
+        POS token, credential, 외부 POS 서버 호출은 사용하지 않습니다.
+      </div>
+      <div className="account-grid">
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>1. 업로드 전 검증</h3>
+            <span className="badge success">Preview</span>
+          </div>
+          <p>CSV row를 먼저 검증해 생성/업데이트/건너뜀/실패 후보를 확인합니다. 이 단계에서는 상품을 만들지 않습니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>2. HIDDEN 생성</h3>
+            <span className="badge warning">Review</span>
+          </div>
+          <p>실제 등록 시에도 기본은 HIDDEN입니다. 상품관리에서 가격, 재고, 판매 시간을 확인한 뒤 ACTIVE로 바꿉니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>3. POS 전환 준비</h3>
+            <span className="badge muted">Mock boundary</span>
+          </div>
+          <p>external_sku와 import_action은 이후 Mock POS sync와 실제 POS adapter 전환의 기준값으로 사용됩니다.</p>
+        </article>
       </div>
       {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
 
@@ -273,6 +300,9 @@ export default function MerchantProductCsvImportPage() {
           />
           <span className="field-help">UTF-8 또는 엑셀 CSV(cp949) 파일을 지원합니다.</span>
         </label>
+        <p className="field-help">
+          CSV import는 BreadGo 서버에 파일을 업로드해 내부 검증/등록만 수행합니다. 실제 POS API, token, credential은 사용하지 않습니다.
+        </p>
         <div className="actions">
           <button type="button" className="secondary" onClick={() => uploadCsv(true)} disabled={loading}>
             {loading ? "검증 중" : "업로드 전 검증"}

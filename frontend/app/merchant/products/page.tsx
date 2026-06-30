@@ -461,6 +461,9 @@ export default function MerchantProductsPage() {
             <Link className="button-link secondary" href="/merchant/products/import">
               CSV 일괄 등록
             </Link>
+            <Link className="button-link secondary" href="/merchant/pro/pos">
+              Mock POS sync
+            </Link>
             <Link className="button-link secondary" href="/merchant/orders">
               예약/주문 확인
             </Link>
@@ -475,7 +478,8 @@ export default function MerchantProductsPage() {
         <br />
         반복 상품 등록은 기존 상품 정보는 유지하고 오늘 재고와 마감 시간만 바꿔 빠르게 재등록합니다.
         CSV 일괄 등록은 POS 연동 전 단계의 BreadGo Pro 고급 기능입니다.
-        실제 POS API, 배송 provider, 외부 알림 발송은 아직 연결하지 않습니다.
+        Mock POS sync는 external_sku 기반 동기화 구조를 검증하는 내부 dry-run이며,
+        실제 POS API, token, 배송 provider, 외부 알림 발송은 아직 연결하지 않습니다.
       </div>
       <div className="account-grid">
         <article className="account-card">
@@ -491,6 +495,21 @@ export default function MerchantProductsPage() {
             <span className="badge warning">Stock</span>
           </div>
           <p>예약/취소/POS mock/CSV import로 바뀐 재고 흐름은 BreadGo Pro 재고 이력에서 추적합니다.</p>
+        </article>
+        <article className="account-card">
+          <div className="card-title-row">
+            <h3>CSV / Mock POS</h3>
+            <span className="badge muted">No external POS</span>
+          </div>
+          <p>CSV는 엑셀 업로드, Mock POS는 샘플 JSON dry-run입니다. 둘 다 실제 POS 서버를 호출하지 않습니다.</p>
+          <div className="actions">
+            <Link href="/merchant/products/import">
+              <button type="button" className="secondary">CSV import</button>
+            </Link>
+            <Link href="/merchant/pro/pos">
+              <button type="button" className="secondary">Mock POS sync</button>
+            </Link>
+          </div>
         </article>
         <article className="account-card">
           <div className="card-title-row">

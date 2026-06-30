@@ -106,7 +106,7 @@ function integrationNextStep(area: string) {
     PAYMENT: "실제 PG 연동 전 승인/환불 계약, credential 저장 경계, 실패/환불 audit 정책을 설계합니다.",
     DELIVERY: "실제 배송 provider 연동 전 접수/취소/추적 상태 매핑과 요금 계산 책임을 분리합니다.",
     NOTIFICATION: "실제 외부 발송 전 수신 동의, 재발송 정책, channel별 secret 관리 기준을 정리합니다.",
-    POS: "실제 POS API 호출 전 store credential boundary, sync 실패 복구, CSV fallback 기준을 확정합니다.",
+    POS: "실제 POS API 호출 전 store credential boundary, sync 실패 복구, CSV fallback, external_sku 매핑 기준을 확정합니다.",
   };
   return labels[area] || "실제 provider 연결 전 credential, audit, rollback 기준을 확인합니다.";
 }
