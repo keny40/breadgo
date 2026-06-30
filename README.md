@@ -30,6 +30,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - v0.1.4 release note draft: [Release Note v0.1.4](docs/release-note-v0.1.4.md)
 - v0.1.4 release checklist: [Release Checklist v0.1.4](docs/release-checklist-v0.1.4.md)
 - v0.1.4 post-release verification template: [Post-release Verification v0.1.4](docs/post-release-verification-v0.1.4.md)
+- v0.1.4 tag / release registration prep: [Phase 139 Release Create Prep](docs/release-create-phase139.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
