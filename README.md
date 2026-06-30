@@ -23,6 +23,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - v0.1.3 adapter readiness release: [v0.1.3-adapter-readiness](https://github.com/keny40/breadgo/releases/tag/v0.1.3-adapter-readiness)
 - v0.1.3 completion: [Phase 133 Release Completion](docs/release-completion-phase133.md)
 - v0.1.4 scope candidate: [Phase 134 v0.1.4 Scope Candidate](docs/v0.1.4-scope-candidate-phase134.md)
+- Adapter readiness UI: [Phase 135 Adapter Readiness UI](docs/adapter-readiness-ui-phase135.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
