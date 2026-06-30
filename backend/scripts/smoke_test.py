@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -15,6 +16,10 @@ SMOKE_REGION = {
     "sigungu": "강남구",
     "dong": "역삼동",
 }
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 
 @dataclass
@@ -163,6 +168,26 @@ def seed_local_demo_data_if_available() -> bool:
     return True
 
 
+def verify_adapter_mock_readiness() -> None:
+    try:
+        from app.services.delivery_provider_service import assert_mock_delivery_provider_ready
+        from app.services.payment_provider_service import assert_mock_payment_provider_ready
+    except Exception as exc:
+        raise SmokeTestError("Adapter mock readiness imports", None, str(exc)) from exc
+
+    try:
+        assert_mock_payment_provider_ready()
+    except Exception as exc:
+        raise SmokeTestError("Payment provider adapter mock dry-run", None, str(exc)) from exc
+    print_pass("Payment provider adapter mock dry-run")
+
+    try:
+        assert_mock_delivery_provider_ready()
+    except Exception as exc:
+        raise SmokeTestError("Delivery provider adapter mock dry-run", None, str(exc)) from exc
+    print_pass("Delivery provider adapter mock dry-run")
+
+
 def region_products_path() -> str:
     return f"/api/v1/regions/products?{urlencode(SMOKE_REGION)}"
 
@@ -216,6 +241,8 @@ def main() -> int:
         )
         if not isinstance(health, dict) or health.get("status") != "ok":
             raise SmokeTestError("Health check", 200, health)
+
+        verify_adapter_mock_readiness()
 
         customer_token = login("customer@breadgo.test", "Customer login")
 
