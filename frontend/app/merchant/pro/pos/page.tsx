@@ -249,7 +249,10 @@ export default function MerchantProPosPage() {
             <h3>CSV와의 관계</h3>
             <span className="badge muted">Fallback</span>
           </div>
-          <p>CSV import와 Mock POS sync는 모두 external_sku를 기준으로 중복을 판단합니다. 실제 POS 전에도 CSV fallback을 유지합니다.</p>
+          <p>CSV import와 Mock POS sync는 모두 external_sku를 기준으로 중복을 판단하고 재고 이력에 원인을 남깁니다. 실제 POS 전에도 CSV fallback을 유지합니다.</p>
+          <Link href="/merchant/pro/inventory-ledger">
+            <button type="button" className="secondary">재고 이력 보기</button>
+          </Link>
         </article>
         <article className="account-card">
           <div className="card-title-row">

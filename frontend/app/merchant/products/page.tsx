@@ -470,6 +470,9 @@ export default function MerchantProductsPage() {
             <Link className="button-link secondary" href="/merchant/pro/inventory-ledger">
               재고 이력
             </Link>
+            <Link className="button-link secondary" href="/merchant/pro/inventory-alerts">
+              재고 알림
+            </Link>
           </div>
         }
       />
@@ -494,7 +497,7 @@ export default function MerchantProductsPage() {
             <h3>재고 확인</h3>
             <span className="badge warning">Stock</span>
           </div>
-          <p>예약/취소/POS mock/CSV import로 바뀐 재고 흐름은 BreadGo Pro 재고 이력에서 추적합니다.</p>
+          <p>예약/취소/픽업/CSV import/Mock POS sync로 바뀐 재고 흐름은 BreadGo Pro 재고 이력 리포트에서 추적합니다.</p>
         </article>
         <article className="account-card">
           <div className="card-title-row">

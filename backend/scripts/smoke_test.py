@@ -376,6 +376,33 @@ def main() -> int:
         if not isinstance(reservation_body, dict) or reservation_body.get("status") != "PICKED_UP":
             raise SmokeTestError("Pickup confirmed", 200, picked_up)
 
+        inventory_events = expect_status(
+            "Merchant inventory events loaded",
+            request_json(
+                step="Merchant inventory events loaded",
+                method="GET",
+                path="/api/v1/merchant/pro/inventory-events?limit=10",
+                token=merchant_token,
+            ),
+            {200},
+        )
+        if not isinstance(inventory_events, list):
+            raise SmokeTestError("Merchant inventory events loaded", 200, inventory_events)
+        if not any(
+            isinstance(item, dict)
+            and item.get("product_id") == product["id"]
+            and item.get("source_type") == "RESERVATION"
+            for item in inventory_events
+        ):
+            raise SmokeTestError(
+                "Merchant inventory events loaded",
+                200,
+                {
+                    "expected": "reservation-related inventory event for smoke product",
+                    "actual_events": inventory_events,
+                },
+            )
+
         admin_token = login("admin@breadgo.test", "Admin login")
 
         summary = expect_status(
