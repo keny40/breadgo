@@ -26,6 +26,13 @@ type ProductFormState = {
   parcelDeliveryFee: string;
 };
 
+type ImageUploadStorageStatus = {
+  enabled: boolean;
+  backend: string;
+  message: string;
+  missing_env: string[];
+};
+
 const emptyForm: ProductFormState = {
   name: "",
   description: "",
@@ -100,6 +107,7 @@ export default function MerchantProductsPage() {
   const [relistVisible, setRelistVisible] = useState(true);
   const [relistNameSuffix, setRelistNameSuffix] = useState("오늘");
   const [uploadingImageTarget, setUploadingImageTarget] = useState<"create" | "edit" | null>(null);
+  const [imageUploadStorage, setImageUploadStorage] = useState<ImageUploadStorageStatus | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
@@ -119,15 +127,17 @@ export default function MerchantProductsPage() {
 
     async function loadInitialData() {
       try {
-        const [storeData, productData] = await Promise.all([
+        const [storeData, productData, storageStatus] = await Promise.all([
           apiFetch<Store[]>("/api/v1/stores/me", {}, true),
           apiFetch<Product[]>("/api/v1/products/me", {}, true),
+          loadImageUploadStorageStatus(),
         ]);
         if (cancelled) {
           return;
         }
         setStores(storeData);
         setProducts(productData);
+        setImageUploadStorage(storageStatus);
         if (storeData.length > 0) {
           setStoreId(storeData[0].id);
           setMessage(`${productData.length}개 상품을 불러왔습니다.`);
@@ -193,6 +203,15 @@ export default function MerchantProductsPage() {
   async function uploadImage(file: File, target: "create" | "edit") {
     setMessage("");
     setIsError(false);
+
+    if (!imageUploadStorage?.enabled) {
+      setIsError(true);
+      setMessage(
+        imageUploadStorage?.message ||
+          "이미지 파일 업로드 storage가 설정되지 않았습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.",
+      );
+      return;
+    }
 
     if (!file.type.startsWith("image/")) {
       setIsError(true);
@@ -548,6 +567,7 @@ export default function MerchantProductsPage() {
           imageFile={createImageFile}
           onImageFileChange={setCreateImageFile}
           onUploadImage={uploadCreateImage}
+          storageStatus={imageUploadStorage}
           uploading={uploadingImageTarget === "create"}
           imageAltName={createForm.name || "상품"}
           showStatus={false}
@@ -686,6 +706,7 @@ export default function MerchantProductsPage() {
                     imageFile={editImageFile}
                     onImageFileChange={setEditImageFile}
                     onUploadImage={uploadEditImage}
+                    storageStatus={imageUploadStorage}
                     uploading={uploadingImageTarget === "edit"}
                     imageAltName={editForm.name || product.name}
                     showStatus
@@ -706,12 +727,36 @@ export default function MerchantProductsPage() {
   );
 }
 
+async function loadImageUploadStorageStatus(): Promise<ImageUploadStorageStatus> {
+  try {
+    const response = await fetch("/api/upload/product-image", { method: "GET" });
+    const data = (await response.json()) as ImageUploadStorageStatus;
+    return {
+      enabled: Boolean(data.enabled),
+      backend: data.backend || "none",
+      message:
+        data.message ||
+        "이미지 파일 업로드 storage 상태를 확인했습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.",
+      missing_env: Array.isArray(data.missing_env) ? data.missing_env : [],
+    };
+  } catch {
+    return {
+      enabled: false,
+      backend: "unknown",
+      message:
+        "이미지 파일 업로드 storage 상태를 확인할 수 없습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.",
+      missing_env: [],
+    };
+  }
+}
+
 function ProductFields({
   form,
   onChange,
   imageFile,
   onImageFileChange,
   onUploadImage,
+  storageStatus,
   uploading,
   imageAltName,
   showStatus,
@@ -721,10 +766,16 @@ function ProductFields({
   imageFile: File | null;
   onImageFileChange: (file: File | null) => void;
   onUploadImage: () => void;
+  storageStatus: ImageUploadStorageStatus | null;
   uploading: boolean;
   imageAltName: string;
   showStatus: boolean;
 }) {
+  const uploadEnabled = Boolean(storageStatus?.enabled);
+  const uploadMessage =
+    storageStatus?.message ||
+    "이미지 파일 업로드 storage 상태를 확인하고 있습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.";
+
   return (
     <>
       <label>
@@ -747,16 +798,26 @@ function ProductFields({
       </label>
       <div className="upload-box form-grid">
         <h3>대표 이미지 업로드</h3>
+        <p className={`field-help ${uploadEnabled ? "" : "error"}`}>
+          {uploadMessage}
+          {!uploadEnabled && " 파일 업로드가 필요하면 운영 환경변수를 설정하세요."}
+        </p>
         <label>
           이미지 파일
           <input
             type="file"
             accept="image/*"
+            disabled={!uploadEnabled}
             onChange={(event) => onImageFileChange(event.target.files?.[0] || null)}
           />
         </label>
         <div className="actions">
-          <button type="button" className="secondary" onClick={onUploadImage} disabled={uploading || !imageFile}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onUploadImage}
+            disabled={uploading || !imageFile || !uploadEnabled}
+          >
             {uploading ? "업로드 중" : "이미지 업로드"}
           </button>
         </div>
