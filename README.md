@@ -43,6 +43,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - v0.1.5 tag / release prep: [Phase 149 Release Create Prep](docs/release-create-phase149.md)
 - Product image upload storage: [Phase 149 Image Upload Storage](docs/image-upload-storage-phase149.md)
 - Site performance diagnosis: [Phase 149 Site Performance](docs/site-performance-phase149.md)
+- v0.1.5 pre-release site check: [Phase 150 Site Check](docs/pre-release-site-check-v0.1.5-phase150.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
