@@ -135,3 +135,17 @@ No Vercel Google OAuth environment variables were added in this phase. Live Goog
 - No Google live OAuth endpoint calls were observed.
 - Customer, merchant, and admin demo logins still return 200.
 - No OAuth-related console or network errors were observed. The existing `/favicon.ico` 404 on `/login` is unrelated to OAuth.
+
+## Phase 144 Live Verification - 2026-07-01
+
+- `GET https://breadgo-api.onrender.com/api/v1/auth/google/status`: returns `enabled=true`.
+- `/login`: `Google로 계속하기` button is visible and enabled.
+- `/register`: `Google로 계속하기` button is visible and enabled.
+- Live customer Google login was verified successful after Render `GOOGLE_CLIENT_ID` was corrected.
+- `invalid_client` root cause: incorrect/incomplete Render `GOOGLE_CLIENT_ID`.
+- Resolution: full Google Cloud OAuth Client ID was set in Render backend env and backend was redeployed.
+- `GOOGLE_CLIENT_SECRET` remains stored only in Render backend environment variables.
+- No Google access token, refresh token, ID token, client secret, or API key is stored in repo docs/code/logs or the database.
+- Admin and merchant automatic Google signup/login remain blocked by policy.
+
+See [Phase 144 Google OAuth Live Verification](google-oauth-live-verification-phase144.md).
