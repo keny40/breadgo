@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
@@ -16,10 +16,6 @@ type ReservationSummary = {
 export default function MerchantPage() {
   const guard = useRoleGuard("MERCHANT");
   const [merchant, setMerchant] = useState<Merchant | null>(null);
-  const [businessName, setBusinessName] = useState("");
-  const [businessRegistrationNumber, setBusinessRegistrationNumber] = useState("");
-  const [representativeName, setRepresentativeName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [summary, setSummary] = useState<ReservationSummary | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -65,33 +61,6 @@ export default function MerchantPage() {
       pickedUp: reservations.filter((reservation) => reservation.status === "PICKED_UP").length,
       cancelled: reservations.filter((reservation) => reservation.status === "CANCELLED").length,
     });
-  }
-
-  async function registerMerchant(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
-    setIsError(false);
-
-    try {
-      const data = await apiFetch<Merchant>(
-        "/api/v1/merchants/register",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            business_name: businessName,
-            business_registration_number: businessRegistrationNumber,
-            representative_name: representativeName,
-            phone_number: phoneNumber,
-          }),
-        },
-        true,
-      );
-      setMerchant(data);
-      setMessage("가맹점 등록이 완료되었습니다.");
-    } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
-    }
   }
 
   if (!guard.allowed) {
@@ -212,35 +181,16 @@ export default function MerchantPage() {
           )}
         </>
       ) : (
-        <form className="panel form-grid" onSubmit={registerMerchant}>
-          <h2>가맹점 등록</h2>
-          <p className="message">매장과 상품을 등록하려면 먼저 가맹점 프로필을 생성해야 합니다.</p>
-          <label>
-            상호명
-            <input value={businessName} onChange={(event) => setBusinessName(event.target.value)} required />
-          </label>
-          <label>
-            사업자등록번호
-            <input
-              value={businessRegistrationNumber}
-              onChange={(event) => setBusinessRegistrationNumber(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            대표자명
-            <input
-              value={representativeName}
-              onChange={(event) => setRepresentativeName(event.target.value)}
-              required
-            />
-          </label>
-          <label>
-            연락처
-            <input value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value)} required />
-          </label>
-          <button type="submit">가맹점 등록</button>
-        </form>
+        <section className="panel">
+          <h2>가맹점 승인 필요</h2>
+          <p className="message">
+            가맹점은 공개 회원가입으로 자동 생성되지 않습니다. 입점 신청 후 관리자 승인 절차가 완료되어야
+            상품/재고/예약 관리 화면에 접근할 수 있습니다.
+          </p>
+          <Link className="button-link secondary" href="/merchant/apply">
+            가맹점 입점 신청
+          </Link>
+        </section>
       )}
     </section>
   );

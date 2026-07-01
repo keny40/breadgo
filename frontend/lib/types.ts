@@ -34,6 +34,34 @@ export type MerchantMeResponse = {
   merchant: Merchant;
 };
 
+export type MerchantApplication = {
+  id: string;
+  store_name: string;
+  owner_name: string;
+  email: string;
+  phone: string;
+  business_registration_number: string;
+  address: string;
+  region_sido: string | null;
+  region_sigungu: string | null;
+  region_dong: string | null;
+  product_category: string | null;
+  pickup_available_time: string | null;
+  note: string | null;
+  status: string;
+  rejection_reason: string | null;
+  reviewed_at: string | null;
+  reviewed_by_user_id: string | null;
+  merchant_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MerchantApplicationApproveResponse = {
+  application: MerchantApplication;
+  merchant: Merchant;
+};
+
 export type Store = {
   id: string;
   merchant_id: string;

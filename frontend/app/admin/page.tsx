@@ -15,6 +15,8 @@ import {
   type AuthUser,
   type ExternalIntegrationReadiness,
   type Merchant,
+  type MerchantApplication,
+  type MerchantApplicationApproveResponse,
   type Payment,
   type Product,
   type Reservation,
@@ -148,6 +150,7 @@ export default function AdminPage() {
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [merchantApplications, setMerchantApplications] = useState<MerchantApplication[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -183,11 +186,22 @@ export default function AdminPage() {
           return;
         }
 
-        const [summaryData, userData, merchantData, storeData, productData, reservationData, paymentData, readinessData] =
+        const [
+          summaryData,
+          userData,
+          merchantData,
+          merchantApplicationData,
+          storeData,
+          productData,
+          reservationData,
+          paymentData,
+          readinessData,
+        ] =
           await Promise.all([
             apiFetch<AdminSummary>("/api/v1/admin/summary", {}, true),
             apiFetch<AuthUser[]>("/api/v1/admin/users", {}, true),
             apiFetch<Merchant[]>("/api/v1/admin/merchants", {}, true),
+            apiFetch<MerchantApplication[]>("/api/v1/admin/merchant-applications", {}, true),
             apiFetch<Store[]>("/api/v1/admin/stores", {}, true),
             apiFetch<Product[]>("/api/v1/admin/products", {}, true),
             apiFetch<Reservation[]>("/api/v1/admin/reservations", {}, true),
@@ -202,6 +216,7 @@ export default function AdminPage() {
         setSummary(summaryData);
         setUsers(userData);
         setMerchants(merchantData);
+        setMerchantApplications(merchantApplicationData);
         setStores(storeData);
         setProducts(productData);
         setReservations(reservationData);
@@ -241,6 +256,60 @@ export default function AdminPage() {
         current.map((merchant) => (merchant.id === merchantId ? updated : merchant)),
       );
       setMessage(`${updated.business_name} 상태가 ${updated.status}(으)로 변경되었습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function approveMerchantApplication(applicationId: string) {
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const result = await apiFetch<MerchantApplicationApproveResponse>(
+        `/api/v1/admin/merchant-applications/${applicationId}/approve`,
+        { method: "POST" },
+        true,
+      );
+      setMerchantApplications((current) =>
+        current.map((application) => (application.id === applicationId ? result.application : application)),
+      );
+      setMerchants((current) => {
+        const exists = current.some((merchant) => merchant.id === result.merchant.id);
+        return exists
+          ? current.map((merchant) => (merchant.id === result.merchant.id ? result.merchant : merchant))
+          : [result.merchant, ...current];
+      });
+      setMessage(`${result.application.store_name} 입점 신청을 승인했습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function rejectMerchantApplication(applicationId: string) {
+    const reason = window.prompt("반려 사유를 입력하세요.");
+    if (!reason?.trim()) {
+      return;
+    }
+
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const application = await apiFetch<MerchantApplication>(
+        `/api/v1/admin/merchant-applications/${applicationId}/reject`,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason }),
+        },
+        true,
+      );
+      setMerchantApplications((current) =>
+        current.map((item) => (item.id === applicationId ? application : item)),
+      );
+      setMessage(`${application.store_name} 입점 신청을 반려했습니다.`);
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -654,6 +723,73 @@ export default function AdminPage() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </AdminTable>
+
+          <AdminTable title="Merchant Applications">
+            <thead>
+              <tr>
+                <th>Store</th>
+                <th>Owner</th>
+                <th>Contact</th>
+                <th>Region</th>
+                <th>Status</th>
+                <th>Review</th>
+              </tr>
+            </thead>
+            <tbody>
+              {merchantApplications.map((application) => (
+                <tr key={application.id}>
+                  <td>
+                    <strong>{application.store_name}</strong>
+                    <br />
+                    <small>{application.business_registration_number}</small>
+                    <br />
+                    <small>{application.product_category || "카테고리 미입력"}</small>
+                  </td>
+                  <td>{application.owner_name}</td>
+                  <td>
+                    {application.email}
+                    <br />
+                    {application.phone}
+                  </td>
+                  <td>
+                    {[application.region_sido, application.region_sigungu, application.region_dong].filter(Boolean).join(" ") || "-"}
+                    <br />
+                    <small>{application.address}</small>
+                  </td>
+                  <td>
+                    <StatusBadge status={application.status} />
+                    {application.rejection_reason && (
+                      <>
+                        <br />
+                        <small>{application.rejection_reason}</small>
+                      </>
+                    )}
+                  </td>
+                  <td>
+                    {application.status === "PENDING" ? (
+                      <div className="actions">
+                        <button type="button" className="secondary" onClick={() => approveMerchantApplication(application.id)}>
+                          승인
+                        </button>
+                        <button type="button" className="secondary" onClick={() => rejectMerchantApplication(application.id)}>
+                          반려
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="field-help">
+                        {application.reviewed_at ? new Date(application.reviewed_at).toLocaleString() : "검토 완료"}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {merchantApplications.length === 0 && (
+                <tr>
+                  <td colSpan={6}>접수된 입점 신청이 없습니다.</td>
+                </tr>
+              )}
             </tbody>
           </AdminTable>
 

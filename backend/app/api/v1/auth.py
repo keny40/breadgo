@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, decode_access_token, get_password_hash, verify_password
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.core.config import settings
 from app.schemas.auth import GoogleOAuthStatusResponse, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.google_oauth_service import (
@@ -66,6 +66,12 @@ def get_current_user(
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserRegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    if payload.role != UserRole.CUSTOMER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Public signup is available for customer accounts only.",
+        )
+
     existing_user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email is already registered.")

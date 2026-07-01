@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import type { AuthResponse } from "@/lib/types";
@@ -45,9 +46,14 @@ export default function RegisterPage() {
 
   return (
     <section className="section">
-      <h1>회원가입</h1>
+      <h1>고객 회원가입</h1>
+      <p className="message">
+        고객으로 가입하고 마감 할인 상품을 예약하세요. 관리자 계정은 공개 회원가입으로 생성할 수 없습니다.
+        가맹점은 입점 신청 후 관리자 승인 절차를 거칩니다.
+      </p>
       <GoogleOAuthButton />
       <form className="panel form-grid" onSubmit={handleSubmit}>
+        <h2>이메일로 고객 가입</h2>
         <label>
           Email
           <input
@@ -76,10 +82,22 @@ export default function RegisterPage() {
           />
         </label>
         <button type="submit" disabled={loading}>
-          {loading ? "가입 중" : "Register"}
+          {loading ? "가입 중" : "고객 회원가입"}
         </button>
         {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       </form>
+      <section className="panel">
+        <div className="card-title-row">
+          <div>
+            <p className="eyebrow">Merchant Application</p>
+            <h2>가맹점 입점 신청</h2>
+            <p>가맹점은 자동 가입되지 않으며, 입점 신청 후 관리자 승인 절차를 거칩니다.</p>
+          </div>
+          <Link className="button-link secondary" href="/merchant/apply">
+            입점 신청하기
+          </Link>
+        </div>
+      </section>
     </section>
   );
 }

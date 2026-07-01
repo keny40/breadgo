@@ -121,9 +121,10 @@ def expect_http_error_status(
     path: str,
     token: str | None,
     expected: set[int],
+    payload: dict[str, Any] | None = None,
 ) -> Any:
     try:
-        response = request_json(step=step, method=method, path=path, token=token)
+        response = request_json(step=step, method=method, path=path, token=token, payload=payload)
     except SmokeTestError as exc:
         if exc.status_code in expected:
             print_pass(step)
@@ -280,7 +281,97 @@ def main() -> int:
             {"enabled", "message"},
         )
 
+        unique_suffix = str(int(__import__("time").time() * 1000))
+        expect_http_error_status(
+            "Public signup blocks merchant role",
+            "POST",
+            "/api/v1/auth/register",
+            None,
+            {403},
+            payload={
+                "email": f"blocked-merchant-{unique_suffix}@breadgo.test",
+                "password": PASSWORD,
+                "full_name": "Blocked Merchant",
+                "role": "merchant",
+            },
+        )
+        expect_http_error_status(
+            "Public signup blocks admin role",
+            "POST",
+            "/api/v1/auth/register",
+            None,
+            {403},
+            payload={
+                "email": f"blocked-admin-{unique_suffix}@breadgo.test",
+                "password": PASSWORD,
+                "full_name": "Blocked Admin",
+                "role": "admin",
+            },
+        )
+
+        application_payload = {
+            "store_name": f"Smoke Bakery {unique_suffix}",
+            "owner_name": "Smoke Owner",
+            "email": f"merchant-apply-{unique_suffix}@breadgo.test",
+            "phone": "010-0000-0000",
+            "business_registration_number": f"SMOKE-{unique_suffix}",
+            "address": "서울특별시 강남구 테스트로 1",
+            "region_sido": "서울특별시",
+            "region_sigungu": "강남구",
+            "region_dong": "역삼동",
+            "product_category": "베이커리",
+            "pickup_available_time": "18:00-21:00",
+            "note": "Smoke test merchant application",
+        }
+        application = expect_status(
+            "Merchant application created",
+            request_json(
+                step="Merchant application created",
+                method="POST",
+                path="/api/v1/merchants/apply",
+                payload=application_payload,
+            ),
+            {201},
+        )
+        application_id = application.get("id") if isinstance(application, dict) else None
+        if not application_id or application.get("status") != "PENDING":
+            raise SmokeTestError("Merchant application created", 201, application)
+
+        rejection_payload = {
+            **application_payload,
+            "store_name": f"Reject Bakery {unique_suffix}",
+            "email": f"merchant-reject-{unique_suffix}@breadgo.test",
+            "business_registration_number": f"REJECT-{unique_suffix}",
+        }
+        rejection_application = expect_status(
+            "Merchant application for rejection created",
+            request_json(
+                step="Merchant application for rejection created",
+                method="POST",
+                path="/api/v1/merchants/apply",
+                payload=rejection_payload,
+            ),
+            {201},
+        )
+        rejection_application_id = rejection_application.get("id") if isinstance(rejection_application, dict) else None
+        if not rejection_application_id:
+            raise SmokeTestError("Merchant application for rejection created", 201, rejection_application)
+
         customer_token = login("customer@breadgo.test", "Customer login")
+
+        expect_http_error_status(
+            "Customer direct merchant register blocked",
+            "POST",
+            "/api/v1/merchants/register",
+            customer_token,
+            {403},
+            payload={
+                "business_name": "Blocked Merchant",
+                "business_registration_number": f"DIRECT-{unique_suffix}",
+                "representative_name": "Blocked",
+                "phone_number": "010-1111-1111",
+            },
+        )
 
         products = load_region_products()
 
@@ -420,6 +511,67 @@ def main() -> int:
 
         admin_token = login("admin@breadgo.test", "Admin login")
 
+        applications = expect_status(
+            "Admin merchant applications loaded",
+            request_json(
+                step="Admin merchant applications loaded",
+                method="GET",
+                path="/api/v1/admin/merchant-applications",
+                token=admin_token,
+            ),
+            {200},
+        )
+        if not isinstance(applications, list) or not any(item.get("id") == application_id for item in applications):
+            raise SmokeTestError("Admin merchant applications loaded", 200, applications)
+
+        application_detail = expect_status(
+            "Admin merchant application detail loaded",
+            request_json(
+                step="Admin merchant application detail loaded",
+                method="GET",
+                path=f"/api/v1/admin/merchant-applications/{application_id}",
+                token=admin_token,
+            ),
+            {200},
+        )
+        expect_dict_with_keys(
+            "Admin merchant application detail loaded",
+            application_detail,
+            {"id", "store_name", "status"},
+        )
+
+        approved_application = expect_status(
+            "Admin merchant application approved",
+            request_json(
+                step="Admin merchant application approved",
+                method="POST",
+                path=f"/api/v1/admin/merchant-applications/{application_id}/approve",
+                token=admin_token,
+            ),
+            {200},
+        )
+        approved_body = expect_dict_with_keys(
+            "Admin merchant application approved",
+            approved_application,
+            {"application", "merchant"},
+        )
+        if approved_body["application"].get("status") != "APPROVED" or approved_body["merchant"].get("status") != "APPROVED":
+            raise SmokeTestError("Admin merchant application approved", 200, approved_application)
+
+        rejected_application = expect_status(
+            "Admin merchant application rejected",
+            request_json(
+                step="Admin merchant application rejected",
+                method="POST",
+                path=f"/api/v1/admin/merchant-applications/{rejection_application_id}/reject",
+                token=admin_token,
+                payload={"reason": "Smoke test rejection"},
+            ),
+            {200},
+        )
+        if not isinstance(rejected_application, dict) or rejected_application.get("status") != "REJECTED":
+            raise SmokeTestError("Admin merchant application rejected", 200, rejected_application)
+
         summary = expect_status(
             "Admin summary loaded",
             request_json(
@@ -551,6 +703,14 @@ def main() -> int:
             "Merchant blocked from Admin Pro Operations summary",
             "GET",
             "/api/v1/admin/pro/operations/summary",
+            merchant_token,
+            {403},
+        )
+
+        expect_http_error_status(
+            "Merchant blocked from Admin merchant applications",
+            "GET",
+            "/api/v1/admin/merchant-applications",
             merchant_token,
             {403},
         )

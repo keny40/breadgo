@@ -1,4 +1,5 @@
 from app.models.merchant import Merchant
+from app.models.merchant_application import MerchantApplication
 from app.models.inventory_alert_action import InventoryAlertAction
 from app.models.notification import Notification
 from app.models.payment import Payment
@@ -30,6 +31,7 @@ from app.models.user import User
 
 __all__ = [
     "Merchant",
+    "MerchantApplication",
     "InventoryAlertAction",
     "Notification",
     "Payment",

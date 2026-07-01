@@ -13,6 +13,12 @@ from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantStatusUpda
 from app.schemas.auth import UserResponse
 from app.schemas.external_integration import ExternalIntegrationReadinessRead
 from app.schemas.merchant import MerchantRead
+from app.models.merchant_application import MerchantApplicationStatus
+from app.schemas.merchant_application import (
+    MerchantApplicationApproveResponse,
+    MerchantApplicationRead,
+    MerchantApplicationRejectRequest,
+)
 from app.schemas.payment import PaymentRead
 from app.schemas.pro_daily_brief import (
     AdminProOperationsHealthRead,
@@ -55,6 +61,12 @@ from app.services.admin_service import (
     update_merchant_status,
 )
 from app.services.external_integration_readiness_service import build_external_integration_readiness
+from app.services.merchant_application_service import (
+    approve_merchant_application,
+    get_merchant_application,
+    list_merchant_applications,
+    reject_merchant_application,
+)
 from app.services.reservation_service import update_delivery_status_for_admin
 from app.services.reservation_history_service import get_history_for_admin
 from app.services.pro_daily_brief_service import (
@@ -200,6 +212,50 @@ def change_merchant_status(
 ) -> MerchantRead:
     merchant = update_merchant_status(db, merchant_id, payload)
     return MerchantRead.model_validate(merchant)
+
+
+@router.get("/merchant-applications", response_model=list[MerchantApplicationRead])
+def list_admin_merchant_applications(
+    status_filter: MerchantApplicationStatus | None = Query(default=None, alias="status"),
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> list[MerchantApplicationRead]:
+    applications = list_merchant_applications(db, status_filter)
+    return [MerchantApplicationRead.model_validate(application) for application in applications]
+
+
+@router.get("/merchant-applications/{application_id}", response_model=MerchantApplicationRead)
+def get_admin_merchant_application(
+    application_id: UUID,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> MerchantApplicationRead:
+    application = get_merchant_application(db, application_id)
+    return MerchantApplicationRead.model_validate(application)
+
+
+@router.post("/merchant-applications/{application_id}/approve", response_model=MerchantApplicationApproveResponse)
+def approve_admin_merchant_application(
+    application_id: UUID,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> MerchantApplicationApproveResponse:
+    application, merchant = approve_merchant_application(db, application_id, current_admin)
+    return MerchantApplicationApproveResponse(
+        application=MerchantApplicationRead.model_validate(application),
+        merchant=MerchantRead.model_validate(merchant),
+    )
+
+
+@router.post("/merchant-applications/{application_id}/reject", response_model=MerchantApplicationRead)
+def reject_admin_merchant_application(
+    application_id: UUID,
+    payload: MerchantApplicationRejectRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> MerchantApplicationRead:
+    application = reject_merchant_application(db, application_id, payload, current_admin)
+    return MerchantApplicationRead.model_validate(application)
 
 
 @router.post("/demo/seed", response_model=DemoSeedResponse)

@@ -36,6 +36,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Admin readiness simple mode: [Phase 141 Admin Readiness Simple Mode](docs/admin-readiness-simple-mode-phase141.md)
 - Google OAuth customer signup/login: [Phase 142 Google OAuth Signup](docs/google-oauth-signup-phase142.md)
 - Google OAuth live verification: [Phase 144 Google OAuth Live Verification](docs/google-oauth-live-verification-phase144.md)
+- Signup role separation: [Phase 145 Signup Role Separation](docs/signup-role-separation-phase145.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
