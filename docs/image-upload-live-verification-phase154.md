@@ -24,7 +24,7 @@ The actual token value must stay only in Vercel environment variables.
 
 ## Live Verification Result
 
-Current live status: **NOT ENABLED**
+Phase 154 originally found storage disabled. After the OIDC support update, production status is now **ENABLED**.
 
 `GET /api/upload/product-image` returned:
 
@@ -43,6 +43,20 @@ This means the deployed frontend did not see `BLOB_READ_WRITE_TOKEN` at runtime/
 - `IMAGE_UPLOAD_ENABLED` / `STORAGE_BACKEND` are not set in the same Vercel environment.
 - The Vercel deployment was not redeployed after setting the variables.
 - The token was set in a different Vercel project, team, or environment scope than the production deployment.
+
+Updated result after OIDC support:
+
+```json
+{
+  "enabled": true,
+  "backend": "vercel_blob",
+  "message": "Vercel Blob 이미지 업로드를 사용할 수 있습니다.",
+  "missing_env": [],
+  "auth_mode": "oidc"
+}
+```
+
+Live upload, product registration, and public product image URL verification are recorded in `docs/vercel-blob-oidc-phase155.md`.
 
 ## Merchant Product Screen Check
 

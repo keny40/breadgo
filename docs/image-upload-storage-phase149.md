@@ -155,6 +155,14 @@ BreadGo now enables Vercel Blob upload when either of these auth paths is availa
 
 Detailed OIDC note: `docs/vercel-blob-oidc-phase155.md`
 
+Production after the OIDC update:
+
+- `enabled=true`
+- `backend=vercel_blob`
+- `auth_mode=oidc`
+- file upload POST returned a Vercel Blob public URL
+- a test product saved that Blob URL and public product lookup returned the same `image_url`
+
 ## Security
 
 - No storage access key or secret key is stored in code.

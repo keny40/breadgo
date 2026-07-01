@@ -133,6 +133,35 @@ Validation commands:
 - `python scripts/smoke_test.py`: PASS
 - `python -m pytest tests -q`: PASS
 
+## Production Verification
+
+After deployment, production status changed to:
+
+```json
+{
+  "enabled": true,
+  "backend": "vercel_blob",
+  "message": "Vercel Blob 이미지 업로드를 사용할 수 있습니다.",
+  "missing_env": [],
+  "auth_mode": "oidc"
+}
+```
+
+Live upload verification:
+
+- `POST https://breadgo.vercel.app/api/upload/product-image`: PASS
+- Returned a public Vercel Blob URL.
+- Blob URL `HEAD`: PASS, `200`
+- Product registration with the uploaded image URL: PASS
+- Public store product lookup includes the same `image_url`: PASS
+
+Verification product:
+
+- Product ID: `5699bafb-3ad5-404b-9c6e-a7c7c1f67063`
+- Product name: `Blob 업로드 검증 상품 165312`
+
+No token value was printed or stored.
+
 ## Fallback Behavior
 
 If OIDC variables are not present:
