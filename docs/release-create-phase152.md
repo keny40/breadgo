@@ -69,21 +69,21 @@ Known operating note:
 
 ## Validation Results
 
-To be updated after command execution:
+Executed during Phase 152:
 
-- `git status`: pending
-- `git branch --show-current`: pending
-- `git log --oneline -5`: pending
-- `git tag --list`: pending
-- `git show v0.1.5-google-oauth-live --no-patch`: pending
-- `git ls-remote --tags origin v0.1.5-google-oauth-live`: pending
-- `python -m compileall app scripts`: pending
-- `python -m alembic upgrade head`: pending
-- `python scripts/seed_demo.py`: pending
-- `python scripts/smoke_test.py`: pending
-- `python -m pytest tests -q`: pending
-- `npm run lint`: pending
-- `npm run build`: pending
+- `git status`: PASS, clean before tag creation; clean again after final verification
+- `git branch --show-current`: PASS, `main`
+- `git log --oneline -5`: PASS, latest `main` includes final v0.1.5 live release tag preparation
+- `git tag --list`: PASS, both the earlier tag and final live tag are present
+- `git show v0.1.5-google-oauth-live --no-patch`: PASS, annotated tag exists
+- `git ls-remote --tags origin v0.1.5-google-oauth-live`: PASS, remote tag exists
+- `python -m compileall app scripts`: PASS
+- `python -m alembic upgrade head`: PASS
+- `python scripts/seed_demo.py`: PASS
+- `python scripts/smoke_test.py`: PASS after explicitly waiting for the local backend `/health` endpoint
+- `python -m pytest tests -q`: PASS, 15 passed, 1 warning
+- `npm run lint`: PASS
+- `npm run build`: PASS
 
 ## DB / Migration
 
