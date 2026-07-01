@@ -102,3 +102,36 @@ Phase 142 validation:
 - No admin/merchant Google signup is implemented.
 - The callback currently returns the BreadGo JWT to the frontend callback route for MVP simplicity.
 - Production hardening should add stronger state/session validation and token handoff hardening before public rollout.
+
+## Phase 143 Deployment Check
+
+Checked against the deployed demo environment:
+
+- Frontend:
+  - `/login`: `Google로 계속하기` button is visible.
+  - `/register`: `Google로 계속하기` button is visible.
+  - Both buttons are disabled because deployed Google OAuth status returns `enabled=false`.
+  - Disabled guidance is shown: `현재 환경에서는 Google OAuth가 꺼져 있습니다. 데모 계정 또는 이메일 로그인을 사용해 주세요.`
+  - Admin/merchant boundary copy is shown: `관리자와 가맹점 계정은 별도 승인 방식으로 운영됩니다.`
+- Backend:
+  - `GET /api/v1/auth/google/status`: returns `{"enabled": false, "message": "Google OAuth is disabled or not configured for this environment."}`.
+  - No `accounts.google.com`, `oauth2.googleapis.com`, or Google live OAuth request was triggered.
+- Existing auth:
+  - `customer@breadgo.test / 12345678`: login PASS.
+  - `merchant@breadgo.test / 12345678`: login PASS.
+  - `admin@breadgo.test / 12345678`: login PASS.
+  - Representative customer, merchant, and admin API checks returned 200.
+- Browser check:
+  - No page errors were observed.
+  - One `/favicon.ico` 404 console message was observed on `/login`; it is unrelated to Google OAuth and does not block login.
+
+No Vercel Google OAuth environment variables were added in this phase. Live Google OAuth remains disabled.
+
+### Phase 143 Recheck - 2026-07-01
+
+- `/login`: Google button remains visible and disabled.
+- `/register`: Google button remains visible and disabled.
+- `GET /api/v1/auth/google/status`: returns `enabled=false`.
+- No Google live OAuth endpoint calls were observed.
+- Customer, merchant, and admin demo logins still return 200.
+- No OAuth-related console or network errors were observed. The existing `/favicon.ico` 404 on `/login` is unrelated to OAuth.
