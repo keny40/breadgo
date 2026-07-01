@@ -41,6 +41,8 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Role based redirect/navigation: [Phase 147 Role Based Redirect](docs/role-based-redirect-phase147.md)
 - v0.1.5 release candidate: [Release Note v0.1.5](docs/release-note-v0.1.5.md), [Release Checklist v0.1.5](docs/release-checklist-v0.1.5.md), [Phase 148 RC Check](docs/release-candidate-check-phase148.md)
 - v0.1.5 tag / release prep: [Phase 149 Release Create Prep](docs/release-create-phase149.md)
+- Product image upload storage: [Phase 149 Image Upload Storage](docs/image-upload-storage-phase149.md)
+- Site performance diagnosis: [Phase 149 Site Performance](docs/site-performance-phase149.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
@@ -396,6 +398,8 @@ BACKEND_CORS_ORIGINS=["https://breadgo.vercel.app"]
 ```text
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
+IMAGE_UPLOAD_ENABLED=false
+STORAGE_BACKEND=vercel_blob
 ```
 
 배포 환경:
@@ -403,7 +407,11 @@ BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
 ```text
 NEXT_PUBLIC_API_BASE_URL=https://breadgo-api.onrender.com
 BLOB_READ_WRITE_TOKEN=replace-with-vercel-blob-token
+IMAGE_UPLOAD_ENABLED=true
+STORAGE_BACKEND=vercel_blob
 ```
+
+상품 이미지 파일 업로드는 현재 Vercel frontend route에서 처리합니다. Vercel Blob을 쓰려면 Vercel 환경변수에 `BLOB_READ_WRITE_TOKEN`을 설정하세요. Cloudflare R2/AWS S3-compatible storage를 쓰는 경우 필요한 변수는 [Phase 149 Image Upload Storage](docs/image-upload-storage-phase149.md)를 참고하세요. storage가 꺼져 있어도 상품 등록 화면의 이미지 URL 직접 입력은 계속 사용할 수 있습니다.
 
 Flutter:
 

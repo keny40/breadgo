@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   apiFetch,
   clearToken,
+  getStoredUser,
   getToken,
   routeForRole,
   saveStoredUser,
@@ -45,6 +46,19 @@ export function useRoleGuard(requiredRole: AuthRole) {
         setMessage(nextMessage);
         storeAuthMessage(nextMessage);
         router.replace("/login");
+        return;
+      }
+
+      const storedUser = getStoredUser();
+      const storedRole = normalizeRole(storedUser?.role);
+      if (storedRole === requiredRole) {
+        setAllowed(true);
+        setMessage("");
+      } else if (storedRole && storedRole !== requiredRole) {
+        const nextMessage = "접근 권한이 없습니다.";
+        setMessage(nextMessage);
+        storeAuthMessage(nextMessage);
+        router.replace(routeForRole(storedUser?.role));
         return;
       }
 

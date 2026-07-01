@@ -34,7 +34,11 @@ export function saveToken(token: string): void {
 }
 
 export function saveStoredUser(user: StoredUser): void {
-  window.localStorage.setItem("breadgo_user", JSON.stringify(user));
+  const nextUser = JSON.stringify(user);
+  if (window.localStorage.getItem("breadgo_user") === nextUser) {
+    return;
+  }
+  window.localStorage.setItem("breadgo_user", nextUser);
   window.dispatchEvent(new Event("breadgo-auth-changed"));
 }
 
