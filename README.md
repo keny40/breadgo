@@ -47,6 +47,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Product image upload storage: [Phase 149 Image Upload Storage](docs/image-upload-storage-phase149.md)
 - Product image upload live check: [Phase 154 Vercel Blob Verification](docs/image-upload-live-verification-phase154.md)
 - Vercel Blob OIDC upload support: [Vercel Blob OIDC Upload Support](docs/vercel-blob-oidc-phase155.md)
+- v0.1.6 release candidate: [Release Note v0.1.6](docs/release-note-v0.1.6.md), [Release Checklist v0.1.6](docs/release-checklist-v0.1.6.md), [Phase 156 RC Check](docs/release-candidate-check-phase156.md)
 - Site performance diagnosis: [Phase 149 Site Performance](docs/site-performance-phase149.md)
 - v0.1.5 pre-release site check: [Phase 150 Site Check](docs/pre-release-site-check-v0.1.5-phase150.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
