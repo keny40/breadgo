@@ -117,6 +117,25 @@ When storage is not configured:
   - `이미지 파일 업로드 storage가 설정되지 않았습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.`
 - Manual image URL input remains available.
 
+## Phase 154 Live Verification
+
+Phase 154 rechecked the production Vercel deployment after the intended Vercel Blob setup.
+
+Actual production status on `https://breadgo.vercel.app/api/upload/product-image`:
+
+- `enabled=false`
+- `backend=none`
+- `missing_env=["BLOB_READ_WRITE_TOKEN"]`
+- `/merchant/products` still disables the file input and `이미지 업로드` button.
+- Manual image URL input remains available.
+- No secret/token/key value was exposed.
+
+Conclusion:
+
+- Vercel Blob is not yet active on the live deployment.
+- Confirm that `BLOB_READ_WRITE_TOKEN`, `IMAGE_UPLOAD_ENABLED=true`, and `STORAGE_BACKEND=vercel_blob` are set in the correct Vercel production environment, then redeploy.
+- Detailed result: `docs/image-upload-live-verification-phase154.md`
+
 ## Security
 
 - No storage access key or secret key is stored in code.
