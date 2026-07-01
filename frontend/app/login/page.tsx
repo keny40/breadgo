@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
+import { apiFetch, friendlyErrorMessage, routeForRole, saveAuthSession } from "@/lib/api";
 import { consumeAuthMessage } from "@/lib/authGuard";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import type { AuthResponse } from "@/lib/types";
@@ -27,8 +27,7 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      saveToken(data.access_token);
-      saveStoredUser(data.user);
+      saveAuthSession(data.access_token, data.user);
       setMessage(`${data.user.full_name}님, 로그인되었습니다. 이동합니다.`);
       router.replace(routeForRole(data.user.role));
     } catch (error) {

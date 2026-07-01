@@ -38,6 +38,12 @@ export function saveStoredUser(user: StoredUser): void {
   window.dispatchEvent(new Event("breadgo-auth-changed"));
 }
 
+export function saveAuthSession(token: string, user: StoredUser): void {
+  window.localStorage.setItem("access_token", token);
+  window.localStorage.setItem("breadgo_user", JSON.stringify(user));
+  window.dispatchEvent(new Event("breadgo-auth-changed"));
+}
+
 export function getStoredUser(): StoredUser | null {
   if (typeof window === "undefined") {
     return null;

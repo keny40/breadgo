@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
+import { apiFetch, friendlyErrorMessage, routeForRole, saveAuthSession } from "@/lib/api";
 import type { AuthUser } from "@/lib/types";
 
 function GoogleCallbackContent() {
@@ -16,9 +16,8 @@ function GoogleCallbackContent() {
   useEffect(() => {
     async function finishLogin(nextToken: string) {
       try {
-        saveToken(nextToken);
         const user = await apiFetch<AuthUser>("/api/v1/auth/me", {}, true);
-        saveStoredUser(user);
+        saveAuthSession(nextToken, user);
         setMessage(`${user.full_name}님, Google 계정으로 로그인되었습니다. 이동합니다.`);
         router.replace(routeForRole(user.role));
       } catch (caught) {

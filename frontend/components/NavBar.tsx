@@ -14,11 +14,21 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const normalizedRole = userRole?.toLowerCase();
+  const customerLinks = [
+    { href: "/products", label: "상품 보기" },
+    { href: "/my-reservations", label: "내 예약" },
+    { href: "/my-payments", label: "내 결제" },
+  ];
   const roleLinks = !loggedIn
     ? [{ href: "/products", label: "상품 보기" }]
     : normalizedRole === "merchant"
       ? [
-          { href: "/merchant", label: "가맹점" },
+          { href: "/merchant", label: "가맹점 홈" },
+          { href: "/merchant/products", label: "상품관리" },
+          { href: "/merchant/orders", label: "주문관리" },
+          { href: "/merchant/pickup", label: "픽업" },
+          { href: "/merchant/pro/pos", label: "POS" },
+          { href: "/merchant/pro/inventory-ledger", label: "재고 이력" },
           { href: "/merchant/pro", label: "Pro 대시보드" },
           { href: "/merchant/pro/daily-brief", label: "오늘 브리프" },
           { href: "/merchant/pro/weekly-report", label: "주간 리포트" },
@@ -35,15 +45,10 @@ export default function NavBar() {
           { href: "/merchant/pro/recommendation-performance", label: "추천 성과" },
           { href: "/merchant/pro/product-funnel", label: "고객 전환" },
           { href: "/merchant/pro/esg", label: "ESG 리포트" },
-          { href: "/merchant/pro/inventory-ledger", label: "재고 이력" },
           { href: "/merchant/pro/inventory-alerts", label: "재고 알림" },
-          { href: "/merchant/pro/pos", label: "POS 연동" },
           { href: "/merchant/stores", label: "매장" },
-          { href: "/merchant/products", label: "상품 관리" },
           { href: "/merchant/products/import", label: "CSV 등록" },
           { href: "/merchant/product-templates", label: "상품 템플릿" },
-          { href: "/merchant/orders", label: "주문 관리" },
-          { href: "/merchant/pickup", label: "픽업 확인" },
           { href: "/merchant/settlement-account", label: "정산 계좌" },
           { href: "/merchant/settlements", label: "정산 내역" },
         ]
@@ -58,11 +63,9 @@ export default function NavBar() {
             { href: "/admin/pro/weekly-report-batches", label: "Batch Monitor" },
             { href: "/admin/pro/weekly-report-deliveries", label: "Delivery Preview" },
           ]
-        : [
-            { href: "/products", label: "상품 보기" },
-            { href: "/my-reservations", label: "내 예약" },
-            { href: "/my-payments", label: "내 결제" },
-          ];
+        : normalizedRole === "customer"
+          ? customerLinks
+          : [];
   const links = [
     { href: "/demo", label: "데모 가이드" },
     ...(loggedIn ? [{ href: "/notifications", label: unreadCount > 0 ? `알림 ${unreadCount}` : "알림" }] : []),

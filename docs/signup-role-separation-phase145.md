@@ -139,3 +139,21 @@ Phase 145 validation:
 - Approval creates/activates merchant account/profile but does not send credentials externally.
 - No external email/Kakao/Push notification is sent.
 - Merchant onboarding email delivery and invitation-password setup should be handled in a later phase.
+
+## Phase 146 Production Deployment Check
+
+Production deployment was verified against:
+
+- Frontend: `https://breadgo.vercel.app`
+- Backend: `https://breadgo-api.onrender.com`
+
+Results:
+
+- `/register` customer signup and merchant application CTA are visible.
+- `/merchant/apply` application page is visible.
+- `merchant_applications` migration is reflected in production, confirmed by create/list/approve/reject API checks.
+- `role=merchant` and `role=admin` public signup requests return `403`.
+- Existing customer, merchant, and admin demo logins still work.
+- Google OAuth remains enabled for customer accounts.
+
+See [Phase 146 Signup Role Separation Deploy Check](signup-role-separation-deploy-check-phase146.md).
