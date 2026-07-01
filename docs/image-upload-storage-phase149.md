@@ -52,7 +52,7 @@ STORAGE_BACKEND=vercel_blob
 BLOB_STORE_ID=<provided by Vercel Blob project connection>
 ```
 
-Vercel provides `VERCEL_OIDC_TOKEN` at runtime for connected projects. The app uses `BLOB_STORE_ID + VERCEL_OIDC_TOKEN` when available.
+Vercel provides `VERCEL_OIDC_TOKEN` at runtime or through Vercel's request context for connected projects. The app uses `BLOB_STORE_ID` in a Vercel runtime to enable OIDC upload checks.
 
 For non-OIDC environments, use a read-write token instead:
 
@@ -146,12 +146,12 @@ Conclusion:
 
 ## OIDC Support Update
 
-Vercel Blob now supports OIDC-connected projects. In that mode Vercel does not create a visible `BLOB_READ_WRITE_TOKEN`; instead, it provides `BLOB_STORE_ID` and a short-lived `VERCEL_OIDC_TOKEN` at runtime.
+Vercel Blob now supports OIDC-connected projects. In that mode Vercel does not create a visible `BLOB_READ_WRITE_TOKEN`; instead, it provides `BLOB_STORE_ID` and a short-lived OIDC token at runtime or through Vercel's request context.
 
 BreadGo now enables Vercel Blob upload when either of these auth paths is available:
 
 - `BLOB_READ_WRITE_TOKEN`
-- `BLOB_STORE_ID + VERCEL_OIDC_TOKEN`
+- `BLOB_STORE_ID` on Vercel OIDC-connected runtime
 
 Detailed OIDC note: `docs/vercel-blob-oidc-phase155.md`
 

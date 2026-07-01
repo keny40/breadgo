@@ -58,12 +58,17 @@ function getStorageStatus(): StorageStatus {
   const backend = normalizeBackend();
   if (backend === "vercel_blob") {
     const hasReadWriteToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+    const hasBlobStoreId = Boolean(process.env.BLOB_STORE_ID?.trim());
+    const isVercelRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
     const hasOidcCredentials = Boolean(
-      process.env.BLOB_STORE_ID?.trim() && process.env.VERCEL_OIDC_TOKEN?.trim(),
+      hasBlobStoreId && (process.env.VERCEL_OIDC_TOKEN?.trim() || isVercelRuntime),
     );
     const missing = hasReadWriteToken
       ? []
-      : missingEnv(["BLOB_STORE_ID", "VERCEL_OIDC_TOKEN"]);
+      : [
+          ...(!hasBlobStoreId ? ["BLOB_STORE_ID"] : []),
+          ...(!hasOidcCredentials && !isVercelRuntime ? ["VERCEL_OIDC_TOKEN"] : []),
+        ];
     const enabled = hasReadWriteToken || hasOidcCredentials;
     return {
       enabled,

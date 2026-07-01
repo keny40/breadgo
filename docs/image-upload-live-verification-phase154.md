@@ -106,7 +106,7 @@ In Vercel project settings for the production frontend deployment:
 1. Confirm the Blob Store is connected to the correct Vercel project and environment.
 2. Confirm the variables are available for the same environment:
    - `BLOB_STORE_ID`
-   - Vercel-provided runtime `VERCEL_OIDC_TOKEN`
+   - Vercel-provided OIDC runtime/context token
    - `IMAGE_UPLOAD_ENABLED=true`
    - `STORAGE_BACKEND=vercel_blob`
 3. If OIDC cannot be used, create a read-write token and set `BLOB_READ_WRITE_TOKEN` in Vercel instead.
