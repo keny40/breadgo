@@ -43,6 +43,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - v0.1.5 tag / release prep: [Phase 149 Release Create Prep](docs/release-create-phase149.md)
 - v0.1.5 release registration prep: [Phase 151 Release Create Prep](docs/release-create-phase151.md)
 - v0.1.5 final live release tag prep: [Phase 152 Release Create Prep](docs/release-create-phase152.md)
+- v0.1.5 live release: [v0.1.5-google-oauth-live](https://github.com/keny40/breadgo/releases/tag/v0.1.5-google-oauth-live), [Phase 153 Post-check](docs/release-post-check-phase153.md), [Phase 153 Completion](docs/release-completion-phase153.md)
 - Product image upload storage: [Phase 149 Image Upload Storage](docs/image-upload-storage-phase149.md)
 - Site performance diagnosis: [Phase 149 Site Performance](docs/site-performance-phase149.md)
 - v0.1.5 pre-release site check: [Phase 150 Site Check](docs/pre-release-site-check-v0.1.5-phase150.md)

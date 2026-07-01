@@ -2,14 +2,14 @@
 
 ## 상태
 
-`v0.1.5`는 Google OAuth live 로그인과 role 기반 onboarding 안정화를 정리한 최종 Release 등록 준비 상태다.
+`v0.1.5`는 Google OAuth live 로그인과 role 기반 onboarding 안정화를 정리한 공식 Release다.
 
-- 현재 공식 최신 Release: `v0.1.4-readiness-ux-boundary` until the v0.1.5 GitHub Release is manually published
+- 현재 공식 최신 Release: `v0.1.5-google-oauth-live`
+- 이전 공식 Release: `v0.1.4-readiness-ux-boundary`
 - v0.1.5 final tag: `v0.1.5-google-oauth-live`
 - v0.1.5 earlier tag: `v0.1.5-google-oauth-role-onboarding`
-- v0.1.5 GitHub Release: manual registration pending
+- v0.1.5 GitHub Release: `https://github.com/keny40/breadgo/releases/tag/v0.1.5-google-oauth-live`
 - final tag is prepared separately from the earlier v0.1.5 tag
-- 새 GitHub Release 생성 없음
 - 기존 tag 삭제/이동 없음
 
 ## v0.1.5 목적
@@ -108,7 +108,7 @@ Production API 확인 기준:
 - role direct assignment blocking
 - role based frontend redirect/navigation
 - production deployment verification notes
-- v0.1.5 release candidate documents
+- v0.1.5 release documents
 
 ## 제외 범위
 
@@ -120,9 +120,6 @@ Production API 확인 기준:
 - 실명/사업자번호 외부 검증 API
 - 실제 결제/배송/POS/외부 알림 API 신규 연동
 - secret manager 고도화
-- 새 tag 생성
-- GitHub Release 생성
-
 ## Security / Secret Policy
 
 - `GOOGLE_CLIENT_SECRET` 값은 repository에 저장하지 않는다.
@@ -132,17 +129,17 @@ Production API 확인 기준:
 
 ## DB Schema / Migration
 
-v0.1.5 RC 기준 추가 DB 변경은 없다.
+v0.1.5 기준 추가 DB 변경은 없다.
 
 이 범위에서 사용하는 migration:
 
 - `202606180024_create_merchant_applications.py`
 
-Phase 148에서는 DB schema 변경 없음, migration 추가 없음.
+Phase 153에서는 DB schema 변경 없음, migration 추가 없음.
 
 ## 검증 결과
 
-Release Candidate 준비 기준으로 아래 명령을 실행한다.
+Release completion 기준으로 아래 명령을 실행한다.
 
 - `python -m compileall app scripts`
 - `python -m alembic upgrade head`
@@ -152,22 +149,20 @@ Release Candidate 준비 기준으로 아래 명령을 실행한다.
 - `npm run lint`
 - `npm run build`
 
-실행 결과는 `docs/release-candidate-check-phase148.md`에 기록한다.
+최종 확인 결과는 `docs/release-post-check-phase153.md`에 기록한다.
 
 ## 추천 Release 정보
 
-- 추천 tag: `v0.1.5-google-oauth-role-onboarding`
-- 추천 Release title: `BreadGo Google OAuth Role Onboarding Release v0.1.5`
+- Tag: `v0.1.5-google-oauth-live`
+- Release title: `BreadGo Google OAuth Live Release v0.1.5`
 - Release body source: `docs/release-note-v0.1.5.md`
 - Target branch: `main`
 
-## Release 생성 전 주의사항
+## Release 운영 주의사항
 
-- v0.1.5 tag는 아직 만들지 않는다.
-- GitHub Release는 아직 만들지 않는다.
 - production OAuth secret, token, key 값을 문서에 포함하지 않는다.
 - `merchant3@breadgo.test`는 role 데이터가 customer임을 데모 전 명확히 설명한다.
 
 ## Suggested commit message
 
-`Prepare v0.1.5 release candidate docs`
+`Document v0.1.5 release completion`
