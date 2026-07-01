@@ -76,8 +76,8 @@ gh release create v0.1.5-google-oauth-role-onboarding `
 - `git branch --show-current`: PASS, `main`.
 - `git log --oneline -5`: PASS.
 - `git tag --list`: PASS, v0.1.5 tag was absent before creation.
-- `git show v0.1.5-google-oauth-role-onboarding --no-patch`: to be checked after tag creation.
-- `git ls-remote --tags origin v0.1.5-google-oauth-role-onboarding`: to be checked after tag push.
+- `git show v0.1.5-google-oauth-role-onboarding --no-patch`: PASS.
+- `git ls-remote --tags origin v0.1.5-google-oauth-role-onboarding`: PASS.
 - `python -m compileall app scripts`: PASS
 - `python -m alembic upgrade head`: PASS
 - `python scripts/seed_demo.py`: PASS
@@ -85,6 +85,17 @@ gh release create v0.1.5-google-oauth-role-onboarding `
 - `python -m pytest tests -q`: PASS, 15 passed.
 - `npm run lint`: PASS
 - `npm run build`: PASS
+
+## Tag Result
+
+- Created tag: `v0.1.5-google-oauth-role-onboarding`
+- Tag type: annotated tag
+- Tag message: `BreadGo Google OAuth Role Onboarding Release v0.1.5`
+- Tag target commit: `0b26bedb1930cdc161205b3aa4ee291a439c5c53`
+- Tag push: completed to `origin`
+- Remote tag ref: `refs/tags/v0.1.5-google-oauth-role-onboarding`
+
+This status note was recorded after the tag push. The tag itself was not moved after creation.
 
 ## DB / Migration
 
