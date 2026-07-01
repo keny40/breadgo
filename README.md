@@ -39,6 +39,7 @@ Render 무료 인스턴스는 일정 시간 요청이 없으면 sleep 상태가 
 - Signup role separation: [Phase 145 Signup Role Separation](docs/signup-role-separation-phase145.md)
 - Signup deployment check: [Phase 146 Signup Role Separation Deploy Check](docs/signup-role-separation-deploy-check-phase146.md)
 - Role based redirect/navigation: [Phase 147 Role Based Redirect](docs/role-based-redirect-phase147.md)
+- v0.1.5 release candidate: [Release Note v0.1.5](docs/release-note-v0.1.5.md), [Release Checklist v0.1.5](docs/release-checklist-v0.1.5.md), [Phase 148 RC Check](docs/release-candidate-check-phase148.md)
 - v0.1.2 completion: [Phase 122 Release Completion](docs/release-completion-phase122.md)
 - Release completion: [Phase 112 Release Completion](docs/release-completion-phase112.md)
 - Operations stabilization: [Phase 113 Operations Stabilization](docs/operations-stabilization-phase113.md)
