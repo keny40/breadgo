@@ -2,18 +2,19 @@
 
 ## 상태
 
-`v0.1.5`는 아직 Release Candidate 준비 단계다.
+`v0.1.5`는 Google OAuth live 로그인과 role 기반 onboarding 안정화를 정리한 최종 Release 등록 준비 상태다.
 
-- 현재 공식 최신 Release: `v0.1.4-readiness-ux-boundary`
-- v0.1.5 공식 tag: 아직 생성 전
-- v0.1.5 GitHub Release: 아직 생성 전
-- 새 tag 생성 없음
+- 현재 공식 최신 Release: `v0.1.4-readiness-ux-boundary` until the v0.1.5 GitHub Release is manually published
+- v0.1.5 final tag: `v0.1.5-google-oauth-live`
+- v0.1.5 earlier tag: `v0.1.5-google-oauth-role-onboarding`
+- v0.1.5 GitHub Release: manual registration pending
+- final tag is prepared separately from the earlier v0.1.5 tag
 - 새 GitHub Release 생성 없음
 - 기존 tag 삭제/이동 없음
 
 ## v0.1.5 목적
 
-v0.1.5는 v0.1.4 이후 실제 데모 운영에 필요한 로그인/가입/역할 분리 흐름을 정리하는 Release Candidate다.
+v0.1.5는 v0.1.4 이후 실제 데모 운영에 필요한 로그인/가입/역할 분리 흐름을 정리하는 release다.
 
 이번 범위는 Google OAuth 고객 로그인 live 연동, 공개 회원가입 role 분리, 가맹점 입점 신청과 관리자 승인/반려, role 기반 redirect/navigation 안정화에 초점을 둔다.
 
