@@ -110,6 +110,7 @@ export default function MerchantProductsPage() {
   const [imageUploadStorage, setImageUploadStorage] = useState<ImageUploadStorageStatus | null>(null);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const visibleMessage = message.trim();
 
   const storeById = useMemo(() => {
     return stores.reduce<Record<string, Store>>((acc, store) => {
@@ -167,9 +168,25 @@ export default function MerchantProductsPage() {
     setEditForm((current) => ({ ...current, ...patch }));
   }
 
-  async function loadStores() {
+  function clearMessage() {
     setMessage("");
     setIsError(false);
+  }
+
+  function showSuccess(text: string) {
+    const nextMessage = text.trim();
+    setIsError(false);
+    setMessage(nextMessage);
+  }
+
+  function showError(text: string) {
+    const nextMessage = text.trim();
+    setIsError(true);
+    setMessage(nextMessage || "요청 처리에 실패했습니다.");
+  }
+
+  async function loadStores() {
+    clearMessage();
 
     try {
       const data = await apiFetch<Store[]>("/api/v1/stores/me", {}, true);
@@ -181,32 +198,27 @@ export default function MerchantProductsPage() {
         setMessage("매장이 없습니다. 먼저 매장을 등록하세요.");
       }
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
   async function loadProducts(successMessage = "상품 목록을 새로고침했습니다.") {
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
       const data = await apiFetch<Product[]>("/api/v1/products/me", {}, true);
       setProducts(data);
-      setMessage(successMessage);
+      showSuccess(successMessage);
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
   async function uploadImage(file: File, target: "create" | "edit") {
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     if (!imageUploadStorage?.enabled) {
-      setIsError(true);
-      setMessage(
+      showError(
         imageUploadStorage?.message ||
           "이미지 파일 업로드 storage가 설정되지 않았습니다. 이미지 URL 직접 입력은 계속 사용할 수 있습니다.",
       );
@@ -214,14 +226,12 @@ export default function MerchantProductsPage() {
     }
 
     if (!file.type.startsWith("image/")) {
-      setIsError(true);
-      setMessage("이미지 파일만 업로드할 수 있습니다.");
+      showError("이미지 파일만 업로드할 수 있습니다.");
       return;
     }
 
     if (file.size > 3 * 1024 * 1024) {
-      setIsError(true);
-      setMessage("이미지 용량은 3MB 이하만 가능합니다.");
+      showError("이미지 용량은 3MB 이하만 가능합니다.");
       return;
     }
 
@@ -245,10 +255,9 @@ export default function MerchantProductsPage() {
       } else {
         updateEditForm({ imageUrl: data.url });
       }
-      setMessage("이미지 업로드가 완료되었습니다.");
+      showSuccess("이미지 업로드가 완료되었습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.");
+      showError(error instanceof Error ? error.message : "이미지 업로드에 실패했습니다.");
     } finally {
       setUploadingImageTarget(null);
     }
@@ -256,8 +265,7 @@ export default function MerchantProductsPage() {
 
   async function uploadCreateImage() {
     if (!createImageFile) {
-      setIsError(true);
-      setMessage("업로드할 이미지를 선택하세요.");
+      showError("업로드할 이미지를 선택하세요.");
       return;
     }
     await uploadImage(createImageFile, "create");
@@ -265,8 +273,7 @@ export default function MerchantProductsPage() {
 
   async function uploadEditImage() {
     if (!editImageFile) {
-      setIsError(true);
-      setMessage("업로드할 이미지를 선택하세요.");
+      showError("업로드할 이미지를 선택하세요.");
       return;
     }
     await uploadImage(editImageFile, "edit");
@@ -293,11 +300,10 @@ export default function MerchantProductsPage() {
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
-      await apiFetch<Product>(
+      const createdProduct = await apiFetch<Product>(
         "/api/v1/products",
         {
           method: "POST",
@@ -310,10 +316,13 @@ export default function MerchantProductsPage() {
       );
       setCreateForm(emptyForm);
       setCreateImageFile(null);
-      await loadProducts("상품이 등록되었습니다.");
+      setProducts((current) => [
+        createdProduct,
+        ...current.filter((product) => product.id !== createdProduct.id),
+      ]);
+      showSuccess("상품이 등록되었습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
@@ -372,8 +381,7 @@ export default function MerchantProductsPage() {
     if (!editingProductId) {
       return;
     }
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
       await apiFetch<Product>(
@@ -387,8 +395,7 @@ export default function MerchantProductsPage() {
       cancelEdit();
       await loadProducts("상품 정보가 수정되었습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
@@ -397,8 +404,7 @@ export default function MerchantProductsPage() {
     if (!relistingProductId) {
       return;
     }
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
       await apiFetch<Product>(
@@ -418,8 +424,7 @@ export default function MerchantProductsPage() {
       cancelRelist();
       await loadProducts("기존 상품 정보로 오늘 판매 상품을 다시 올렸습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
@@ -427,21 +432,18 @@ export default function MerchantProductsPage() {
     if (!window.confirm(`${product.name} 상품을 숨김 처리할까요? 고객 상품 목록에서 보이지 않게 됩니다.`)) {
       return;
     }
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
       await apiFetch<Product>(`/api/v1/products/${product.id}`, { method: "DELETE" }, true);
       await loadProducts("상품이 숨김 처리되었습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
   async function unhideProduct(product: Product) {
-    setMessage("");
-    setIsError(false);
+    clearMessage();
 
     try {
       await apiFetch<Product>(
@@ -454,8 +456,7 @@ export default function MerchantProductsPage() {
       );
       await loadProducts("상품을 다시 판매 상태로 변경했습니다.");
     } catch (error) {
-      setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      showError(friendlyErrorMessage(error));
     }
   }
 
@@ -541,7 +542,11 @@ export default function MerchantProductsPage() {
           <p>상품 등록 후 결제 완료 예약은 주문 관리와 픽업 확인 화면에서 처리합니다.</p>
         </article>
       </div>
-      {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
+      {visibleMessage && (
+        <div className={`message ${isError ? "error" : "success"}`} role={isError ? "alert" : "status"}>
+          {visibleMessage}
+        </div>
+      )}
 
       <form className="panel form-grid" onSubmit={createProduct}>
         <h2>상품 등록</h2>
