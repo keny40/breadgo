@@ -47,3 +47,8 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class GoogleOAuthStatusResponse(BaseModel):
+    enabled: bool
+    message: str

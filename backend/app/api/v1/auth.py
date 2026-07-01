@@ -1,6 +1,9 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from urllib.parse import urlencode
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +12,14 @@ from sqlalchemy.orm import Session
 from app.core.security import create_access_token, decode_access_token, get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from app.core.config import settings
+from app.schemas.auth import GoogleOAuthStatusResponse, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from app.services.google_oauth_service import (
+    authenticate_google_customer,
+    build_google_authorization_url,
+    fetch_google_profile_from_code,
+    google_oauth_configured,
+)
 
 
 router = APIRouter()
@@ -99,6 +109,49 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> TokenResp
 
     access_token = create_access_token(str(user.id))
     return TokenResponse(access_token=access_token, user=UserResponse.model_validate(user))
+
+
+@router.get("/google/status", response_model=GoogleOAuthStatusResponse)
+def google_oauth_status() -> GoogleOAuthStatusResponse:
+    enabled = google_oauth_configured()
+    message = (
+        "Google OAuth is enabled for customer accounts."
+        if enabled
+        else "Google OAuth is disabled or not configured for this environment."
+    )
+    return GoogleOAuthStatusResponse(enabled=enabled, message=message)
+
+
+@router.get("/google/start")
+def google_oauth_start() -> RedirectResponse:
+    return RedirectResponse(build_google_authorization_url(), status_code=status.HTTP_302_FOUND)
+
+
+@router.get("/google/callback")
+def google_oauth_callback(
+    code: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    callback_url = f"{settings.FRONTEND_URL.rstrip('/')}/auth/google/callback"
+
+    if error:
+        query = urlencode({"error": "Google login was cancelled or denied."})
+        return RedirectResponse(f"{callback_url}?{query}", status_code=status.HTTP_302_FOUND)
+
+    if not code:
+        query = urlencode({"error": "Google OAuth callback did not include an authorization code."})
+        return RedirectResponse(f"{callback_url}?{query}", status_code=status.HTTP_302_FOUND)
+
+    try:
+        profile = fetch_google_profile_from_code(code)
+        token_response = authenticate_google_customer(db, profile)
+    except HTTPException as exc:
+        query = urlencode({"error": str(exc.detail)})
+        return RedirectResponse(f"{callback_url}?{query}", status_code=status.HTTP_302_FOUND)
+
+    query = urlencode({"token": token_response.access_token})
+    return RedirectResponse(f"{callback_url}?{query}", status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/me", response_model=UserResponse)

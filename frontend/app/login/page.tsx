@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
 import { consumeAuthMessage } from "@/lib/authGuard";
+import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import type { AuthResponse } from "@/lib/types";
 
 export default function LoginPage() {
@@ -41,6 +42,7 @@ export default function LoginPage() {
   return (
     <section className="section">
       <h1>로그인</h1>
+      <GoogleOAuthButton />
       <form className="panel form-grid" onSubmit={handleSubmit}>
         <label>
           Email

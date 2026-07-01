@@ -13,6 +13,11 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+export type GoogleOAuthStatus = {
+  enabled: boolean;
+  message: string;
+};
+
 export type Merchant = {
   id: string;
   user_id: string;

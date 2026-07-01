@@ -265,6 +265,21 @@ def main() -> int:
 
         verify_adapter_mock_readiness()
 
+        google_oauth_status = expect_status(
+            "Google OAuth status loaded",
+            request_json(
+                step="Google OAuth status loaded",
+                method="GET",
+                path="/api/v1/auth/google/status",
+            ),
+            {200},
+        )
+        expect_dict_with_keys(
+            "Google OAuth status loaded",
+            google_oauth_status,
+            {"enabled", "message"},
+        )
+
         customer_token = login("customer@breadgo.test", "Customer login")
 
         products = load_region_products()

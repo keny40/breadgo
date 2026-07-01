@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, friendlyErrorMessage, routeForRole, saveStoredUser, saveToken } from "@/lib/api";
+import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import type { AuthResponse } from "@/lib/types";
 
 export default function RegisterPage() {
@@ -45,6 +46,7 @@ export default function RegisterPage() {
   return (
     <section className="section">
       <h1>회원가입</h1>
+      <GoogleOAuthButton />
       <form className="panel form-grid" onSubmit={handleSubmit}>
         <label>
           Email
