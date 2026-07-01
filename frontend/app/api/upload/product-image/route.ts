@@ -13,6 +13,7 @@ type StorageStatus = {
   backend: string;
   message: string;
   missing_env: string[];
+  auth_mode?: "read_write_token" | "oidc" | "none";
 };
 
 function sanitizeFileName(fileName: string): string {
@@ -29,6 +30,9 @@ function normalizeBackend() {
     return configuredBackend;
   }
   if (process.env.BLOB_READ_WRITE_TOKEN) {
+    return "vercel_blob";
+  }
+  if (process.env.BLOB_STORE_ID) {
     return "vercel_blob";
   }
   if (process.env.S3_BUCKET || process.env.S3_ENDPOINT_URL) {
@@ -53,15 +57,23 @@ function getStorageStatus(): StorageStatus {
 
   const backend = normalizeBackend();
   if (backend === "vercel_blob") {
-    const missing = missingEnv(["BLOB_READ_WRITE_TOKEN"]);
+    const hasReadWriteToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+    const hasOidcCredentials = Boolean(
+      process.env.BLOB_STORE_ID?.trim() && process.env.VERCEL_OIDC_TOKEN?.trim(),
+    );
+    const missing = hasReadWriteToken
+      ? []
+      : missingEnv(["BLOB_STORE_ID", "VERCEL_OIDC_TOKEN"]);
+    const enabled = hasReadWriteToken || hasOidcCredentials;
     return {
-      enabled: missing.length === 0,
+      enabled,
       backend,
       message:
-        missing.length === 0
+        enabled
           ? "Vercel Blob 이미지 업로드를 사용할 수 있습니다."
           : IMAGE_UPLOAD_DISABLED_MESSAGE,
-      missing_env: missing,
+      missing_env: enabled ? [] : missing,
+      auth_mode: hasReadWriteToken ? "read_write_token" : hasOidcCredentials ? "oidc" : "none",
     };
   }
 
@@ -91,6 +103,7 @@ function getStorageStatus(): StorageStatus {
     backend,
     message: IMAGE_UPLOAD_DISABLED_MESSAGE,
     missing_env: ["BLOB_READ_WRITE_TOKEN"],
+    auth_mode: "none",
   };
 }
 

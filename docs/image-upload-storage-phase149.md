@@ -44,15 +44,23 @@ FastAPI backend and Render were not the active image upload path for this route.
 
 Use this when hosting the frontend on Vercel.
 
-Required Vercel frontend environment variables:
+Recommended Vercel frontend environment variables for OIDC-connected Blob Stores:
 
 ```text
 IMAGE_UPLOAD_ENABLED=true
 STORAGE_BACKEND=vercel_blob
-BLOB_READ_WRITE_TOKEN=<set in Vercel only>
+BLOB_STORE_ID=<provided by Vercel Blob project connection>
 ```
 
-Do not commit the token value.
+Vercel provides `VERCEL_OIDC_TOKEN` at runtime for connected projects. The app uses `BLOB_STORE_ID + VERCEL_OIDC_TOKEN` when available.
+
+For non-OIDC environments, use a read-write token instead:
+
+```text
+BLOB_READ_WRITE_TOKEN=<set in hosting provider only>
+```
+
+Do not commit token values.
 
 ### S3-compatible storage
 
@@ -135,6 +143,17 @@ Conclusion:
 - Vercel Blob is not yet active on the live deployment.
 - Confirm that `BLOB_READ_WRITE_TOKEN`, `IMAGE_UPLOAD_ENABLED=true`, and `STORAGE_BACKEND=vercel_blob` are set in the correct Vercel production environment, then redeploy.
 - Detailed result: `docs/image-upload-live-verification-phase154.md`
+
+## OIDC Support Update
+
+Vercel Blob now supports OIDC-connected projects. In that mode Vercel does not create a visible `BLOB_READ_WRITE_TOKEN`; instead, it provides `BLOB_STORE_ID` and a short-lived `VERCEL_OIDC_TOKEN` at runtime.
+
+BreadGo now enables Vercel Blob upload when either of these auth paths is available:
+
+- `BLOB_READ_WRITE_TOKEN`
+- `BLOB_STORE_ID + VERCEL_OIDC_TOKEN`
+
+Detailed OIDC note: `docs/vercel-blob-oidc-phase155.md`
 
 ## Security
 
