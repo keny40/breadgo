@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -60,13 +60,21 @@ export default function MyReservationsPage() {
   const guard = useRoleGuard("CUSTOMER");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState("MOCK_CARD");
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [payingReservationId, setPayingReservationId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [historyByReservation, setHistoryByReservation] = useState<Record<string, ReservationHistory[]>>({});
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (guard.allowed) {
+      void loadReservations();
+    }
+  }, [guard.allowed]);
 
   async function loadReservations() {
     setMessage("");
@@ -75,8 +83,8 @@ export default function MyReservationsPage() {
 
     try {
       const [data, paymentData] = await Promise.all([
-        apiFetch<Reservation[]>("/api/v1/reservations/me", {}, true),
-        apiFetch<Payment[]>("/api/v1/payments/me", {}, true),
+        apiFetch<Reservation[]>("/api/v1/reservations/me", { cache: "no-store" }, true),
+        apiFetch<Payment[]>("/api/v1/payments/me", { cache: "no-store" }, true),
       ]);
       setReservations(data);
       setPayments(paymentData);
@@ -86,6 +94,69 @@ export default function MyReservationsPage() {
       setMessage(friendlyErrorMessage(error));
     } finally {
       setLoading(false);
+    }
+  }
+
+  function paymentMethodLabel(value: string) {
+    switch (value) {
+      case "MOCK_KAKAO_PAY":
+        return "카카오페이 모의결제";
+      case "MOCK_NAVER_PAY":
+        return "네이버페이 모의결제";
+      case "MOCK_CARD":
+      default:
+        return "카드 모의결제";
+    }
+  }
+
+  function paymentForReservation(reservationId: string) {
+    return payments.find((item) => item.reservation_id === reservationId);
+  }
+
+  function isUnpaidReservation(reservation: Reservation, payment: Payment | undefined) {
+    const paymentStatus = reservation.payment_status || payment?.status || "";
+    return !["PAID", "CANCELLED", "REFUNDED"].includes(paymentStatus);
+  }
+
+  async function payReservation(reservation: Reservation) {
+    setMessage("");
+    setIsError(false);
+    setPayingReservationId(reservation.id);
+
+    try {
+      const existingPayment = paymentForReservation(reservation.id);
+      const readyPayment =
+        existingPayment?.status === "READY"
+          ? existingPayment
+          : await apiFetch<Payment>(
+              "/api/v1/payments/mock/ready",
+              {
+                method: "POST",
+                body: JSON.stringify({
+                  reservation_id: reservation.id,
+                  method: paymentMethod,
+                }),
+              },
+              true,
+            );
+      const paid = await apiFetch<Payment>(
+        "/api/v1/payments/mock/confirm",
+        {
+          method: "POST",
+          body: JSON.stringify({ payment_id: readyPayment.id }),
+        },
+        true,
+      );
+      setPayments((current) => [paid, ...current.filter((item) => item.id !== paid.id)]);
+      setReservations((current) =>
+        current.map((item) => (item.id === reservation.id ? { ...item, payment_status: paid.status } : item)),
+      );
+      setMessage(`${paymentMethodLabel(paid.method)}가 완료되었습니다. 내 결제 화면에서도 확인할 수 있습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    } finally {
+      setPayingReservationId(null);
     }
   }
 
@@ -254,6 +325,25 @@ export default function MyReservationsPage() {
                 <span>예약일 {new Date(reservation.created_at).toLocaleString()}</span>
               </div>
               <div className="actions">
+                {isUnpaidReservation(reservation, payment) && (
+                  <>
+                    <label className="compact-action-field">
+                      Mock 결제 수단
+                      <select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}>
+                        <option value="MOCK_CARD">카드 모의결제</option>
+                        <option value="MOCK_KAKAO_PAY">카카오페이 모의결제</option>
+                        <option value="MOCK_NAVER_PAY">네이버페이 모의결제</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => payReservation(reservation)}
+                      disabled={payingReservationId === reservation.id}
+                    >
+                      {payingReservationId === reservation.id ? "결제 처리 중" : "결제하기"}
+                    </button>
+                  </>
+                )}
                 <button type="button" className="secondary" onClick={() => toggleHistory(reservation.id)}>
                   {expandedHistoryId === reservation.id ? "상태 이력 닫기" : "상태 이력"}
                 </button>

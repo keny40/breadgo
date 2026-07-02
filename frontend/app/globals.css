@@ -155,6 +155,10 @@ textarea {
   font-size: 0.88rem;
 }
 
+.compact-action-field {
+  min-width: min(220px, 100%);
+}
+
 .responsive-table {
   width: 100%;
   overflow-x: auto;

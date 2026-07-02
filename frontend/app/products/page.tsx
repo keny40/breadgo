@@ -359,7 +359,7 @@ export default function ProductsPage() {
       );
       setLatestReservation(reservation);
       setLatestReservedProduct(reservedProduct);
-      setMessage("예약이 완료되었습니다. 수령 방법을 확인하고 Mock 결제를 진행해 보세요.");
+      setMessage("예약이 생성되었습니다. 결제를 진행해 주세요.");
       if (discoveryMode === "nearby" && userLocation) {
         await loadNearbyProducts(userLocation.lat, userLocation.lng, false);
       } else {
@@ -405,6 +405,7 @@ export default function ProductsPage() {
         true,
       );
       setLatestPayment(paid);
+      setLatestReservation((current) => (current ? { ...current, payment_status: paid.status } : current));
       setPaymentMessage(`${paymentMethodLabel(paymentMethod)} 결제가 완료되었습니다.`);
     } catch (error) {
       setIsPaymentError(true);

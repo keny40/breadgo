@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
@@ -39,13 +39,19 @@ export default function MyPaymentsPage() {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (guard.allowed) {
+      void loadPayments();
+    }
+  }, [guard.allowed]);
+
   async function loadPayments() {
     setMessage("");
     setIsError(false);
     setLoading(true);
 
     try {
-      const data = await apiFetch<Payment[]>("/api/v1/payments/me", {}, true);
+      const data = await apiFetch<Payment[]>("/api/v1/payments/me", { cache: "no-store" }, true);
       setPayments(data);
       setMessage(data.length > 0 ? `${data.length}개 결제를 불러왔습니다.` : "");
     } catch (error) {
