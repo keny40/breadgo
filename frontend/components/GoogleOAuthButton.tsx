@@ -21,7 +21,7 @@ export function GoogleOAuthButton() {
         setEnabled(status.enabled);
         setMessage(
           status.enabled
-            ? "Google 계정으로 고객 회원가입 또는 로그인을 진행합니다."
+            ? "Google 계정으로 고객 가입 또는 고객 로그인을 진행합니다. 가맹점과 관리자는 사용할 수 없습니다."
             : "현재 환경에서는 Google OAuth가 꺼져 있습니다. 데모 계정 또는 이메일 로그인을 사용해 주세요.",
         );
       } catch (error) {
@@ -50,7 +50,7 @@ export function GoogleOAuthButton() {
   return (
     <div className="panel form-grid">
       <button type="button" className="secondary" disabled={loading || !enabled} onClick={startGoogleOAuth}>
-        Google로 계속하기
+        Google로 고객 가입/로그인
       </button>
       <p className="field-help">{message}</p>
       <p className="field-help">관리자와 가맹점 계정은 별도 승인 방식으로 운영됩니다.</p>

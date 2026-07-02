@@ -54,7 +54,10 @@ export default function MerchantApplyPage() {
         <div>
           <p className="eyebrow">Merchant Application</p>
           <h1>가맹점 입점 신청</h1>
-          <p>가맹점은 입점 신청 후 관리자 승인 절차를 거칩니다. 승인 전에는 가맹점 관리 화면에 접근할 수 없습니다.</p>
+          <p>
+            상품을 등록하고 판매하려는 매장은 이 신청서를 제출해 주세요. 고객 회원가입이나 Google 가입으로는
+            가맹점 권한이 생성되지 않으며, 관리자 승인 전에는 가맹점 관리 화면에 접근할 수 없습니다.
+          </p>
         </div>
         <Link className="button-link secondary" href="/register">
           고객 회원가입으로 돌아가기
@@ -63,6 +66,7 @@ export default function MerchantApplyPage() {
 
       <p className="message">
         이 신청은 계정을 즉시 생성하지 않습니다. 관리자가 신청 정보를 검토하고 승인해야 merchant 계정과 프로필이 활성화됩니다.
+        이미 고객 계정으로 가입한 이메일이라도 가맹점 권한은 자동으로 부여되지 않습니다.
       </p>
 
       <form className="panel form-grid" onSubmit={submitApplication}>

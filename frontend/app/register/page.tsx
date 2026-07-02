@@ -45,14 +45,20 @@ export default function RegisterPage() {
 
   return (
     <section className="section">
-      <h1>고객 회원가입</h1>
+      <h1>가입 유형 선택</h1>
       <p className="message">
-        고객으로 가입하고 마감 할인 상품을 예약하세요. 관리자 계정은 공개 회원가입으로 생성할 수 없습니다.
-        가맹점은 입점 신청 후 관리자 승인 절차를 거칩니다.
+        고객은 이 화면에서 바로 회원가입할 수 있습니다. 상품을 등록하고 판매하려는 가맹점은 고객 회원가입이
+        아니라 입점 신청을 진행해 주세요. 관리자 계정은 공개 회원가입으로 생성할 수 없습니다.
       </p>
-      <GoogleOAuthButton />
       <form className="panel form-grid" onSubmit={handleSubmit}>
-        <h2>이메일로 고객 가입</h2>
+        <div>
+          <p className="eyebrow">Customer Signup</p>
+          <h2>고객으로 회원가입</h2>
+          <p className="field-help">
+            상품을 예약하고 구매하려는 일반 사용자용 가입입니다. Google 가입도 고객 전용입니다.
+          </p>
+        </div>
+        <GoogleOAuthButton />
         <label>
           Email
           <input
@@ -85,17 +91,23 @@ export default function RegisterPage() {
         </button>
         {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       </form>
-      <section className="panel">
+      <section className="panel form-grid">
         <div className="card-title-row">
           <div>
             <p className="eyebrow">Merchant Application</p>
             <h2>가맹점 입점 신청</h2>
-            <p>가맹점은 자동 가입되지 않으며, 입점 신청 후 관리자 승인 절차를 거칩니다.</p>
+            <p>
+              상품을 등록하고 판매하려는 매장은 입점 신청 후 관리자 승인을 받아야 합니다.
+              이 영역에서는 이메일/비밀번호로 즉시 가입하지 않습니다.
+            </p>
           </div>
           <Link className="button-link secondary" href="/merchant/apply">
             입점 신청하기
           </Link>
         </div>
+        <p className="field-help">
+          가맹점은 고객 회원가입이 아니라 입점 신청을 진행해 주세요. 승인 후 가맹점 계정과 관리 화면을 사용할 수 있습니다.
+        </p>
       </section>
     </section>
   );
