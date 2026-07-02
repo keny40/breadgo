@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import re
+from datetime import datetime, time, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
 from app.models.merchant import Merchant, MerchantStatus
 from app.models.merchant_application import MerchantApplication, MerchantApplicationStatus
+from app.models.store import Store
 from app.models.user import User, UserRole
 from app.schemas.merchant_application import MerchantApplicationCreate, MerchantApplicationRejectRequest
 
@@ -18,6 +20,65 @@ def _clean_optional(value: str | None) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _parse_pickup_hours(value: str | None) -> tuple[time, time]:
+    if not value:
+        return time(hour=9), time(hour=21)
+
+    matches = re.findall(r"([01]?\d|2[0-3]):([0-5]\d)", value)
+    if len(matches) < 2:
+        return time(hour=9), time(hour=21)
+
+    start_hour, start_minute = matches[0]
+    end_hour, end_minute = matches[1]
+    opening_time = time(hour=int(start_hour), minute=int(start_minute))
+    closing_time = time(hour=int(end_hour), minute=int(end_minute))
+    if opening_time >= closing_time:
+        return time(hour=9), time(hour=21)
+    return opening_time, closing_time
+
+
+def _store_description_from_application(application: MerchantApplication) -> str | None:
+    lines: list[str] = []
+    if application.product_category:
+        lines.append(f"주요 판매 상품: {application.product_category}")
+    if application.pickup_available_time:
+        lines.append(f"픽업 가능 시간: {application.pickup_available_time}")
+    if application.note:
+        lines.append(f"입점 신청 메모: {application.note}")
+    return "\n".join(lines) if lines else None
+
+
+def _ensure_default_store_for_application(db: Session, merchant: Merchant, application: MerchantApplication) -> Store:
+    existing_store = db.scalar(
+        select(Store)
+        .where(Store.merchant_id == merchant.id)
+        .order_by(Store.created_at.asc())
+    )
+    if existing_store is not None:
+        return existing_store
+
+    opening_time, closing_time = _parse_pickup_hours(application.pickup_available_time)
+    store = Store(
+        merchant_id=merchant.id,
+        name=application.store_name.strip(),
+        address=application.address.strip(),
+        address_detail=None,
+        sido=_clean_optional(application.region_sido),
+        sigungu=_clean_optional(application.region_sigungu),
+        dong=_clean_optional(application.region_dong),
+        latitude=None,
+        longitude=None,
+        phone_number=application.phone.strip(),
+        description=_store_description_from_application(application),
+        opening_time=opening_time,
+        closing_time=closing_time,
+        is_active=True,
+    )
+    db.add(store)
+    db.flush()
+    return store
 
 
 def create_merchant_application(db: Session, payload: MerchantApplicationCreate) -> MerchantApplication:
@@ -85,6 +146,9 @@ def approve_merchant_application(db: Session, application_id: UUID, actor: User)
         merchant = db.get(Merchant, application.merchant_id)
         if merchant is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Approved merchant profile not found.")
+        _ensure_default_store_for_application(db, merchant, application)
+        db.commit()
+        db.refresh(merchant)
         return application, merchant
     if application.status == MerchantApplicationStatus.REJECTED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rejected applications cannot be approved.")
@@ -130,6 +194,8 @@ def approve_merchant_application(db: Session, application_id: UUID, actor: User)
         )
         db.add(merchant)
         db.flush()
+
+    _ensure_default_store_for_application(db, merchant, application)
 
     now = datetime.now(timezone.utc)
     application.status = MerchantApplicationStatus.APPROVED

@@ -575,6 +575,22 @@ def main() -> int:
         )
         if str(approved_merchant_body["user"].get("role")).lower() != "merchant":
             raise SmokeTestError("Approved merchant application login", 200, approved_merchant_login)
+        approved_merchant_token = approved_merchant_body["access_token"]
+        approved_merchant_stores = expect_status(
+            "Approved merchant default store loaded",
+            request_json(
+                step="Approved merchant default store loaded",
+                method="GET",
+                path="/api/v1/stores/me",
+                token=approved_merchant_token,
+            ),
+            {200},
+        )
+        if not isinstance(approved_merchant_stores, list) or len(approved_merchant_stores) != 1:
+            raise SmokeTestError("Approved merchant default store loaded", 200, approved_merchant_stores)
+        approved_store = approved_merchant_stores[0]
+        if approved_store.get("name") != application_payload["store_name"] or approved_store.get("address") != application_payload["address"]:
+            raise SmokeTestError("Approved merchant default store loaded", 200, approved_merchant_stores)
 
         rejected_application = expect_status(
             "Admin merchant application rejected",
