@@ -883,26 +883,38 @@ function ProductFields({
         </label>
       </div>
       <div className="payment-box">
-        <h3>수령 가능 방식</h3>
-        <p className="field-help">신선식품은 매장 직접 픽업이 기본입니다. 택배 배송은 배송 가능한 상품에 한해 선택할 수 있습니다.</p>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.allowPickup}
-            onChange={(event) => onChange({ allowPickup: event.target.checked })}
-          />
-          매장 직접 픽업 가능
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={form.allowQuickDelivery}
-            onChange={(event) => onChange({ allowQuickDelivery: event.target.checked })}
-          />
-          퀵배달 가능
-        </label>
+        <div>
+          <h3>수령 가능 방식</h3>
+          <p className="field-help">
+            체크한 수령방법만 고객 상품 화면에 표시됩니다. 매장 직접 픽업은 기본으로 선택되어 있습니다.
+          </p>
+        </div>
+        <div className="fulfillment-option-list">
+          <label className={`fulfillment-option ${form.allowPickup ? "selected" : ""}`}>
+            <input
+              type="checkbox"
+              checked={form.allowPickup}
+              onChange={(event) => onChange({ allowPickup: event.target.checked })}
+            />
+            <span>
+              <strong>매장 직접 픽업 가능</strong>
+              <small>고객이 매장에 방문해 픽업코드로 수령합니다.</small>
+            </span>
+          </label>
+          <label className={`fulfillment-option ${form.allowQuickDelivery ? "selected" : ""}`}>
+            <input
+              type="checkbox"
+              checked={form.allowQuickDelivery}
+              onChange={(event) => onChange({ allowQuickDelivery: event.target.checked })}
+            />
+            <span>
+              <strong>퀵배달 가능</strong>
+              <small>체크하면 고객 화면에 퀵배달 선택지가 표시됩니다.</small>
+            </span>
+          </label>
+        </div>
         {form.allowQuickDelivery && (
-          <label>
+          <label className="fulfillment-fee-field">
             퀵배달비
             <input
               type="number"
@@ -913,16 +925,21 @@ function ProductFields({
             />
           </label>
         )}
-        <label>
-          <input
-            type="checkbox"
-            checked={form.allowParcelDelivery}
-            onChange={(event) => onChange({ allowParcelDelivery: event.target.checked })}
-          />
-          택배 배송 가능
-        </label>
+        <div className="fulfillment-option-list">
+          <label className={`fulfillment-option ${form.allowParcelDelivery ? "selected" : ""}`}>
+            <input
+              type="checkbox"
+              checked={form.allowParcelDelivery}
+              onChange={(event) => onChange({ allowParcelDelivery: event.target.checked })}
+            />
+            <span>
+              <strong>택배 배송 가능</strong>
+              <small>체크하면 고객 화면에 택배 배송 선택지가 표시됩니다.</small>
+            </span>
+          </label>
+        </div>
         {form.allowParcelDelivery && (
-          <label>
+          <label className="fulfillment-fee-field">
             택배 배송비
             <input
               type="number"

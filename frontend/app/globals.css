@@ -869,6 +869,54 @@ code {
   padding: 14px;
 }
 
+.payment-box h3 {
+  margin: 0 0 4px;
+}
+
+.fulfillment-option-list {
+  display: grid;
+  gap: 10px;
+}
+
+.fulfillment-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.fulfillment-option.selected {
+  border-color: rgba(22, 101, 52, 0.45);
+  background: rgba(220, 252, 231, 0.55);
+}
+
+.fulfillment-option span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fulfillment-option strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.fulfillment-option small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.fulfillment-fee-field {
+  border-left: 3px solid rgba(22, 101, 52, 0.3);
+  padding-left: 12px;
+}
+
 .guidance-text {
   border-radius: 10px;
   background: var(--primary-soft);
