@@ -7,6 +7,26 @@ import { consumeAuthMessage } from "@/lib/authGuard";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import type { AuthResponse } from "@/lib/types";
 
+function loginErrorMessage(error: unknown): string {
+  const message = friendlyErrorMessage(error);
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("invalid") ||
+    normalized.includes("incorrect") ||
+    normalized.includes("401") ||
+    normalized.includes("unauthorized")
+  ) {
+    return "이메일 또는 비밀번호가 올바르지 않습니다.";
+  }
+  if (normalized.includes("suspended") || normalized.includes("deactivated") || normalized.includes("inactive")) {
+    return "정지 또는 비활성화된 계정입니다. 관리자에게 문의해 주세요.";
+  }
+  if (normalized.includes("api request failed") || normalized.includes("api base url")) {
+    return "로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  return message.includes("\n") ? "로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." : message;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [initialAuthMessage] = useState(() => consumeAuthMessage());
@@ -32,7 +52,7 @@ export default function LoginPage() {
       router.replace(routeForRole(data.user.role));
     } catch (error) {
       setIsError(true);
-      setMessage(friendlyErrorMessage(error));
+      setMessage(loginErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -44,7 +64,7 @@ export default function LoginPage() {
       <GoogleOAuthButton />
       <form className="panel form-grid" onSubmit={handleSubmit}>
         <label>
-          Email
+          이메일
           <input
             type="email"
             value={email}
@@ -53,7 +73,7 @@ export default function LoginPage() {
           />
         </label>
         <label>
-          Password
+          비밀번호
           <input
             type="password"
             value={password}
@@ -62,7 +82,7 @@ export default function LoginPage() {
           />
         </label>
         <button type="submit" disabled={loading}>
-          {loading ? "로그인 중" : "Login"}
+          {loading ? "로그인 중" : "로그인"}
         </button>
         {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       </form>

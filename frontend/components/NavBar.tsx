@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch, clearToken, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
 import type { AuthUser, MerchantProWeeklyReportUnreadCount, Notification } from "@/lib/types";
 
 export default function NavBar() {
+  const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -156,6 +158,7 @@ export default function NavBar() {
     setUnreadCount(0);
     setWeeklyReportUnreadCount(0);
     setMenuOpen(false);
+    router.replace("/");
   }
 
   return (

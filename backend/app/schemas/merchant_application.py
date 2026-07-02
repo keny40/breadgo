@@ -11,6 +11,7 @@ class MerchantApplicationCreate(BaseModel):
     store_name: str = Field(min_length=1, max_length=255)
     owner_name: str = Field(min_length=1, max_length=255)
     email: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=8, max_length=128)
     phone: str = Field(min_length=1, max_length=32)
     business_registration_number: str = Field(min_length=1, max_length=64)
     address: str = Field(min_length=1, max_length=500)

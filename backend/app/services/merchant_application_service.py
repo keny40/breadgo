@@ -1,4 +1,3 @@
-import secrets
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -34,11 +33,18 @@ def create_merchant_application(db: Session, payload: MerchantApplicationCreate)
             status_code=status.HTTP_409_CONFLICT,
             detail="A pending merchant application already exists for this email.",
         )
+    existing_user = db.scalar(select(User).where(User.email == email))
+    if existing_user is not None and existing_user.role in {UserRole.ADMIN, UserRole.MERCHANT}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This email is already used by an admin or merchant account.",
+        )
 
     application = MerchantApplication(
         store_name=payload.store_name.strip(),
         owner_name=payload.owner_name.strip(),
         email=email,
+        password_hash=get_password_hash(payload.password),
         phone=payload.phone.strip(),
         business_registration_number=payload.business_registration_number.strip(),
         address=payload.address.strip(),
@@ -88,10 +94,15 @@ def approve_merchant_application(db: Session, application_id: UUID, actor: User)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin accounts cannot become merchants.")
 
     if user is None:
+        if not application.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Merchant application is missing a login password. Ask the merchant to submit a new application.",
+            )
         user = User(
             email=application.email.lower(),
             phone=None,
-            password_hash=get_password_hash(secrets.token_urlsafe(32)),
+            password_hash=application.password_hash,
             full_name=application.owner_name,
             role=UserRole.MERCHANT,
             is_active=True,
@@ -99,6 +110,8 @@ def approve_merchant_application(db: Session, application_id: UUID, actor: User)
         db.add(user)
         db.flush()
     else:
+        if user.role == UserRole.CUSTOMER and application.password_hash:
+            user.password_hash = application.password_hash
         user.role = UserRole.MERCHANT
         user.is_active = True
 

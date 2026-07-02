@@ -313,6 +313,7 @@ def main() -> int:
             "store_name": f"Smoke Bakery {unique_suffix}",
             "owner_name": "Smoke Owner",
             "email": f"merchant-apply-{unique_suffix}@breadgo.test",
+            "password": PASSWORD,
             "phone": "010-0000-0000",
             "business_registration_number": f"SMOKE-{unique_suffix}",
             "address": "서울특별시 강남구 테스트로 1",
@@ -557,6 +558,23 @@ def main() -> int:
         )
         if approved_body["application"].get("status") != "APPROVED" or approved_body["merchant"].get("status") != "APPROVED":
             raise SmokeTestError("Admin merchant application approved", 200, approved_application)
+        approved_merchant_login = expect_status(
+            "Approved merchant application login",
+            request_json(
+                step="Approved merchant application login",
+                method="POST",
+                path="/api/v1/auth/login",
+                payload={"email": application_payload["email"], "password": PASSWORD},
+            ),
+            {200},
+        )
+        approved_merchant_body = expect_dict_with_keys(
+            "Approved merchant application login",
+            approved_merchant_login,
+            {"access_token", "user"},
+        )
+        if str(approved_merchant_body["user"].get("role")).lower() != "merchant":
+            raise SmokeTestError("Approved merchant application login", 200, approved_merchant_login)
 
         rejected_application = expect_status(
             "Admin merchant application rejected",

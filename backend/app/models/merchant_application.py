@@ -27,6 +27,7 @@ class MerchantApplication(Base):
     store_name: Mapped[str] = mapped_column(String(255), nullable=False)
     owner_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str] = mapped_column(String(32), nullable=False)
     business_registration_number: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     address: Mapped[str] = mapped_column(String(500), nullable=False)
