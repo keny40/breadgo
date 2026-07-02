@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.user import UserRole
+from app.models.user import UserRole, UserStatus
 
 
 class UserRegisterRequest(BaseModel):
@@ -39,6 +39,8 @@ class UserResponse(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    status: UserStatus = UserStatus.ACTIVE
+    status_reason: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

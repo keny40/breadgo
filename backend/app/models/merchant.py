@@ -22,6 +22,12 @@ class MerchantStatus(str, enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     SUSPENDED = "SUSPENDED"
+    DEACTIVATED = "DEACTIVATED"
+
+
+class MerchantPlan(str, enum.Enum):
+    FREE = "FREE"
+    PRO = "PRO"
 
 
 class Merchant(Base):
@@ -53,6 +59,12 @@ class Merchant(Base):
         Enum(MerchantStatus, name="merchant_status"),
         nullable=False,
         default=MerchantStatus.PENDING,
+    )
+    status_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    plan: Mapped[MerchantPlan] = mapped_column(
+        Enum(MerchantPlan, name="merchant_plan"),
+        nullable=False,
+        default=MerchantPlan.FREE,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

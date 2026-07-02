@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, decode_access_token, get_password_hash, verify_password
 from app.db.session import get_db
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 from app.core.config import settings
 from app.schemas.auth import GoogleOAuthStatusResponse, TokenResponse, UserLoginRequest, UserRegisterRequest, UserResponse
 from app.services.google_oauth_service import (
@@ -55,7 +55,7 @@ def get_current_user(
         ) from exc
 
     user = db.get(User, parsed_user_id)
-    if user is None or not user.is_active:
+    if user is None or not user.is_active or user.status != UserStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User account is not available.",
@@ -110,7 +110,7 @@ def login(payload: UserLoginRequest, db: Session = Depends(get_db)) -> TokenResp
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password.")
 
-    if not user.is_active:
+    if not user.is_active or user.status != UserStatus.ACTIVE:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive.")
 
     access_token = create_access_token(str(user.id))

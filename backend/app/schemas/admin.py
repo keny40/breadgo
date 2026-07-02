@@ -1,7 +1,8 @@
 from pydantic import BaseModel
 from decimal import Decimal
 
-from app.models.merchant import MerchantStatus
+from app.models.merchant import MerchantPlan, MerchantStatus
+from app.models.user import UserStatus
 
 
 class AdminSummary(BaseModel):
@@ -23,6 +24,16 @@ class AdminSummary(BaseModel):
 
 class MerchantStatusUpdate(BaseModel):
     status: MerchantStatus
+    reason: str | None = None
+
+
+class MerchantPlanUpdate(BaseModel):
+    plan: MerchantPlan
+
+
+class UserStatusUpdate(BaseModel):
+    status: UserStatus
+    reason: str | None = None
 
 
 class DemoSeedResponse(BaseModel):

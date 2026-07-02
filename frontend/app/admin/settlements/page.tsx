@@ -4,13 +4,10 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
+import { formatMoney } from "@/lib/format";
 import type { AuthUser, Settlement, SettlementSummary } from "@/lib/types";
 
 const settlementStatuses = ["ALL", "PENDING", "READY", "PAID", "HOLD", "CANCELLED"];
-
-function formatMoney(value: string) {
-  return `${Number(value).toLocaleString()}원`;
-}
 
 function statusLabel(status: string) {
   const labels: Record<string, string> = {

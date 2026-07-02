@@ -5,6 +5,8 @@ export type AuthUser = {
   full_name: string;
   role: string;
   is_active: boolean;
+  status: string;
+  status_reason: string | null;
 };
 
 export type AuthResponse = {
@@ -26,6 +28,8 @@ export type Merchant = {
   representative_name: string;
   phone_number: string;
   status: string;
+  status_reason: string | null;
+  plan: string;
   created_at: string;
   updated_at: string;
 };

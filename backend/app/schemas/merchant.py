@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.merchant import MerchantStatus
+from app.models.merchant import MerchantPlan, MerchantStatus
 
 
 class MerchantCreate(BaseModel):
@@ -21,6 +21,8 @@ class MerchantRead(BaseModel):
     representative_name: str
     phone_number: str
     status: MerchantStatus
+    status_reason: str | None = None
+    plan: MerchantPlan = MerchantPlan.FREE
     created_at: datetime
     updated_at: datetime
 

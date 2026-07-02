@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.v1.auth import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantStatusUpdate
+from app.schemas.admin import AdminSummary, DemoSeedResponse, MerchantPlanUpdate, MerchantStatusUpdate, UserStatusUpdate
 from app.schemas.auth import UserResponse
 from app.schemas.external_integration import ExternalIntegrationReadinessRead
 from app.schemas.merchant import MerchantRead
@@ -58,7 +58,9 @@ from app.services.admin_service import (
     get_stores,
     get_users,
     require_admin_user,
+    update_merchant_plan,
     update_merchant_status,
+    update_user_status,
 )
 from app.services.external_integration_readiness_service import build_external_integration_readiness
 from app.services.merchant_application_service import (
@@ -142,6 +144,17 @@ def list_users(
     return [UserResponse.model_validate(user) for user in get_users(db)]
 
 
+@router.patch("/users/{user_id}/status", response_model=UserResponse)
+def change_user_status(
+    user_id: UUID,
+    payload: UserStatusUpdate,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    user = update_user_status(db, user_id, current_admin, payload)
+    return UserResponse.model_validate(user)
+
+
 @router.get("/merchants", response_model=list[MerchantRead])
 def list_merchants(
     _: User = Depends(get_current_admin),
@@ -211,6 +224,17 @@ def change_merchant_status(
     db: Session = Depends(get_db),
 ) -> MerchantRead:
     merchant = update_merchant_status(db, merchant_id, payload)
+    return MerchantRead.model_validate(merchant)
+
+
+@router.patch("/merchants/{merchant_id}/plan", response_model=MerchantRead)
+def change_merchant_plan(
+    merchant_id: UUID,
+    payload: MerchantPlanUpdate,
+    _: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> MerchantRead:
+    merchant = update_merchant_plan(db, merchant_id, payload)
     return MerchantRead.model_validate(merchant)
 
 

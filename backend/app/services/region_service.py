@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.models.product import Product, ProductStatus
 from app.models.store import Store
+from app.models.merchant import Merchant, MerchantStatus
+from app.models.user import User, UserStatus
 
 
 def _apply_region_filters(statement, sido: str | None, sigungu: str | None, dong: str | None):
@@ -37,8 +39,13 @@ def get_region_products(
     statement = (
         select(Product)
         .join(Store, Product.store_id == Store.id)
+        .join(Merchant, Store.merchant_id == Merchant.id)
+        .join(User, Merchant.user_id == User.id)
         .where(
             Store.is_active.is_(True),
+            Merchant.status == MerchantStatus.APPROVED,
+            User.status == UserStatus.ACTIVE,
+            User.is_active.is_(True),
             Product.status == ProductStatus.ACTIVE,
         )
     )
@@ -76,8 +83,13 @@ def get_nearby_region_products(
     statement = (
         select(Product)
         .join(Store, Product.store_id == Store.id)
+        .join(Merchant, Store.merchant_id == Merchant.id)
+        .join(User, Merchant.user_id == User.id)
         .where(
             Store.is_active.is_(True),
+            Merchant.status == MerchantStatus.APPROVED,
+            User.status == UserStatus.ACTIVE,
+            User.is_active.is_(True),
             Store.latitude.is_not(None),
             Store.longitude.is_not(None),
             Product.status == ProductStatus.ACTIVE,

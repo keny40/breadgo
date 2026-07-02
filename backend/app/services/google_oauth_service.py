@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import create_access_token, get_password_hash
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, UserStatus
 from app.schemas.auth import TokenResponse, UserResponse
 
 
@@ -138,8 +138,11 @@ def authenticate_google_customer(db: Session, profile: GoogleOAuthProfile) -> To
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Google OAuth is available for customer accounts only.",
             )
-        if not user.is_active:
+        user_status = getattr(user, "status", None) or UserStatus.ACTIVE
+        if not user.is_active or user_status != UserStatus.ACTIVE:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive.")
+        if getattr(user, "status", None) is None:
+            user.status = UserStatus.ACTIVE
 
         access_token = create_access_token(str(user.id))
         return TokenResponse(access_token=access_token, user=UserResponse.model_validate(user))
@@ -152,6 +155,7 @@ def authenticate_google_customer(db: Session, profile: GoogleOAuthProfile) -> To
         full_name=display_name[:255],
         role=UserRole.CUSTOMER,
         is_active=True,
+        status=UserStatus.ACTIVE,
     )
     db.add(user)
 

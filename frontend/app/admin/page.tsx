@@ -8,6 +8,7 @@ import Link from "next/link";
 import { EmptyState, PageHeader, StatCard, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
+import { formatMoney } from "@/lib/format";
 import {
   deliveryStatusLabel,
   deliveryStatuses,
@@ -24,7 +25,9 @@ import {
   type Store,
 } from "@/lib/types";
 
-const merchantStatuses = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"];
+const userStatuses = ["ACTIVE", "SUSPENDED", "DEACTIVATED"];
+const merchantStatuses = ["PENDING", "APPROVED", "REJECTED", "SUSPENDED", "DEACTIVATED"];
+const merchantPlans = ["FREE", "PRO"];
 
 function historyEventLabel(value: string) {
   const labels: Record<string, string> = {
@@ -148,6 +151,7 @@ function integrationNextStep(area: string) {
 export default function AdminPage() {
   const guard = useRoleGuard("ADMIN");
   const [summary, setSummary] = useState<AdminSummary | null>(null);
+  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [merchantApplications, setMerchantApplications] = useState<MerchantApplication[]>([]);
@@ -185,6 +189,7 @@ export default function AdminPage() {
           setMessage("관리자 권한이 필요합니다.");
           return;
         }
+        setCurrentAdminId(me.id);
 
         const [
           summaryData,
@@ -240,6 +245,13 @@ export default function AdminPage() {
 
   async function updateMerchantStatus(merchantId: string, event: ChangeEvent<HTMLSelectElement>) {
     const nextStatus = event.target.value;
+    const reason =
+      nextStatus === "SUSPENDED" || nextStatus === "DEACTIVATED"
+        ? window.prompt("정지/비활성화 사유를 입력하세요. 예약/결제/정산 이력은 삭제되지 않습니다.")
+        : null;
+    if ((nextStatus === "SUSPENDED" || nextStatus === "DEACTIVATED") && !reason?.trim()) {
+      return;
+    }
     setMessage("");
     setIsError(false);
 
@@ -248,7 +260,7 @@ export default function AdminPage() {
         `/api/v1/admin/merchants/${merchantId}/status`,
         {
           method: "PATCH",
-          body: JSON.stringify({ status: nextStatus }),
+          body: JSON.stringify({ status: nextStatus, reason }),
         },
         true,
       );
@@ -256,6 +268,66 @@ export default function AdminPage() {
         current.map((merchant) => (merchant.id === merchantId ? updated : merchant)),
       );
       setMessage(`${updated.business_name} 상태가 ${updated.status}(으)로 변경되었습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function updateMerchantPlan(merchantId: string, event: ChangeEvent<HTMLSelectElement>) {
+    const nextPlan = event.target.value;
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const updated = await apiFetch<Merchant>(
+        `/api/v1/admin/merchants/${merchantId}/plan`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ plan: nextPlan }),
+        },
+        true,
+      );
+      setMerchants((current) =>
+        current.map((merchant) => (merchant.id === merchantId ? updated : merchant)),
+      );
+      setMessage(`${updated.business_name} 플랜이 ${updated.plan}(으)로 변경되었습니다.`);
+    } catch (error) {
+      setIsError(true);
+      setMessage(friendlyErrorMessage(error));
+    }
+  }
+
+  async function updateUserStatus(userId: string, event: ChangeEvent<HTMLSelectElement>) {
+    const nextStatus = event.target.value;
+    if (userId === currentAdminId && nextStatus !== "ACTIVE") {
+      setIsError(true);
+      setMessage("관리자 본인 계정은 정지 또는 비활성화할 수 없습니다.");
+      return;
+    }
+
+    const reason =
+      nextStatus === "SUSPENDED" || nextStatus === "DEACTIVATED"
+        ? window.prompt("회원 정지/비활성화 사유를 입력하세요. 예약/결제/정산 이력은 삭제되지 않습니다.")
+        : null;
+    if ((nextStatus === "SUSPENDED" || nextStatus === "DEACTIVATED") && !reason?.trim()) {
+      return;
+    }
+
+    setMessage("");
+    setIsError(false);
+
+    try {
+      const updated = await apiFetch<AuthUser>(
+        `/api/v1/admin/users/${userId}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus, reason }),
+        },
+        true,
+      );
+      setUsers((current) => current.map((user) => (user.id === userId ? updated : user)));
+      setMessage(`${updated.email} 상태가 ${updated.status}(으)로 변경되었습니다.`);
     } catch (error) {
       setIsError(true);
       setMessage(friendlyErrorMessage(error));
@@ -446,7 +518,7 @@ export default function AdminPage() {
                   <StatCard label="예약" value={summary.total_reservations} helper={`${summary.picked_up_reservations} picked up`} />
                   <StatCard label="취소" value={summary.cancelled_reservations} helper="예약 취소 흐름 점검" />
                   <StatCard label="Mock 결제 완료" value={summary.paid_payments} helper={`${summary.failed_payments} failed`} />
-                  <StatCard label="Mock 결제액" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} helper="실제 PG 승인 없음" />
+                  <StatCard label="Mock 결제액" value={formatMoney(summary.total_paid_amount)} helper="실제 PG 승인 없음" />
                   <StatCard label="가맹점" value={summary.total_merchants} helper={`${summary.total_stores} stores`} />
                 </div>
                 <div className="account-grid">
@@ -497,7 +569,7 @@ export default function AdminPage() {
                 <StatCard label="Paid" value={summary.paid_payments} />
                 <StatCard label="Cancelled Pay" value={summary.cancelled_payments} />
                 <StatCard label="Failed Pay" value={summary.failed_payments} />
-                <StatCard label="Paid Amount" value={`${Number(summary.total_paid_amount).toLocaleString()}원`} />
+                <StatCard label="Paid Amount" value={formatMoney(summary.total_paid_amount)} />
               </div>
 
               {externalReadiness && (
@@ -678,7 +750,8 @@ export default function AdminPage() {
                 <th>Email</th>
                 <th>Name</th>
                 <th>Role</th>
-                <th>Active</th>
+                <th>Status</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
@@ -687,7 +760,22 @@ export default function AdminPage() {
                   <td>{user.email}</td>
                   <td>{user.full_name}</td>
                   <td><StatusBadge status={user.role} /></td>
-                  <td><StatusBadge status={user.is_active ? "ACTIVE" : "HIDDEN"} /></td>
+                  <td>
+                    <select
+                      value={user.status || (user.is_active ? "ACTIVE" : "DEACTIVATED")}
+                      onChange={(event) => updateUserStatus(user.id, event)}
+                      disabled={user.id === currentAdminId}
+                      aria-label={`${user.email} status`}
+                    >
+                      {userStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    {user.id === currentAdminId && <p className="field-help">본인 계정 보호</p>}
+                  </td>
+                  <td>{user.status_reason || "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -700,6 +788,8 @@ export default function AdminPage() {
                 <th>Representative</th>
                 <th>Phone</th>
                 <th>Status</th>
+                <th>Plan</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
@@ -721,6 +811,20 @@ export default function AdminPage() {
                       ))}
                     </select>
                   </td>
+                  <td>
+                    <select
+                      value={merchant.plan || "FREE"}
+                      onChange={(event) => updateMerchantPlan(merchant.id, event)}
+                      aria-label={`${merchant.business_name} plan`}
+                    >
+                      {merchantPlans.map((plan) => (
+                        <option key={plan} value={plan}>
+                          {plan}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{merchant.status_reason || "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -840,13 +944,13 @@ export default function AdminPage() {
                   </td>
                   <td>{product.name}</td>
                   <td>{product.store_id}</td>
-                  <td>{product.discount_price}</td>
+                  <td>{formatMoney(product.discount_price)}</td>
                   <td>
                     픽업 {product.allow_pickup ? "가능" : "불가"}
                     <br />
-                    퀵 {product.allow_quick_delivery ? `${Number(product.quick_delivery_fee).toLocaleString()}원` : "불가"}
+                    퀵 {product.allow_quick_delivery ? formatMoney(product.quick_delivery_fee) : "불가"}
                     <br />
-                    택배 {product.allow_parcel_delivery ? `${Number(product.parcel_delivery_fee).toLocaleString()}원` : "불가"}
+                    택배 {product.allow_parcel_delivery ? formatMoney(product.parcel_delivery_fee) : "불가"}
                   </td>
                   <td>{product.quantity}</td>
                   <td><StatusBadge status={product.status} /></td>
@@ -897,7 +1001,7 @@ export default function AdminPage() {
                         </select>
                       )}
                     </td>
-                    <td>{reservation.total_price}</td>
+                    <td>{formatMoney(reservation.total_price)}</td>
                     <td><StatusBadge status={reservation.status} /></td>
                     <td>
                       <button type="button" className="secondary" onClick={() => toggleReservationHistory(reservation.id)}>
@@ -952,7 +1056,7 @@ export default function AdminPage() {
                   <td>{payment.id}</td>
                   <td>{payment.reservation_id}</td>
                   <td>{payment.user_id}</td>
-                  <td>{payment.amount}</td>
+                  <td>{formatMoney(payment.amount)}</td>
                   <td>{payment.method}</td>
                   <td><StatusBadge status={payment.status} /></td>
                 </tr>

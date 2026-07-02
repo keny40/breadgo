@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
+import { formatMoney } from "@/lib/format";
 import { deliveryStatusLabel, type Payment, type Reservation, type ReservationHistory } from "@/lib/types";
-
-function formatMoney(value: string) {
-  return `${Number(value).toLocaleString()}원`;
-}
 
 function fulfillmentMethodLabel(value: string) {
   const labels: Record<string, string> = {

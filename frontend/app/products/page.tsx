@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge, EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, buildApiUrl, friendlyErrorMessage, getStoredUser, getToken, saveStoredUser } from "@/lib/api";
+import { formatMoney } from "@/lib/format";
 import type { AuthUser, Payment, RegionProduct, Reservation, Store } from "@/lib/types";
 
 const paymentMethods = [
@@ -23,10 +24,6 @@ const demoRegions = [
   { label: "서울특별시 강남구 삼성동", sido: "서울특별시", sigungu: "강남구", dong: "삼성동" },
   { label: "경기도 안산시 고잔동", sido: "경기도", sigungu: "안산시", dong: "고잔동" },
 ];
-
-function formatMoney(value: string) {
-  return `${Number(value).toLocaleString()}원`;
-}
 
 function discountPercent(product: RegionProduct) {
   const original = Number(product.original_price);

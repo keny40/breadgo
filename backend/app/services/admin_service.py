@@ -4,13 +4,13 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, MerchantStatus
 from app.models.payment import Payment, PaymentStatus
 from app.models.product import Product, ProductStatus
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.store import Store
-from app.models.user import User, UserRole
-from app.schemas.admin import AdminSummary, MerchantStatusUpdate
+from app.models.user import User, UserRole, UserStatus
+from app.schemas.admin import AdminSummary, MerchantPlanUpdate, MerchantStatusUpdate, UserStatusUpdate
 
 
 def require_admin_user(user: User) -> User:
@@ -110,6 +110,54 @@ def update_merchant_status(db: Session, merchant_id: UUID, payload: MerchantStat
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Merchant not found.")
 
     merchant.status = payload.status
+    merchant.status_reason = payload.reason.strip() if payload.reason else None
+    if payload.status == MerchantStatus.APPROVED:
+        merchant.user.is_active = True
+        merchant.user.status = UserStatus.ACTIVE
+        merchant.user.status_reason = None
+        for store in merchant.stores:
+            store.is_active = True
+    if payload.status in {MerchantStatus.SUSPENDED, MerchantStatus.DEACTIVATED}:
+        merchant.user.is_active = False
+        merchant.user.status = UserStatus.SUSPENDED if payload.status == MerchantStatus.SUSPENDED else UserStatus.DEACTIVATED
+        merchant.user.status_reason = merchant.status_reason
+        for store in merchant.stores:
+            store.is_active = False
     db.commit()
     db.refresh(merchant)
     return merchant
+
+
+def update_merchant_plan(db: Session, merchant_id: UUID, payload: MerchantPlanUpdate) -> Merchant:
+    merchant = db.get(Merchant, merchant_id)
+    if merchant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Merchant not found.")
+
+    merchant.plan = payload.plan
+    db.commit()
+    db.refresh(merchant)
+    return merchant
+
+
+def update_user_status(db: Session, user_id: UUID, current_admin: User, payload: UserStatusUpdate) -> User:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if user.id == current_admin.id and payload.status != UserStatus.ACTIVE:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot deactivate their own account.")
+
+    user.status = payload.status
+    user.status_reason = payload.reason.strip() if payload.reason else None
+    user.is_active = payload.status == UserStatus.ACTIVE
+
+    if user.merchant and payload.status in {UserStatus.SUSPENDED, UserStatus.DEACTIVATED}:
+        user.merchant.status = (
+            MerchantStatus.SUSPENDED if payload.status == UserStatus.SUSPENDED else MerchantStatus.DEACTIVATED
+        )
+        user.merchant.status_reason = user.status_reason
+        for store in user.merchant.stores:
+            store.is_active = False
+
+    db.commit()
+    db.refresh(user)
+    return user

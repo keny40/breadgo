@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.merchant import Merchant
+from app.models.merchant import Merchant, MerchantStatus
 from app.models.store import Store
 from app.models.user import User, UserRole
 from app.schemas.merchant import MerchantCreate
@@ -54,6 +54,11 @@ def require_merchant_for_user(db: Session, user: User) -> Merchant:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Merchant profile is required for this action.",
+        )
+    if merchant.status != MerchantStatus.APPROVED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Merchant profile is not active.",
         )
     return merchant
 

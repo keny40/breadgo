@@ -23,6 +23,12 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
 
 
+class UserStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    DEACTIVATED = "DEACTIVATED"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -37,6 +43,12 @@ class User(Base):
         default=UserRole.CUSTOMER,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus, name="user_status"),
+        nullable=False,
+        default=UserStatus.ACTIVE,
+    )
+    status_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

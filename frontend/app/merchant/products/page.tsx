@@ -7,6 +7,7 @@ import Link from "next/link";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/UI";
 import { apiFetch, friendlyErrorMessage } from "@/lib/api";
 import { useRoleGuard } from "@/lib/authGuard";
+import { formatMoney } from "@/lib/format";
 import type { Product, Store } from "@/lib/types";
 
 type ProductFormState = {
@@ -49,10 +50,6 @@ const emptyForm: ProductFormState = {
   quickDeliveryFee: "0",
   parcelDeliveryFee: "0",
 };
-
-function formatMoney(value: string) {
-  return `${Number(value).toLocaleString()}원`;
-}
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString();
