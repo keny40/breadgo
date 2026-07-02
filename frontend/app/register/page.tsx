@@ -9,6 +9,7 @@ import type { AuthResponse } from "@/lib/types";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [selectedSignupType, setSelectedSignupType] = useState<"customer" | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -45,11 +46,39 @@ export default function RegisterPage() {
 
   return (
     <section className="section">
-      <h1>가입 유형 선택</h1>
+      <h1>가입 유형을 선택해 주세요</h1>
       <p className="message">
-        고객은 이 화면에서 바로 회원가입할 수 있습니다. 상품을 등록하고 판매하려는 가맹점은 고객 회원가입이
-        아니라 입점 신청을 진행해 주세요. 관리자 계정은 공개 회원가입으로 생성할 수 없습니다.
+        고객은 바로 회원가입할 수 있고, 상품을 등록하고 판매하려는 가맹점은 입점 신청 후 관리자 승인을 받아야 합니다.
+        관리자 계정은 공개 회원가입으로 생성할 수 없습니다.
       </p>
+      <div className="signup-choice-grid">
+        <button
+          type="button"
+          className={`signup-choice-card ${selectedSignupType === "customer" ? "selected" : ""}`}
+          onClick={() => setSelectedSignupType("customer")}
+        >
+          <span className="eyebrow">Customer</span>
+          <strong>고객으로 가입하기</strong>
+          <small>상품을 예약하고 구매하려는 일반 사용자입니다.</small>
+        </button>
+        <Link className="signup-choice-card" href="/merchant/apply">
+          <span className="eyebrow">Merchant</span>
+          <strong>가맹점 입점 신청하기</strong>
+          <small>상품을 등록하고 판매하려는 매장은 입점 신청 후 관리자 승인을 받아야 합니다.</small>
+        </Link>
+      </div>
+
+      {!selectedSignupType && (
+        <section className="panel">
+          <h2>먼저 가입 유형을 선택하세요.</h2>
+          <p className="field-help">
+            고객 이메일 가입폼과 Google 고객 가입은 `고객으로 가입하기`를 선택한 뒤 표시됩니다.
+            가맹점은 이메일/비밀번호로 즉시 가입하지 않고 입점 신청 화면으로 이동합니다.
+          </p>
+        </section>
+      )}
+
+      {selectedSignupType === "customer" && (
       <form className="panel form-grid" onSubmit={handleSubmit}>
         <div>
           <p className="eyebrow">Customer Signup</p>
@@ -59,6 +88,9 @@ export default function RegisterPage() {
           </p>
         </div>
         <GoogleOAuthButton />
+        <p className="message">
+          가맹점은 고객 회원가입이 아니라 입점 신청을 진행해 주세요.
+        </p>
         <label>
           Email
           <input
@@ -91,24 +123,7 @@ export default function RegisterPage() {
         </button>
         {message && <div className={`message ${isError ? "error" : "success"}`}>{message}</div>}
       </form>
-      <section className="panel form-grid">
-        <div className="card-title-row">
-          <div>
-            <p className="eyebrow">Merchant Application</p>
-            <h2>가맹점 입점 신청</h2>
-            <p>
-              상품을 등록하고 판매하려는 매장은 입점 신청 후 관리자 승인을 받아야 합니다.
-              이 영역에서는 이메일/비밀번호로 즉시 가입하지 않습니다.
-            </p>
-          </div>
-          <Link className="button-link secondary" href="/merchant/apply">
-            입점 신청하기
-          </Link>
-        </div>
-        <p className="field-help">
-          가맹점은 고객 회원가입이 아니라 입점 신청을 진행해 주세요. 승인 후 가맹점 계정과 관리 화면을 사용할 수 있습니다.
-        </p>
-      </section>
+      )}
     </section>
   );
 }

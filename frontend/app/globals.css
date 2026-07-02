@@ -159,6 +159,44 @@ textarea {
   min-width: min(220px, 100%);
 }
 
+.signup-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.signup-choice-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 150px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 18px;
+  text-align: left;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+}
+
+.signup-choice-card:hover,
+.signup-choice-card.selected {
+  border-color: rgba(22, 101, 52, 0.5);
+  background: rgba(220, 252, 231, 0.5);
+}
+
+.signup-choice-card strong {
+  font-size: 20px;
+}
+
+.signup-choice-card small {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .responsive-table {
   width: 100%;
   overflow-x: auto;
